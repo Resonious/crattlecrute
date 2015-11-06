@@ -3,9 +3,12 @@
 #include "stb_image.h"
 #include "SDL.h"
 #include "assets.h"
+#include "errno.h"
 
 int main(int argc, char** argv) {
     SDL_Window* window;
+
+    printf("BEFORE INIT\n");
 
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
 
@@ -18,6 +21,9 @@ int main(int argc, char** argv) {
     );
 
     FILE* assets_file = fopen("crattlecrute.assets", "rb");
+    if (!assets_file)
+      printf("NO!!!!!!!!!!!!!!! ERRNO %i\n", errno);
+
     unsigned char buf[1000];
     fseek(assets_file, TERRAIN_DIRT1_PNG_OFFSET, SEEK_SET);
     if (!assets_file) printf("INSANE WHAT HAPPEN\n");
