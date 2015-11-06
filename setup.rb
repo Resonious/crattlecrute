@@ -2,17 +2,35 @@ require 'net/http'
 require 'fileutils'
 require 'uri'
 
+# Setup garbage
+
 begin
-  unless require 'zip'
-    raise "NO ZIP DUDE"
-  end
+  require 'zip'
 rescue LoadError
-  `gem install zip --no-rdoc --no-ri`
-  unless require 'zip'
-    raise "NO ZIP DUDE"
-  end
+  system 'gem install zip --no-rdoc --no-ri'
+  require 'zip'
 end
 
+begin
+  require 'os'
+rescue LoadError
+  system 'gem install os --no-rdoc --no-ri'
+  require 'os'
+end
+
+if OS.windows?
+  begin
+    require 'win32/shortcut'
+  rescue LoadError
+    system 'gem install win32-shortcut --no-rdoc --no-ri'
+    require 'win32/shortcut'
+  end
+  include Win32
+end
+
+# Actually download SDL
+
+puts "Downloading SDL..."
 uri = URI("http://www.libsdl.org/release/SDL2-2.0.3.zip")
 http_req = Net::HTTP.new(uri.host, uri.port)
 http_req.use_ssl = false
@@ -24,11 +42,13 @@ begin
       File.open("SDL2temp.zip", 'wb') do |local_file|
         response.read_body do |chunk|
           local_file.write(chunk)
+          puts "..."
         end
       end
     end
   end
 end
+puts "Done! Now unzipping."
 
 destination_path = File.dirname File.expand_path __FILE__
 
@@ -46,3 +66,13 @@ Zip::ZipFile.open("SDL2temp.zip") do |zipped_files|
 end
 
 FileUtils.rm "SDL2temp.zip"
+
+puts "And done."
+
+if OS.windows?
+  Shortcut.new('VS.lnk') do |s|
+    s.target_path = 'SDL\VisualC\SDL_VS2013.sln'
+    s.description = 'Shortcut to Visual Studio solution'
+  end
+  puts "Added a shortcut to the Visual Studio solution. That's all for now!"
+end
