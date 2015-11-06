@@ -8,8 +8,6 @@
 int main(int argc, char** argv) {
     SDL_Window* window;
 
-    printf("BEFORE INIT\n");
-
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
 
     window = SDL_CreateWindow(
