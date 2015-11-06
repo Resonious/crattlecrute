@@ -30,7 +30,7 @@ end
 
 # Actually download SDL
 
-puts "Downloading SDL..."
+STDOUT.write "Downloading SDL"
 uri = URI("http://www.libsdl.org/release/SDL2-2.0.3.zip")
 http_req = Net::HTTP.new(uri.host, uri.port)
 http_req.use_ssl = false
@@ -42,8 +42,9 @@ begin
       File.open("SDL2temp.zip", 'wb') do |local_file|
         response.read_body do |chunk|
           local_file.write(chunk)
-          puts "..."
+          putc '.'
         end
+        puts '.'
       end
     end
   end
@@ -71,7 +72,7 @@ puts "And done."
 
 if OS.windows?
   Shortcut.new('VS.lnk') do |s|
-    s.target_path = 'SDL\VisualC\SDL_VS2013.sln'
+    s.target_path = File.join destination_path, 'SDL\VisualC\SDL_VS2013.sln'
     s.description = 'Shortcut to Visual Studio solution'
   end
   puts "Added a shortcut to the Visual Studio solution. That's all for now!"
