@@ -34,6 +34,7 @@ STDOUT.write "Downloading SDL"
 uri = URI("http://www.libsdl.org/release/SDL2-2.0.3.zip")
 http_req = Net::HTTP.new(uri.host, uri.port)
 http_req.use_ssl = false
+
 begin
   http_req.start do |http|
     request = Net::HTTP::Get.new uri.request_uri
@@ -48,32 +49,34 @@ begin
       end
     end
   end
-end
-puts "Done! Now unzipping."
+  puts "Done! Now unzipping."
 
-destination_path = File.dirname File.expand_path __FILE__
+  destination_path = File.dirname File.expand_path __FILE__
 
-Zip::ZipFile.open("SDL2temp.zip") do |zipped_files|
-  zipped_files.each do |zip_file|
-    path = File.join(destination_path, zip_file.name.gsub!('SDL2-2.0.3', 'SDL'))
-    FileUtils.mkdir_p File.dirname(path)
+  ZipFile = (Zip::ZipFile rescue Zip::File)
+  ZipFile.open("SDL2temp.zip") do |zipped_files|
+    zipped_files.each do |zip_file|
+      path = File.join(destination_path, zip_file.name.gsub('SDL2-2.0.3', 'SDL'))
+      FileUtils.mkdir_p File.dirname(path)
 
-    if File.exists?(path)
-      puts "Skipping #{path} - already exists."
-    else
-      zipped_files.extract(zip_file, path) 
+      if File.exists?(path)
+        puts "Skipping #{path} - already exists."
+      else
+        zipped_files.extract(zip_file.to_s, path) 
+      end
     end
   end
-end
 
-FileUtils.rm "SDL2temp.zip"
+  puts "And done."
 
-puts "And done."
-
-if OS.windows?
-  Shortcut.new('VS.lnk') do |s|
-    s.target_path = File.join destination_path, 'SDL\VisualC\SDL_VS2013.sln'
-    s.description = 'Shortcut to Visual Studio solution'
+  if OS.windows?
+    Shortcut.new('VS.lnk') do |s|
+      s.target_path = File.join destination_path, 'SDL\VisualC\SDL_VS2013.sln'
+      s.description = 'Shortcut to Visual Studio solution'
+    end
+    puts "Added a shortcut to the Visual Studio solution. That's all for now!"
   end
-  puts "Added a shortcut to the Visual Studio solution. That's all for now!"
+
+ensure
+  FileUtils.rm "SDL2temp.zip"
 end
