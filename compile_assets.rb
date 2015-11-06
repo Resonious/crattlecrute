@@ -1,4 +1,8 @@
+require 'fileutils'
+
 assets_base_dir = File.dirname File.expand_path __FILE__
+
+FileUtils.mkdir_p "#{assets_base_dir}/build"
 
 assets = File.new("#{assets_base_dir}/build/crattlecrute.assets", 'wb')
 header = File.new("#{assets_base_dir}/src/assets.h", 'w')
