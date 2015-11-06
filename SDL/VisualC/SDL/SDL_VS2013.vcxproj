@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectName>Crattle</ProjectName>
+    <ProjectName>crattlecrute</ProjectName>
     <ProjectGuid>{81CE8DAF-EBB2-4761-8E45-B71ABCCA8C68}</ProjectGuid>
     <RootNamespace>SDL</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
@@ -148,8 +148,7 @@
       </EntryPointSymbol>
     </Link>
     <PreBuildEvent>
-      <Command>
-      </Command>
+      <Command>ruby $(SolutionDir)..\..\compile_assets.rb</Command>
     </PreBuildEvent>
     <PostBuildEvent>
       <Command>cp "$(TargetPath)" "$(SolutionDir)..\..\build\$(ProjectName)-$(Configuration).exe"</Command>
@@ -230,10 +229,17 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>cp "$(TargetPath)" "$(SolutionDir)..\..\build\$(ProjectName).exe"</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>ruby $(SolutionDir)..\..\compile_assets.rb</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\assets.h" />
     <ClInclude Include="..\..\..\src\dxsdkver.h" />
+    <ClInclude Include="..\..\..\STB\stb_image.h" />
     <ClInclude Include="..\..\include\SDL.h" />
     <ClInclude Include="..\..\include\SDL_assert.h" />
     <ClInclude Include="..\..\include\SDL_atomic.h" />
@@ -369,6 +375,7 @@
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\src\assets.c" />
     <ClCompile Include="..\..\..\src\main.c" />
     <ClCompile Include="..\..\src\core\windows\SDL_windows.c" />
     <ClCompile Include="..\..\src\dynapi\SDL_dynapi.c" />
