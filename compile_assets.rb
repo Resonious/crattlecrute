@@ -1,3 +1,7 @@
+require 'fileutils'
+
+FileUtils.mkdir_p 'build'
+
 assets = File.new("build/crattlecrute.assets", 'wb')
 
 header = File.new("src/assets.h", 'w')
