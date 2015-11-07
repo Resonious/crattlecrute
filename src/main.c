@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
         640, 480,
         0
     );
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    renderer = SDL_CreateRenderer(window, -1, 0);
     if (renderer == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
     SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
 
@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
     AssetFile image_asset = load_asset(ASSET_CRATTLECRUTE_BODY_PNG);
 
     int width = 0, height = 0, comp = 0;
-    stbi_uc* image = stbi_load_from_memory(image_asset.bytes, image_asset.size, &width, &height, &comp, 4);
+    byte* image = stbi_load_from_memory(image_asset.bytes, image_asset.size, &width, &height, &comp, 4);
     if (image == NULL)
         printf("NO!!: %s\n", stbi_failure_reason());
     else
@@ -37,8 +37,8 @@ int main(int argc, char** argv) {
 
     // NOTE remember these should be cleaned up...
     SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
-        image, width, height, comp, width,
-        0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF
+        image, width, height, 32, width * 4,
+        0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000
     );
     if (surface == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
@@ -58,8 +58,9 @@ int main(int argc, char** argv) {
 
         // Draw!!! Finally!!!
         SDL_RenderClear(renderer);
+
         SDL_Rect src = { 0, 0, 90, 90 };
-        SDL_Rect dest = { 100, 100, 90, 90 };
+        SDL_Rect dest = { 20, 20, 90, 90 };
         SDL_RenderCopy(renderer, texture, &src, &dest);
 
         SDL_RenderPresent(renderer);
