@@ -239,6 +239,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\src\assets.h" />
     <ClInclude Include="..\..\..\src\dxsdkver.h" />
+    <ClInclude Include="..\..\..\src\types.h" />
     <ClInclude Include="..\..\..\STB\stb_image.h" />
     <ClInclude Include="..\..\include\SDL.h" />
     <ClInclude Include="..\..\include\SDL_assert.h" />
