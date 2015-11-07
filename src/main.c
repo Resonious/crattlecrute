@@ -7,6 +7,8 @@
 #include "assets.h"
 #include "types.h"
 
+SDL_Window* main_window;
+
 int main(int argc, char** argv) {
     SDL_Window* window;
     SDL_Renderer* renderer;
@@ -21,28 +23,19 @@ int main(int argc, char** argv) {
         640, 480,
         0
     );
+    main_window = window;
     renderer = SDL_CreateRenderer(window, -1, 0);
     if (renderer == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
     SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
 
     // Load test image for now...
-    AssetFile image_asset = load_asset(ASSET_CRATTLECRUTE_BODY_PNG);
+    SDL_Surface* image = load_image(ASSET_CRATTLECRUTE_BODY_PNG);
 
-    int width = 0, height = 0, comp = 0;
-    byte* image = stbi_load_from_memory(image_asset.bytes, image_asset.size, &width, &height, &comp, 4);
-    if (image == NULL)
-        printf("NO!!: %s\n", stbi_failure_reason());
-    else
-        printf("OK we have %ix%i image of %i pixel components.\n", width, height, comp);
+    if (image == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, image);
+    if (texture == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
 
-    // NOTE remember these should be cleaned up...
-    SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
-        image, width, height, 32, width * 4,
-        0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000
-    );
-    if (surface == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    if (surface == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
+    free_image(image);
 
     // Main loop bitch
     SDL_Event event;
@@ -66,7 +59,6 @@ int main(int argc, char** argv) {
         SDL_RenderPresent(renderer);
     }
 
-    stbi_image_free(image);
     SDL_DestroyWindow(window);
 
     SDL_Quit();

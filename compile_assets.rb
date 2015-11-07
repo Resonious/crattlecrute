@@ -9,7 +9,8 @@ assets = File.new("#{assets_base_dir}/build/crattlecrute.assets", 'wb')
 header = File.new("#{assets_base_dir}/src/assets.h", 'w')
 
 header.write(%(#include "types.h"\n))
-header.write("// This is generated on compile - don't change it by hand!")
+header.write(%(#include "SDL.h"\n))
+header.write("// This is generated on compile - don't change it by hand!\n")
 header.write("// Generated #{Time.now}\n\n")
 
 all_files = Dir.glob("#{assets_base_dir}/assets/**/*").reject(&File.method(:directory?))
@@ -17,6 +18,8 @@ all_files = Dir.glob("#{assets_base_dir}/assets/**/*").reject(&File.method(:dire
 header.write(
   "typedef struct { byte* bytes; long long size; } AssetFile;\n"\
   "int open_assets_file();\n"\
+  "SDL_Surface* load_image(int asset);\n"\
+  "void free_image(SDL_Surface* image);\n"\
   "AssetFile load_asset(int asset);\n\n"
 )
 
