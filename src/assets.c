@@ -10,9 +10,11 @@ extern SDL_Window* main_window;
 
 // This should be called just once at the beginning of main()
 int open_assets_file() {
+    // TODO This fucks up when run in command line from another directory.
     assets_file = fopen("crattlecrute.assets", "rb");
     if (assets_file == NULL) {
         printf("No asset file!!!");
+        SDL_ShowSimpleMessageBox(0, "YO!", "No assets file!!!", main_window);
         return errno;
     }
     return 0;

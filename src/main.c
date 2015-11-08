@@ -7,6 +7,8 @@
 #include "assets.h"
 #include "types.h"
 
+// Disgusting global window variable so that I can shit out message boxes
+// from wherever I want.
 SDL_Window* main_window;
 
 int main(int argc, char** argv) {
