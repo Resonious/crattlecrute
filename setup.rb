@@ -37,7 +37,7 @@ def download(uri, dest, start_msg="Downloading")
 
   http_req = Net::HTTP.new(uri.host, uri.port)
   http_req.use_ssl = true
-  if os.windows?
+  if OS.windows?
     http_req.ca_file = File.join((File.dirname File.expand_path __FILE__), 'win-cacert.pem')
   end
   http_req.verify_mode = OpenSSL::SSL::VERIFY_PEER
