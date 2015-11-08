@@ -1,8 +1,10 @@
 require 'net/http'
 require 'fileutils'
 require 'uri'
+require 'openssl'
 
 # Setup garbage
+# NOTE this stuff doesn't actually work properly lol...
 
 begin
   require 'zip'
@@ -28,19 +30,24 @@ if OS.windows?
   include Win32
 end
 
-# Actually download SDL
+destination_path = File.dirname File.expand_path __FILE__
 
-STDOUT.write "Downloading SDL"
-uri = URI("http://www.libsdl.org/release/SDL2-2.0.3.zip")
-http_req = Net::HTTP.new(uri.host, uri.port)
-http_req.use_ssl = false
+def download(uri, dest, start_msg="Downloading")
+  STDOUT.write start_msg
 
-begin
+  http_req = Net::HTTP.new(uri.host, uri.port)
+  http_req.use_ssl = true
+  if os.windows?
+    http_req.ca_file = File.join((File.dirname File.expand_path __FILE__), 'win-cacert.pem')
+  end
+  http_req.verify_mode = OpenSSL::SSL::VERIFY_PEER
+  http_req.verify_depth = 5
+
   http_req.start do |http|
     request = Net::HTTP::Get.new uri.request_uri
     http.read_timeout = 500
     http.request request do |response|
-      File.open("SDL2temp.zip", 'wb') do |local_file|
+      File.open(dest, 'wb') do |local_file|
         response.read_body do |chunk|
           local_file.write(chunk)
           putc '.'
@@ -49,9 +56,29 @@ begin
       end
     end
   end
-  puts "Done! Now unzipping."
+end
 
-  destination_path = File.dirname File.expand_path __FILE__
+# Grab STB libs
+FileUtils.mkdir_p File.join(destination_path, "STB")
+download(
+  URI("https://raw.githubusercontent.com/nothings/stb/master/stb_image.h"),
+  File.join(destination_path, "STB", "stb_image.h"),
+  "Downloading stb_image"
+)
+download(
+  URI("https://raw.githubusercontent.com/nothings/stb/master/stb_vorbis.c"),
+  File.join(destination_path, "STB", "stb_vorbis.c"),
+  "Downloading stb_vorbis"
+)
+
+# Actually download SDL
+begin
+  download(
+    URI("https://www.libsdl.org/release/SDL2-2.0.3.zip"),
+    "SDL2temp.zip",
+    "Downloading SDL2"
+  )
+  puts "Done! Now unzipping."
 
   ZipFile = (Zip::ZipFile rescue Zip::File)
   ZipFile.open("SDL2temp.zip") do |zipped_files|
