@@ -41,7 +41,11 @@ SDL_Surface* load_image(int asset) {
 
     return SDL_CreateRGBSurfaceFrom(
         image, width, height, 32, width * 4,
+#if SDL_BYTEORDER == SDL_LIL_ENDIAN
         0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000
+#else
+        0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF
+#endif
     );
 }
 

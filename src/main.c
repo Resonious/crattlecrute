@@ -6,6 +6,7 @@
 #include "SDL.h"
 #include "assets.h"
 #include "types.h"
+#include "sound.h"
 
 // Disgusting global window variable so that I can shit out message boxes
 // from wherever I want.
@@ -15,8 +16,9 @@ int main(int argc, char** argv) {
     SDL_Window* window;
     SDL_Renderer* renderer;
 
-    open_assets_file();
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
+    open_assets_file();
+    initialize_sound();
 
     window = SDL_CreateWindow(
         "Niiiice",
