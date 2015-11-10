@@ -49,6 +49,14 @@ SDL_Surface* load_image(int asset) {
     );
 }
 
+SDL_Texture* load_texture(SDL_Renderer* renderer, int asset) {
+    // This'll free the image but not the texture.
+    SDL_Surface* img = load_image(asset);
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, img);
+    free_image(img);
+    return tex;
+}
+
 // NOTE this assumes that the SDL_Surface.pixels is the same buffer as the
 // image loaded from stbi_load_from_memory.
 void free_image(SDL_Surface* image) {

@@ -32,14 +32,12 @@ int main(int argc, char** argv) {
     if (renderer == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
     SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
 
-    // Load test image for now...
-    SDL_Surface* image = load_image(ASSET_CRATTLECRUTE_BODY_PNG);
-
-    if (image == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, image);
-    if (texture == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
-
-    free_image(image);
+    SDL_Texture* textures[3] = {
+        load_texture(renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG),
+        load_texture(renderer, ASSET_CRATTLECRUTE_BODY_PNG),
+        load_texture(renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG)
+    };
+    // if (body_texture == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
 
     // Main loop bitch
     SDL_Event event;
@@ -58,7 +56,8 @@ int main(int argc, char** argv) {
 
         SDL_Rect src = { 0, 0, 90, 90 };
         SDL_Rect dest = { 20, 20, 90, 90 };
-        SDL_RenderCopy(renderer, texture, &src, &dest);
+        for (int i = 0; i < 3; i++)
+            SDL_RenderCopy(renderer, textures[i], &src, &dest);
 
         SDL_RenderPresent(renderer);
     }

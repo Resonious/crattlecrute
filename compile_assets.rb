@@ -19,6 +19,7 @@ header.write(
   "typedef struct { byte* bytes; long long size; } AssetFile;\n"\
   "int open_assets_file();\n"\
   "SDL_Surface* load_image(int asset);\n"\
+  "SDL_Texture* load_texture(SDL_Renderer* renderer, int asset);\n"\
   "void free_image(SDL_Surface* image);\n"\
   "AssetFile load_asset(int asset);\n\n"
 )
