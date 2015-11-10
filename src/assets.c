@@ -14,8 +14,6 @@ extern SDL_Window* main_window;
 extern char _binary_build_crattlecrute_assets_start[];
 extern char _binary_build_crattlecrute_assets_end[];
 
-#define open_assets_file()
-
 AssetFile load_asset(int asset) {
     AssetFile f;
     f.size = ASSETS[asset].size;
