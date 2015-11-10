@@ -5,10 +5,29 @@
 #include "SDL.h"
 #include "stb_image.h"
 
-FILE* assets_file = NULL;
 extern SDL_Window* main_window;
 
-// This should be called just once at the beginning of main()
+#ifdef EMBEDDED_ASSETS
+#ifdef _WIN32 //  ========================= VISUAL STUDIO RESOURCE FILE ===================
+// TODO Visual Studio resource
+#else // ============================== *NIX LD EMBEDDED ASSETS =======================
+extern char _binary_build_crattlecrute_assets_start[];
+extern char _binary_build_crattlecrute_assets_end[];
+
+#define open_assets_file()
+
+AssetFile load_asset(int asset) {
+    AssetFile f;
+    f.size = ASSETS[asset].size;
+    f.bytes = _binary_build_crattlecrute_assets_start + ASSETS[asset].offset;
+
+    return f;
+}
+#endif // _WIN32
+
+#else // EMBEDDED_ASSETS =============================== NORMAL EXTERNAL ASSETS FILE ================
+FILE* assets_file = NULL;
+
 int open_assets_file() {
     char assets_path[1024];
     sprintf(assets_path, "%scrattlecrute.assets", SDL_GetBasePath());
@@ -32,6 +51,8 @@ AssetFile load_asset(int asset) {
 
     return f;
 }
+#endif // EMBEDDED_ASSETS
+
 
 SDL_Surface* load_image(int asset) {
     AssetFile image_asset = load_asset(asset);
