@@ -9,10 +9,32 @@ extern SDL_Window* main_window;
 
 #ifdef EMBEDDED_ASSETS
 #ifdef _WIN32 //  ========================= VISUAL STUDIO RESOURCE FILE ===================
+#include "embedded_assets.h"
+#include <Windows.h>
+
+byte* embedded_assets;
+
+int open_assets_file() {
+    HRSRC resource = FindResource(NULL, MAKEINTRESOURCE(IDR_RCDATA1), RT_RCDATA);
+    HGLOBAL resource_data = LoadResource(NULL, resource);
+    embedded_assets = LockResource(resource_data);
+    return 0;
+}
+
+AssetFile load_asset(int asset) {
+    AssetFile f;
+    f.size = ASSETS[asset].size;
+    f.bytes = embedded_assets + ASSETS[asset].offset;
+
+    return f;
+}
+
 // TODO Visual Studio resource
 #else // ============================== *NIX LD EMBEDDED ASSETS =======================
 extern char _binary_build_crattlecrute_assets_start[];
 extern char _binary_build_crattlecrute_assets_end[];
+
+int open_assets_file() { return 0; }
 
 AssetFile load_asset(int asset) {
     AssetFile f;

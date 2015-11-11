@@ -17,11 +17,7 @@ all_files = Dir.glob("#{assets_base_dir}/assets/**/*").reject(&File.method(:dire
 
 header.write(
   "typedef struct { byte* bytes; long long size; } AssetFile;\n"\
-  "#ifdef EMBEDDED_ASSETS\n"\
-  "#define open_assets_file()\n"\
-  "#else\n"\
   "int open_assets_file();\n"\
-  "#endif\n"\
   "SDL_Surface* load_image(int asset);\n"\
   "SDL_Texture* load_texture(SDL_Renderer* renderer, int asset);\n"\
   "void free_image(SDL_Surface* image);\n"\
