@@ -32,9 +32,12 @@ int open_assets_file() {
 
     assets_file = fopen(assets_path, "rb");
     if (assets_file == NULL) {
-        printf("No asset file!!! (%s)", assets_path);
-        SDL_ShowSimpleMessageBox(0, "YO!", "No assets file!!!", main_window);
-        return errno;
+        assets_file = fopen("crattlecrute.assets", "rb");
+        if (assets_file == NULL) {
+            printf("No asset file!!! (%s)", assets_path);
+            SDL_ShowSimpleMessageBox(0, "YO!", "No assets file!!!", main_window);
+            return errno;
+        }
     }
     return 0;
 }
