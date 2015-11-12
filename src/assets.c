@@ -46,6 +46,8 @@ AssetFile load_asset(int asset) {
 #endif // _WIN32
 
 #else // EMBEDDED_ASSETS =============================== NORMAL EXTERNAL ASSETS FILE ================
+// NOTE!!!!!!!!!!! This leaks !!!!!!!!!!!!! I'm gonna assume embedded assets is the only way we ship.
+// (embedded doesn't allocate)
 FILE* assets_file = NULL;
 
 int open_assets_file() {
@@ -67,7 +69,6 @@ int open_assets_file() {
 AssetFile load_asset(int asset) {
     AssetFile f;
     f.size = ASSETS[asset].size;
-    // CLEAN UP AFTER YOURSELF!
     f.bytes = malloc(f.size);
     fseek(assets_file, ASSETS[asset].offset, SEEK_SET);
     fread(f.bytes, 1, f.size, assets_file);
@@ -78,6 +79,7 @@ AssetFile load_asset(int asset) {
 
 
 SDL_Surface* load_image(int asset) {
+    // leak when using asset file........
     AssetFile image_asset = load_asset(asset);
 
     int width = 0, height = 0, comp = 0;
