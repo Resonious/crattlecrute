@@ -45,10 +45,14 @@ void audio_callback(void* userdata, byte* byte_stream, int len) {
 
     if (bytes_used == 0 && samples == 0) {
         // Need more data
+        printf("0 and 0? bye");
+        exit(0);
     }
     else if (bytes_used != 0 && samples == 0) {
         // Resynching, go again?
         // TODO wtf to do here?
+        printf("resyncing? bye");
+        exit(0);
     }
     else if (bytes_used != 0 && samples != 0) {
         // Got a frame!
@@ -56,14 +60,17 @@ void audio_callback(void* userdata, byte* byte_stream, int len) {
         // more. If stream_size < samples, then we gotta hang onto the rest of output
         // for next callback.
 
+        if (samples < stream_size) {
+            printf("We're fucked bye");
+            exit(0);
+        }
+
         // TODO TODO TODO TODO TODO TODO
 
-        /*
         for (int i = 0; i < samples; i += 2) {
             stream[i] = output[0][i];
             stream[i + 1] = output[1][i];
         }
-        */
     }
     else {
         // WTF
@@ -104,4 +111,14 @@ void open_and_play_music() {
     oggdata->size   = oggfile.size - header_byte_count;
     oggdata->pos    = 0;
     want.userdata = oggdata;
+
+    if (SDL_OpenAudio(&want, &got) < 0) {
+        printf("SDL audio no good :( %s\n", SDL_GetError());
+    }
+    else if (got.format != want.format) {
+        printf("Couldn't get float32 format!!!\n");
+    }
+    else {
+        SDL_PauseAudio(0);
+    }
 }

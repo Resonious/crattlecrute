@@ -29,7 +29,6 @@ AssetFile load_asset(int asset) {
     return f;
 }
 
-// TODO Visual Studio resource
 #else // ============================== *NIX LD EMBEDDED ASSETS =======================
 extern char _binary_build_crattlecrute_assets_start[];
 extern char _binary_build_crattlecrute_assets_end[];

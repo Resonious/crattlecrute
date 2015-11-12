@@ -39,6 +39,9 @@ int main(int argc, char** argv) {
     };
     // if (body_texture == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
 
+    // TODO oh god testing audio
+    open_and_play_music();
+
     // Main loop bitch
     SDL_Event event;
     bool running = true;
