@@ -76,7 +76,8 @@ END
 // Bitmap
 //
 
-IDB_BITMAP1             BITMAP                  "bitmap1.bmp"
+// don't think we need this guy
+// IDB_BITMAP1             BITMAP                  "bitmap1.bmp"
 #endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
 
