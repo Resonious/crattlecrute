@@ -31,50 +31,51 @@ void audio_callback(void* userdata, byte* byte_stream, int len) {
     float* stream = byte_stream;
     assert(len % sizeof(float) == 0); // I'm assuming this should be true since we ask for float.
     int stream_size = len / sizeof(float);
+    int stream_pos = 0;
 
-    // We already have the whole ogg file in memory, so we just
-    // get the section of it that stb_vorbis is after.
-    byte* datablock = oggdata->bytes + oggdata->pos;
-    int datablock_size = oggdata->size - oggdata->pos;
+    while (stream_pos < stream_size) {
+        // We already have the whole ogg file in memory, so we just
+        // get the section of it that stb_vorbis is after.
+        byte* datablock = oggdata->bytes + oggdata->pos;
+        int datablock_size = oggdata->size - oggdata->pos;
+        if (datablock_size <= 0)
+            break;
 
-    int bytes_used = stb_vorbis_decode_frame_pushdata(
-        oggdata->vorbis,
-        datablock, datablock_size,
-        &channels, &output, &samples
-    );
+        int bytes_used = stb_vorbis_decode_frame_pushdata(
+            oggdata->vorbis,
+            datablock, datablock_size,
+            &channels, &output, &samples
+            );
 
-    if (bytes_used == 0 && samples == 0) {
-        // Need more data
-        printf("0 and 0? bye");
-        exit(0);
-    }
-    else if (bytes_used != 0 && samples == 0) {
-        // Resynching, go again?
-        // TODO wtf to do here?
-        printf("resyncing? bye");
-        exit(0);
-    }
-    else if (bytes_used != 0 && samples != 0) {
-        // Got a frame!
-        // So, if samples < stream_size, then we gotta keep asking stb_vorbis for
-        // more. If stream_size < samples, then we gotta hang onto the rest of output
-        // for next callback.
+        oggdata->pos += bytes_used;
 
-        if (samples < stream_size) {
-            printf("We're fucked bye");
+        if (bytes_used == 0 && samples == 0) {
+            // Need more data
+            printf("0 and 0? bye");
             exit(0);
         }
-
-        // TODO TODO TODO TODO TODO TODO
-
-        for (int i = 0; i < samples; i += 2) {
-            stream[i] = output[0][i];
-            stream[i + 1] = output[1][i];
+        else if (bytes_used != 0 && samples == 0) {
+            // Resynching, go again?
         }
-    }
-    else {
-        // WTF
-        assert(false);
+        else if (bytes_used != 0 && samples != 0) {
+            // Got a frame!
+            // So, if samples < stream_size, then we gotta keep asking stb_vorbis for
+            // more. If stream_size < samples, then we gotta hang onto the rest of output
+            // for next callback.
+
+            // TODO TODO TODO TODO TODO TODO
+
+            int num_samples = min(samples, stream_size - stream_pos);
+
+            for (int i = 0; i < num_samples; i += 2) {
+                stream[stream_pos++] = output[0][i];
+                stream[stream_pos++] = output[1][i];
+            }
+        }
+        else {
+            // WTF
+            assert(false);
+        }
     }
 }
 
@@ -91,15 +92,13 @@ void open_and_play_music() {
     assert(vorbis != NULL);
 
     // Actually try to play audio?
-    stb_vorbis_info info = stb_vorbis_get_info(&vorbis);
-
     SDL_AudioSpec want;
     SDL_AudioSpec got;
     memset(&want, 0, sizeof(SDL_AudioSpec));
     memset(&got, 0, sizeof(SDL_AudioSpec));
 
-    want.freq = info.sample_rate;
-    want.channels = info.channels;
+    want.freq = vorbis->sample_rate;
+    want.channels = vorbis->channels;
     want.format = AUDIO_F32;
     want.samples = 4096;
     want.callback = audio_callback;
@@ -119,6 +118,8 @@ void open_and_play_music() {
         printf("Couldn't get float32 format!!!\n");
     }
     else {
+        if (got.freq != want.freq)
+            printf("Couldn't get frequency %i instead got %i", want.freq, got.freq);
         SDL_PauseAudio(0);
     }
 }
