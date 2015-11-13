@@ -20,6 +20,9 @@ void initialize_sound() {
 void audio_callback(void* userdata, byte* byte_stream, int len) {
     struct Buffer* oggdata = (struct Buffer*)userdata;
 
+    memset(byte_stream, 0, len);
+    float* mix = malloc(len);
+
     // Output from stb_vorbis.
     int channels;
     float** output;
@@ -65,18 +68,26 @@ void audio_callback(void* userdata, byte* byte_stream, int len) {
 
             // TODO TODO TODO TODO TODO TODO
 
-            int num_samples = min(samples, stream_size - stream_pos);
+            float* stream_chunk = stream + stream_pos;
+            int num_samples = min(samples, (stream_size - stream_pos) / 2);
 
-            for (int i = 0; i < num_samples; i += 2) {
-                stream[stream_pos++] = output[0][i];
-                stream[stream_pos++] = output[1][i];
+            int floats_wrote = 0;
+            for (int i = 0; i < num_samples; i += 1) {
+                // This kinda assumes 2 channels
+                mix[floats_wrote++] = output[0][i];
+                mix[floats_wrote++] = output[1][i];
             }
+
+            SDL_MixAudio(stream_chunk, mix, floats_wrote * sizeof(float), SDL_MIX_MAXVOLUME / 2);
+            stream_pos += floats_wrote;
         }
         else {
             // WTF
             assert(false);
         }
     }
+    // TODO Let's not allocate and free like this in the end okay?
+    free(mix);
 }
 
 void open_and_play_music() {
