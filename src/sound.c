@@ -6,115 +6,58 @@
 
 extern SDL_Window* main_window;
 
-struct Buffer {
-    stb_vorbis* vorbis;
-    byte* bytes;
-    size_t size;
-    size_t pos;
-    float* overflow;
-    size_t overflow_size;
-};
+const static int FREQUENCY = 44100;
+const static int CHANNELS = 2;
+
+typedef struct {
+    byte* samples; // This is what gets mixed onto the stream.
+    int samples_size;
+    int samples_pos;
+} AudioWave;
 
 void initialize_sound() {
     // Uhhh maybe we dont' need this
 }
 
-// Only used in audio_callback
-float mix[4096];
-void audio_callback(void* userdata, byte* byte_stream, int len) {
-    struct Buffer* oggdata = (struct Buffer*)userdata;
+void audio_callback(AudioWave* wave, byte* byte_stream, int byte_stream_size) {
+    int bytes_remaining_in_wave = wave->samples_size - wave->samples_pos;
+    memset(byte_stream, 0, byte_stream_size);
+    int bytes_to_mix_in = min(bytes_remaining_in_wave, byte_stream_size);
+    if (bytes_to_mix_in <= 0)
+        return;
 
-    memset(byte_stream, 0, len);
+    SDL_MixAudio(
+        byte_stream, wave->samples + wave->samples_pos,
+        bytes_to_mix_in,
+        SDL_MIX_MAXVOLUME
+    );
 
-    // Output from stb_vorbis.
-    int channels;
-    float** output;
-    int samples;
+    wave->samples_pos += bytes_to_mix_in;
+}
 
-    // Our format is float32, right? So we want to write floats,
-    // and the stream length will be 1/4th of itself in bytes.
-    // Right?
-    float* stream = byte_stream;
-    assert(len % sizeof(float) == 0); // I'm assuming this should be true since we ask for float.
-    int stream_size = len / sizeof(float);
-    int stream_pos = 0;
+AudioWave decode_ogg(AssetId asset) {
+    AssetFile oggfile = load_asset(asset);
 
-    if (oggdata->overflow_size > 0) {
-        SDL_MixAudio(stream, oggdata->overflow, oggdata->overflow_size * sizeof(float), SDL_MIX_MAXVOLUME / 2);
-        stream_pos += oggdata->overflow_size;
-        oggdata->overflow_size = 0;
-    }
+    int oggfile_channels, oggfile_frequency;
+    AudioWave wave;
+    wave.samples_pos = 0;
+    int num_samples = stb_vorbis_decode_memory(
+        oggfile.bytes, oggfile.size,
+        &oggfile_channels, &oggfile_frequency,
+        &wave.samples
+    );
+    wave.samples_size = num_samples * CHANNELS * sizeof(short);
 
-    while (stream_pos < stream_size) {
-        // We already have the whole ogg file in memory, so we just
-        // get the section of it that stb_vorbis is after.
-        byte* datablock = oggdata->bytes + oggdata->pos;
-        int datablock_size = oggdata->size - oggdata->pos;
-        if (datablock_size <= 0)
-            break;
+    assert(oggfile_frequency == FREQUENCY);
+    assert(oggfile_channels == CHANNELS);
 
-        int bytes_used = stb_vorbis_decode_frame_pushdata(
-            oggdata->vorbis,
-            datablock, datablock_size,
-            &channels, &output, &samples
-            );
-        oggdata->pos += bytes_used;
-
-        if (bytes_used == 0 && samples == 0) {
-            // Need more data
-            printf("0 and 0? bye");
-            exit(0);
-        }
-        else if (bytes_used != 0 && samples == 0) {
-            // Resynching, go again?
-        }
-        else if (bytes_used != 0 && samples != 0) {
-            // TODO !!!!!!!!!!!! THIS IS WHY IT SOUNDS CHOPPY AND BAD:
-            // We reach the end of the buffer and still have output from
-            // stb_vorbis. We gotta hold onto that leftover output!!!
-
-            float* stream_chunk = stream + stream_pos;
-            int remaining_samples = (stream_size - stream_pos) / 2;
-            int num_samples = min(samples, remaining_samples);
-
-            int floats_wrote = 0;
-            for (int i = 0; i < num_samples; i += 1) {
-                // This kinda assumes 2 channels
-                mix[floats_wrote++] = output[0][i];
-                mix[floats_wrote++] = output[1][i];
-            }
-
-            SDL_MixAudio(stream_chunk, mix, floats_wrote * sizeof(float), SDL_MIX_MAXVOLUME / 2);
-            stream_pos += floats_wrote;
-
-            if (remaining_samples < samples) {
-                floats_wrote = 0;
-
-                for (int i = num_samples; i < samples; i += 1) {
-                    oggdata->overflow[floats_wrote++] = output[0][i];
-                    oggdata->overflow[floats_wrote++] = output[1][i];
-                }
-                oggdata->overflow_size = floats_wrote;
-            }
-        }
-        else {
-            // WTF
-            assert(false);
-        }
-    }
+    return wave;
 }
 
 void open_and_play_music() {
-    // Load the file and get header info
-    AssetFile oggfile = load_asset(ASSET_MUSIC_ARENA_OGG);
-
-    int header_byte_count, error;
-    stb_vorbis* vorbis = stb_vorbis_open_pushdata(
-        oggfile.bytes, oggfile.size,
-        &header_byte_count, &error, 0
-    );
-
-    assert(vorbis != NULL);
+    // Load the file (LEAK FOR NOW)
+    AudioWave* wave = malloc(sizeof(AudioWave));
+    *wave = decode_ogg(ASSET_MUSIC_ARENA_OGG);
 
     // Actually try to play audio?
     SDL_AudioSpec want;
@@ -122,32 +65,22 @@ void open_and_play_music() {
     memset(&want, 0, sizeof(SDL_AudioSpec));
     memset(&got, 0, sizeof(SDL_AudioSpec));
 
-    want.freq = vorbis->sample_rate;
-    want.channels = vorbis->channels;
-    want.format = AUDIO_F32;
+    want.freq = FREQUENCY;
+    want.channels = CHANNELS;
+    want.format = AUDIO_S16;
     want.samples = 4096;
     want.callback = audio_callback;
-    // TODO we'll just leak this for now.
-    struct Buffer* oggdata = malloc(sizeof(struct Buffer));
-    // So remember, we'll have one vorbis per ogg file being played.
-    oggdata->vorbis = vorbis;
-    oggdata->bytes  = oggfile.bytes + header_byte_count;
-    oggdata->size   = oggfile.size - header_byte_count;
-    oggdata->pos    = 0;
-    oggdata->overflow = NULL;
-    oggdata->overflow_size = 0;
-    want.userdata = oggdata;
+    want.userdata = wave;
 
     if (SDL_OpenAudio(&want, &got) < 0) {
         printf("SDL audio no good :( %s\n", SDL_GetError());
     }
     else if (got.format != want.format) {
-        printf("Couldn't get float32 format!!!\n");
+        printf("Couldn't get wanted format!!!\n");
     }
     else {
         if (got.freq != want.freq)
             printf("Couldn't get frequency %i instead got %i", want.freq, got.freq);
-        oggdata->overflow = malloc(got.samples * sizeof(float));
         SDL_PauseAudio(0);
     }
 }

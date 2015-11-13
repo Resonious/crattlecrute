@@ -4,3 +4,4 @@
 #define false 0
 #endif
 typedef unsigned char byte;
+typedef size_t AssetId;
