@@ -11,17 +11,20 @@ struct Buffer {
     byte* bytes;
     size_t size;
     size_t pos;
+    float* overflow;
+    size_t overflow_size;
 };
 
 void initialize_sound() {
     // Uhhh maybe we dont' need this
 }
 
+// Only used in audio_callback
+float mix[4096];
 void audio_callback(void* userdata, byte* byte_stream, int len) {
     struct Buffer* oggdata = (struct Buffer*)userdata;
 
     memset(byte_stream, 0, len);
-    float* mix = malloc(len);
 
     // Output from stb_vorbis.
     int channels;
@@ -35,6 +38,12 @@ void audio_callback(void* userdata, byte* byte_stream, int len) {
     assert(len % sizeof(float) == 0); // I'm assuming this should be true since we ask for float.
     int stream_size = len / sizeof(float);
     int stream_pos = 0;
+
+    if (oggdata->overflow_size > 0) {
+        SDL_MixAudio(stream, oggdata->overflow, oggdata->overflow_size * sizeof(float), SDL_MIX_MAXVOLUME / 2);
+        stream_pos += oggdata->overflow_size;
+        oggdata->overflow_size = 0;
+    }
 
     while (stream_pos < stream_size) {
         // We already have the whole ogg file in memory, so we just
@@ -65,7 +74,8 @@ void audio_callback(void* userdata, byte* byte_stream, int len) {
             // stb_vorbis. We gotta hold onto that leftover output!!!
 
             float* stream_chunk = stream + stream_pos;
-            int num_samples = min(samples, (stream_size - stream_pos) / 2);
+            int remaining_samples = (stream_size - stream_pos) / 2;
+            int num_samples = min(samples, remaining_samples);
 
             int floats_wrote = 0;
             for (int i = 0; i < num_samples; i += 1) {
@@ -76,14 +86,22 @@ void audio_callback(void* userdata, byte* byte_stream, int len) {
 
             SDL_MixAudio(stream_chunk, mix, floats_wrote * sizeof(float), SDL_MIX_MAXVOLUME / 2);
             stream_pos += floats_wrote;
+
+            if (remaining_samples < samples) {
+                floats_wrote = 0;
+
+                for (int i = num_samples; i < samples; i += 1) {
+                    oggdata->overflow[floats_wrote++] = output[0][i];
+                    oggdata->overflow[floats_wrote++] = output[1][i];
+                }
+                oggdata->overflow_size = floats_wrote;
+            }
         }
         else {
             // WTF
             assert(false);
         }
     }
-    // TODO Let's not allocate and free like this in the end okay?
-    free(mix);
 }
 
 void open_and_play_music() {
@@ -116,6 +134,8 @@ void open_and_play_music() {
     oggdata->bytes  = oggfile.bytes + header_byte_count;
     oggdata->size   = oggfile.size - header_byte_count;
     oggdata->pos    = 0;
+    oggdata->overflow = NULL;
+    oggdata->overflow_size = 0;
     want.userdata = oggdata;
 
     if (SDL_OpenAudio(&want, &got) < 0) {
@@ -127,6 +147,7 @@ void open_and_play_music() {
     else {
         if (got.freq != want.freq)
             printf("Couldn't get frequency %i instead got %i", want.freq, got.freq);
+        oggdata->overflow = malloc(got.samples * sizeof(float));
         SDL_PauseAudio(0);
     }
 }
