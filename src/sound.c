@@ -49,7 +49,6 @@ void audio_callback(void* userdata, byte* byte_stream, int len) {
             datablock, datablock_size,
             &channels, &output, &samples
             );
-
         oggdata->pos += bytes_used;
 
         if (bytes_used == 0 && samples == 0) {
@@ -61,12 +60,9 @@ void audio_callback(void* userdata, byte* byte_stream, int len) {
             // Resynching, go again?
         }
         else if (bytes_used != 0 && samples != 0) {
-            // Got a frame!
-            // So, if samples < stream_size, then we gotta keep asking stb_vorbis for
-            // more. If stream_size < samples, then we gotta hang onto the rest of output
-            // for next callback.
-
-            // TODO TODO TODO TODO TODO TODO
+            // TODO !!!!!!!!!!!! THIS IS WHY IT SOUNDS CHOPPY AND BAD:
+            // We reach the end of the buffer and still have output from
+            // stb_vorbis. We gotta hold onto that leftover output!!!
 
             float* stream_chunk = stream + stream_pos;
             int num_samples = min(samples, (stream_size - stream_pos) / 2);
