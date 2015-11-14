@@ -7,11 +7,13 @@
 #include "assets.h"
 #include "types.h"
 #include "sound.h"
+#include <xmmintrin.h>
 
 // Disgusting global window variable so that I can shit out message boxes
 // from wherever I want.
 SDL_Window* main_window;
 
+// Controls stuff
 enum Control {
     C_UP, C_DOWN, C_LEFT, C_RIGHT,
     NUM_CONTROLS
@@ -26,11 +28,24 @@ bool just_pressed(Controls* controls, enum Control key) {
     return controls->this_frame[key] && controls->last_frame[key];
 }
 
+union vec4 {
+    __m128 simd;
+    float f[4];
+};
+
+// Character stuff
+typedef struct {
+    union vec4 position;
+} Character;
+
 int main(int argc, char** argv) {
     SDL_Window* window;
     SDL_Renderer* renderer;
     AudioQueue audio;
     Controls controls;
+
+    Character guy;
+    guy.position.simd = _mm_set1_ps(10.0f);
 
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
     open_assets_file();
@@ -69,7 +84,6 @@ int main(int argc, char** argv) {
     Uint64 frame_count = 0;
     // test stuff
     int animation_frame = 0;
-    int x = 10, y = 10;
     SDL_RendererFlip flip = SDL_FLIP_NONE;
     bool animate = false;
 
@@ -94,29 +108,32 @@ int main(int argc, char** argv) {
         controls.this_frame[C_RIGHT] = keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D];
 
         // Test movement (for controls' sake)
+        float dx = 0, dy = 0;
         if (controls.this_frame[C_UP])
-            y -= 2;
+            dy -= 2;
         if (controls.this_frame[C_DOWN])
-            y += 2;
+            dy += 2;
         if (controls.this_frame[C_LEFT]) {
-            x -= 4;
+            dx -= 4;
             flip = SDL_FLIP_HORIZONTAL;
         }
         if (controls.this_frame[C_RIGHT]) {
-            x += 4;
+            dx += 4;
             flip = SDL_FLIP_NONE;
         }
         animate = controls.this_frame[C_LEFT] || controls.this_frame[C_RIGHT];
+        __m128 movement = {dx, dy, 0.0f, 0.0f};
+        guy.position.simd = _mm_add_ps(guy.position.simd, movement);
 
         // Test sound effect
-        if (just_pressed(&controls, C_UP) && audio.oneshot_waves[0] == NULL)
+        if (just_pressed(&controls, C_UP))
             audio.oneshot_waves[0] = &test_sound;
 
         // Draw!!! Finally!!!
         SDL_RenderClear(renderer);
 
         SDL_Rect src = { animation_frame * 90, 0, 90, 90 };
-        SDL_Rect dest = { x, y, 90, 90 };
+        SDL_Rect dest = { guy.position.f[0], guy.position.f[1], 90, 90 };
         if (animate) {
             if (frame_count % 5 == 0)
                 animation_frame += 1;
