@@ -15,10 +15,11 @@ SDL_Window* main_window;
 int main(int argc, char** argv) {
     SDL_Window* window;
     SDL_Renderer* renderer;
+    AudioQueue audio;
 
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
     open_assets_file();
-    initialize_sound();
+    initialize_sound(&audio);
 
     window = SDL_CreateWindow(
         "Niiiice",
@@ -37,10 +38,13 @@ int main(int argc, char** argv) {
         load_texture(renderer, ASSET_CRATTLECRUTE_BODY_PNG),
         load_texture(renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG)
     };
-    // if (body_texture == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
 
     // TODO oh god testing audio
-    open_and_play_music();
+    AudioWave* wave = open_and_play_music(&audio);
+    AudioWave test_sound = decode_ogg(ASSET_SOUNDS_EXPLOSION_OGG);
+
+    int key_count;
+    const Uint8* keys = SDL_GetKeyboardState(&key_count);
 
     // Main loop bitch
     SDL_Event event;
@@ -58,6 +62,11 @@ int main(int argc, char** argv) {
                 running = false;
                 break;
             }
+        }
+
+        // Test sound effect
+        if (keys[SDL_SCANCODE_SPACE] && audio.oneshot_waves[0] == NULL) {
+            audio.oneshot_waves[0] = &test_sound;
         }
 
         // Draw!!! Finally!!!
@@ -82,7 +91,12 @@ int main(int argc, char** argv) {
             SDL_Delay(17 - frame_ms);
     }
 
+    SDL_PauseAudio(true);
     SDL_DestroyWindow(window);
+    // The wave is malloced, and the samples are malloced by stb_vorbis.
+    free(wave->samples);
+    free(wave);
+    free(test_sound.samples); // This one is local to this function so only the samples are malloced.
 
     SDL_Quit();
     return 0;
