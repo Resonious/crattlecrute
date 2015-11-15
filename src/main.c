@@ -12,14 +12,30 @@
 // from wherever I want.
 SDL_Window* main_window;
 
+enum Control {
+    C_UP, C_DOWN, C_LEFT, C_RIGHT,
+    NUM_CONTROLS
+};
+
+typedef struct {
+    bool last_frame[NUM_CONTROLS];
+    bool this_frame[NUM_CONTROLS];
+} Controls;
+
+bool just_pressed(Controls* controls, enum Control key) {
+    return controls->this_frame[key] && controls->last_frame[key];
+}
+
 int main(int argc, char** argv) {
     SDL_Window* window;
     SDL_Renderer* renderer;
     AudioQueue audio;
+    Controls controls;
 
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
     open_assets_file();
     initialize_sound(&audio);
+    memset(&controls, 0, sizeof(controls));
 
     window = SDL_CreateWindow(
         "Niiiice",
@@ -51,10 +67,17 @@ int main(int argc, char** argv) {
     bool running = true;
     Uint64 milliseconds_per_tick = 1000 / SDL_GetPerformanceFrequency();
     Uint64 frame_count = 0;
-    int animation_frame = 0; // test
+    // test stuff
+    int animation_frame = 0;
+    int x = 10, y = 10;
+    SDL_RendererFlip flip = SDL_FLIP_NONE;
+
     while (running) {
         Uint64 frame_start = SDL_GetPerformanceCounter();
         frame_count += 1;
+
+        memcpy(controls.last_frame, controls.this_frame, sizeof(controls.last_frame));
+        memset(controls.this_frame, 0, sizeof(controls.this_frame));
 
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
@@ -64,10 +87,28 @@ int main(int argc, char** argv) {
             }
         }
 
-        // Test sound effect
-        if (keys[SDL_SCANCODE_SPACE] && audio.oneshot_waves[0] == NULL) {
-            audio.oneshot_waves[0] = &test_sound;
+        controls.this_frame[C_UP]    = keys[SDL_SCANCODE_UP]    || keys[SDL_SCANCODE_W];
+        controls.this_frame[C_DOWN]  = keys[SDL_SCANCODE_DOWN]  || keys[SDL_SCANCODE_S];
+        controls.this_frame[C_LEFT]  = keys[SDL_SCANCODE_LEFT]  || keys[SDL_SCANCODE_A];
+        controls.this_frame[C_RIGHT] = keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D];
+
+        // Test movement (for controls' sake)
+        if (controls.this_frame[C_UP])
+            y -= 2;
+        if (controls.this_frame[C_DOWN])
+            y += 2;
+        if (controls.this_frame[C_LEFT]) {
+            x -= 2;
+            flip = SDL_FLIP_HORIZONTAL;
         }
+        if (controls.this_frame[C_RIGHT]) {
+            x += 2;
+            flip = SDL_FLIP_NONE;
+        }
+
+        // Test sound effect
+        if (just_pressed(&controls, C_UP) && audio.oneshot_waves[0] == NULL)
+            audio.oneshot_waves[0] = &test_sound;
 
         // Draw!!! Finally!!!
         SDL_RenderClear(renderer);
@@ -75,11 +116,11 @@ int main(int argc, char** argv) {
         if (animation_frame >= 9)
             animation_frame = 1;
         SDL_Rect src = { animation_frame * 90, 0, 90, 90 };
-        SDL_Rect dest = { 20, 20, 90, 90 };
+        SDL_Rect dest = { x, y, 90, 90 };
         if (frame_count % 5 == 0)
             animation_frame += 1;
         for (int i = 0; i < 3; i++)
-            SDL_RenderCopy(renderer, textures[i], &src, &dest);
+            SDL_RenderCopyEx(renderer, textures[i], &src, &dest, 0, NULL, flip);
 
         SDL_RenderPresent(renderer);
 
