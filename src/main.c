@@ -71,6 +71,7 @@ int main(int argc, char** argv) {
     int animation_frame = 0;
     int x = 10, y = 10;
     SDL_RendererFlip flip = SDL_FLIP_NONE;
+    bool animate = false;
 
     while (running) {
         Uint64 frame_start = SDL_GetPerformanceCounter();
@@ -98,13 +99,14 @@ int main(int argc, char** argv) {
         if (controls.this_frame[C_DOWN])
             y += 2;
         if (controls.this_frame[C_LEFT]) {
-            x -= 2;
+            x -= 4;
             flip = SDL_FLIP_HORIZONTAL;
         }
         if (controls.this_frame[C_RIGHT]) {
-            x += 2;
+            x += 4;
             flip = SDL_FLIP_NONE;
         }
+        animate = controls.this_frame[C_LEFT] || controls.this_frame[C_RIGHT];
 
         // Test sound effect
         if (just_pressed(&controls, C_UP) && audio.oneshot_waves[0] == NULL)
@@ -113,12 +115,15 @@ int main(int argc, char** argv) {
         // Draw!!! Finally!!!
         SDL_RenderClear(renderer);
 
-        if (animation_frame >= 9)
-            animation_frame = 1;
         SDL_Rect src = { animation_frame * 90, 0, 90, 90 };
         SDL_Rect dest = { x, y, 90, 90 };
-        if (frame_count % 5 == 0)
-            animation_frame += 1;
+        if (animate) {
+            if (frame_count % 5 == 0)
+                animation_frame += 1;
+            if (animation_frame >= 9)
+                animation_frame = 1;
+        }
+        else animation_frame = 0;
         for (int i = 0; i < 3; i++)
             SDL_RenderCopyEx(renderer, textures[i], &src, &dest, 0, NULL, flip);
 
