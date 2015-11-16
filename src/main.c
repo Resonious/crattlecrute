@@ -14,6 +14,7 @@ SDL_Window* main_window;
 
 // SUPER TEMPORARY TEST LOAD TEXTURE THING FOR SIMD COLOR PROCESS TEST OK
 SDL_Texture* load_texture_with_color_change(SDL_Renderer* renderer, int asset, Uint32 c_from, Uint32 c_to);
+SDL_Texture* load_texture_with_color_change_no_simd(SDL_Renderer* renderer, int asset, Uint32 c_from, Uint32 c_to);
 
 // Controls stuff
 enum Control {
@@ -69,6 +70,9 @@ int main(int argc, char** argv) {
     renderer = SDL_CreateRenderer(window, -1, 0);
     if (renderer == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
     SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
+
+    SDL_Texture* testhuge1 = load_texture_with_color_change(renderer, ASSET_HUGE_PNG, 0xFF4953FF, 0xFFFF0000);
+    SDL_Texture* testhuge2 = load_texture_with_color_change_no_simd(renderer, ASSET_HUGE_PNG, 0xFF4953FF, 0xFFFF0000);
 
     SDL_Texture* textures[3] = {
         load_texture(renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG),

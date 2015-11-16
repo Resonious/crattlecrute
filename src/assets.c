@@ -104,6 +104,30 @@ SDL_Texture* load_texture(SDL_Renderer* renderer, int asset) {
     return tex;
 }
 
+SDL_Texture* load_texture_with_color_change_no_simd(SDL_Renderer* renderer, int asset, Uint32 c_from, Uint32 c_to) {
+    // This'll free the image but not the texture.
+    SDL_Surface* img = load_image(asset);
+
+    Uint32* pixels = img->pixels;
+
+    // === BENCHMARKING ===
+    Uint64 before = SDL_GetPerformanceCounter();
+    // === /BENCHMARKING ===
+    for (int i = 0; i < img->w * img->h; i += 1) {
+        if (pixels[i] == c_from)
+            pixels[i] = c_to;
+    }
+    // === BENCHMARKING ===
+    Uint64 after = SDL_GetPerformanceCounter();
+    Uint64 ticks = after - before;
+    double seconds = (double)ticks / (double)SDL_GetPerformanceFrequency();
+    // === /BENCHMARKING ===
+
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, img);
+    free_image(img);
+    return tex;
+}
+
 __m128i mulm128i(__m128i* a, __m128i* b)
 {
     __m128i tmp1 = _mm_mul_epu32(*a,*b); /* mul 2,0*/
@@ -121,6 +145,9 @@ SDL_Texture* load_texture_with_color_change(SDL_Renderer* renderer, int asset, U
     __m128i replacement_pixel = _mm_set1_epi32(c_to);
     __m128i one = _mm_set1_epi32(1);
 
+    // === BENCHMARKING ===
+    Uint64 before = SDL_GetPerformanceCounter();
+    // === /BENCHMARKING ===
     for (int i = 0; i < img->w * img->h; i += 4) {
         // _mm_loadu_si128(&i);
         __m128i p4;
@@ -138,6 +165,12 @@ SDL_Texture* load_texture_with_color_change(SDL_Renderer* renderer, int asset, U
         // Add the filtered results and store.
         _mm_storeu_si128(&pixels[i], _mm_add_epi32(filtered_target, filtered_retention));
     }
+    // === BENCHMARKING ===
+    Uint64 after = SDL_GetPerformanceCounter();
+    Uint64 ticks = after - before;
+    double seconds = (double)ticks / (double)SDL_GetPerformanceFrequency();
+    // === /BENCHMARKING ===
+
     SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, img);
     free_image(img);
     return tex;

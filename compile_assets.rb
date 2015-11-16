@@ -27,7 +27,7 @@ header.write(
 header.write(
   "const static struct {\n"\
   "    long long offset, size;\n"\
-  "} ASSETS[#{all_files.size}] = {\n"
+  "} ASSETS[#{all_files.size * 2}] = {\n"
 )
 
 def ident(file)
