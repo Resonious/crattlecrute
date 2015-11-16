@@ -12,6 +12,9 @@
 // from wherever I want.
 SDL_Window* main_window;
 
+// SUPER TEMPORARY TEST LOAD TEXTURE THING FOR SIMD COLOR PROCESS TEST OK
+SDL_Texture* load_texture_with_color_change(SDL_Renderer* renderer, int asset, Uint32 c_from, Uint32 c_to);
+
 // Controls stuff
 enum Control {
     C_UP, C_DOWN, C_LEFT, C_RIGHT,
@@ -69,7 +72,7 @@ int main(int argc, char** argv) {
 
     SDL_Texture* textures[3] = {
         load_texture(renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG),
-        load_texture(renderer, ASSET_CRATTLECRUTE_BODY_PNG),
+        load_texture_with_color_change(renderer, ASSET_CRATTLECRUTE_BODY_PNG, 0xFFFF9400, 0xFFFF0000),
         load_texture(renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG)
     };
 

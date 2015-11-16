@@ -104,6 +104,37 @@ SDL_Texture* load_texture(SDL_Renderer* renderer, int asset) {
     return tex;
 }
 
+// This is for testing only it doesn't give a fuck about endianness
+SDL_Texture* load_texture_with_color_change(SDL_Renderer* renderer, int asset, Uint32 c_from, Uint32 c_to) {
+    // This'll free the image but not the texture.
+    SDL_Surface* img = load_image(asset);
+    Uint32* pixels = img->pixels;
+
+    __m128i target_pixel = _mm_set1_epi32(c_from);
+    __m128i one = _mm_set1_epi32(1);
+
+    for (int i = 0; i < img->w * img->h; i += 4) {
+        // _mm_loadu_si128(&i);
+        union vec4i p4;
+        p4.simd = _mm_loadu_si128(&pixels[i]);
+
+        // abs() here because "true"s come out as -1, and we want to multiply by 1's instead.
+        __m128i cmp_result = _mm_abs_epi32(_mm_cmpeq_epi32(p4.simd, target_pixel));
+        // Keep an inverse so we can retain any non-target pixels when re-assigning.
+        __m128i inverse_result = _mm_xor_si128(cmp_result, one);
+        // This is the target pixel, only in the cells that it belongs.
+        __m128i filtered_target = _mm_mul_epi32(cmp_result, target_pixel);
+        // This is the old pixels, such that filtered_target + filtered_retention = new set of pixels.
+        __m128i filtered_retention = _mm_mul_epu32(inverse_result, p4.simd);
+
+        // Add the filtered results and store.
+        _mm_storeu_si128(&pixels[i], _mm_add_epi32(filtered_target, filtered_retention));
+    }
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, img);
+    free_image(img);
+    return tex;
+}
+
 // NOTE this assumes that the SDL_Surface.pixels is the same buffer as the
 // image loaded from stbi_load_from_memory.
 void free_image(SDL_Surface* image) {
