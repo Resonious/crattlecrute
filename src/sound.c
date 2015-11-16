@@ -93,7 +93,7 @@ void initialize_sound(AudioQueue* queue) {
     SDL_PauseAudio(0);
 }
 
-AudioWave decode_ogg(AssetId asset) {
+AudioWave decode_ogg(int asset) {
     AssetFile oggfile = load_asset(asset);
 
     int oggfile_channels, oggfile_frequency;
@@ -124,7 +124,7 @@ AudioWave decode_ogg(AssetId asset) {
 }
 
 AudioWave* open_and_play_music(AudioQueue* queue) {
-    // Load the file (LEAK FOR NOW)
+    // Load the file (LEAK FOR NOW) (JK WE FREE IT IN MAIN())
     AudioWave* wave = malloc(sizeof(AudioWave));
     *wave = decode_ogg(ASSET_MUSIC_ARENA_OGG);
 

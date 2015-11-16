@@ -17,4 +17,4 @@ typedef struct {
 
 void initialize_sound();
 AudioWave* open_and_play_music();
-AudioWave decode_ogg(AssetId asset);
+AudioWave decode_ogg(int asset);

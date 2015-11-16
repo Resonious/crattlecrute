@@ -7,7 +7,6 @@
 #include "assets.h"
 #include "types.h"
 #include "sound.h"
-#include <xmmintrin.h>
 
 // Disgusting global window variable so that I can shit out message boxes
 // from wherever I want.
@@ -28,15 +27,11 @@ bool just_pressed(Controls* controls, enum Control key) {
     return controls->this_frame[key] && !controls->last_frame[key];
 }
 
-union vec4 {
-    __m128 simd;
-    float f[4];
-};
-
 // Character stuff
 typedef struct {
     union vec4 position;
-    float mass;
+    float ground_speed;
+    float ground_speed_max;
 } Character;
 
 int main(int argc, char** argv) {
@@ -48,10 +43,12 @@ int main(int argc, char** argv) {
     // Testing physics!!!!
     float window_width = 640.0f, window_height = 480.0f;
     float gravity = 1.15f; // In pixels per frame per frame
-    float terminal_velocity = 25.0f;
+    float terminal_velocity = 14.3f;
     Character guy;
+    guy.ground_speed = 0.0f;
+    guy.ground_speed_max = 6.0f;
     guy.position.simd = _mm_set1_ps(10.0f);
-    guy.position.f[1] = 500;
+    guy.position.x[1] = 500.0f;
 
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
     open_assets_file();
@@ -93,7 +90,7 @@ int main(int argc, char** argv) {
     int animation_frame = 0;
     SDL_RendererFlip flip = SDL_FLIP_NONE;
     bool animate = false;
-    float dx = 0, dy = 0; // pixels per second
+    float dy = 0; // pixels per second
     float jump_acceleration = 20.0f;
 
     while (running) {
@@ -117,30 +114,48 @@ int main(int argc, char** argv) {
         controls.this_frame[C_RIGHT] = keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D];
 
         // Test movement (for controls' sake)
-        dx = 0; // We'll do constant x-velocity for now
         dy -= gravity; // times 1 frame
+        // Get accelerations from controls
         if (controls.this_frame[C_LEFT]) {
-            dx -= 4.5;
+            guy.ground_speed -= 1.5f;
             flip = SDL_FLIP_HORIZONTAL;
         }
         if (controls.this_frame[C_RIGHT]) {
-            dx += 4.5;
+            guy.ground_speed += 1.5f;
             flip = SDL_FLIP_NONE;
         }
         if (just_pressed(&controls, C_UP)) {
             dy += jump_acceleration;
         }
+        if (!controls.this_frame[C_LEFT] && !controls.this_frame[C_RIGHT]) {
+            if (guy.ground_speed > 0) {
+                guy.ground_speed -= 1.1f;
+                if (guy.ground_speed < 0)
+                    guy.ground_speed = 0;
+            }
+            else if (guy.ground_speed < 0) {
+                guy.ground_speed += 1.1f;
+                if (guy.ground_speed > 0)
+                    guy.ground_speed = 0;
+            }
+        }
         animate = controls.this_frame[C_LEFT] || controls.this_frame[C_RIGHT];
 
-        if (dy > terminal_velocity)
-            dy = terminal_velocity;
-        else if (dy < -terminal_velocity)
+        // Cap speeds
+        if (guy.ground_speed > guy.ground_speed_max)
+            guy.ground_speed = guy.ground_speed_max;
+        else if (guy.ground_speed < -guy.ground_speed_max)
+            guy.ground_speed = -guy.ground_speed_max;
+        if (dy < -terminal_velocity)
             dy = -terminal_velocity;
-        __m128 movement = {dx, dy, 0.0f, 0.0f};
+
+        // Actually move the dude (ground_speed is just x for now)
+        __m128 movement = {guy.ground_speed, dy, 0.0f, 0.0f};
         guy.position.simd = _mm_add_ps(guy.position.simd, movement);
+
         // Temporary ground @ 10px
-        if (guy.position.f[1] < 100) {
-            guy.position.f[1] = 100;
+        if (guy.position.x[1] < 100) {
+            guy.position.x[1] = 100;
             dy = 0;
         }
 
@@ -155,7 +170,7 @@ int main(int argc, char** argv) {
 
         SDL_Rect src = { animation_frame * 90, 0, 90, 90 };
         // The dude's center of mass is still at the corner.
-        SDL_Rect dest = { guy.position.f[0], window_height - guy.position.f[1], 90, 90 };
+        SDL_Rect dest = { guy.position.x[0], window_height - guy.position.x[1], 90, 90 };
         if (animate) {
             if (frame_count % 5 == 0)
                 animation_frame += 1;
