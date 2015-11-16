@@ -104,6 +104,13 @@ SDL_Texture* load_texture(SDL_Renderer* renderer, int asset) {
     return tex;
 }
 
+__m128i mulm128i(__m128i* a, __m128i* b)
+{
+    __m128i tmp1 = _mm_mul_epu32(*a,*b); /* mul 2,0*/
+    __m128i tmp2 = _mm_mul_epu32( _mm_srli_si128(*a,4), _mm_srli_si128(*b,4)); /* mul 3,1 */
+    return _mm_unpacklo_epi32(_mm_shuffle_epi32(tmp1, _MM_SHUFFLE (0,0,2,0)), _mm_shuffle_epi32(tmp2, _MM_SHUFFLE (0,0,2,0))); /* shuffle results to [63..0] and pack */
+}
+
 // This is for testing only it doesn't give a fuck about endianness
 SDL_Texture* load_texture_with_color_change(SDL_Renderer* renderer, int asset, Uint32 c_from, Uint32 c_to) {
     // This'll free the image but not the texture.
@@ -111,21 +118,22 @@ SDL_Texture* load_texture_with_color_change(SDL_Renderer* renderer, int asset, U
     Uint32* pixels = img->pixels;
 
     __m128i target_pixel = _mm_set1_epi32(c_from);
+    __m128i replacement_pixel = _mm_set1_epi32(c_to);
     __m128i one = _mm_set1_epi32(1);
 
     for (int i = 0; i < img->w * img->h; i += 4) {
         // _mm_loadu_si128(&i);
-        union vec4i p4;
-        p4.simd = _mm_loadu_si128(&pixels[i]);
+        __m128i p4;
+        p4 = _mm_loadu_si128(&pixels[i]);
 
         // abs() here because "true"s come out as -1, and we want to multiply by 1's instead.
-        __m128i cmp_result = _mm_abs_epi32(_mm_cmpeq_epi32(p4.simd, target_pixel));
+        __m128i cmp_result = _mm_abs_epi32(_mm_cmpeq_epi32(p4, target_pixel));
         // Keep an inverse so we can retain any non-target pixels when re-assigning.
         __m128i inverse_result = _mm_xor_si128(cmp_result, one);
         // This is the target pixel, only in the cells that it belongs.
-        __m128i filtered_target = _mm_mul_epi32(cmp_result, target_pixel);
+        __m128i filtered_target = mulm128i(&cmp_result, &replacement_pixel);
         // This is the old pixels, such that filtered_target + filtered_retention = new set of pixels.
-        __m128i filtered_retention = _mm_mul_epu32(inverse_result, p4.simd);
+        __m128i filtered_retention = mulm128i(&inverse_result, &p4);
 
         // Add the filtered results and store.
         _mm_storeu_si128(&pixels[i], _mm_add_epi32(filtered_target, filtered_retention));

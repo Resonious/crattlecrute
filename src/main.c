@@ -76,6 +76,8 @@ int main(int argc, char** argv) {
         load_texture(renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG)
     };
 
+    SDL_Texture* testbody = load_texture(renderer, ASSET_CRATTLECRUTE_BODY_PNG);
+
     // TODO oh god testing audio
     AudioWave* wave = open_and_play_music(&audio);
     AudioWave test_sound = decode_ogg(ASSET_SOUNDS_EXPLOSION_OGG);
@@ -183,6 +185,8 @@ int main(int argc, char** argv) {
         else animation_frame = 0;
         for (int i = 0; i < 3; i++)
             SDL_RenderCopyEx(renderer, textures[i], &src, &dest, 0, NULL, flip);
+        dest.x -= 90;
+        SDL_RenderCopyEx(renderer, testbody, &src, &dest, 0, NULL, flip);
 
         SDL_RenderPresent(renderer);
 
