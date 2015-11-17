@@ -134,6 +134,7 @@ __m128i mulm128i(__m128i* a, __m128i* b)
     __m128i tmp2 = _mm_mul_epu32( _mm_srli_si128(*a,4), _mm_srli_si128(*b,4)); /* mul 3,1 */
     return _mm_unpacklo_epi32(_mm_shuffle_epi32(tmp1, _MM_SHUFFLE (0,0,2,0)), _mm_shuffle_epi32(tmp2, _MM_SHUFFLE (0,0,2,0))); /* shuffle results to [63..0] and pack */
 }
+#ifdef _WIN32 // Won't compile on linux and we don't actually use it right now
 SDL_Texture* load_texture_with_color_change(SDL_Renderer* renderer, int asset, Uint32 c_from, Uint32 c_to) {
     // This'll free the image but not the texture.
     SDL_Surface* img = load_image(asset);
@@ -173,6 +174,7 @@ SDL_Texture* load_texture_with_color_change(SDL_Renderer* renderer, int asset, U
     free_image(img);
     return tex;
 }
+#endif
 
 // NOTE this assumes that the SDL_Surface.pixels is the same buffer as the
 // image loaded from stbi_load_from_memory.
