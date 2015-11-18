@@ -144,6 +144,7 @@ int main(int argc, char** argv) {
         if (just_pressed(&controls, C_UP)) {
             dy += jump_acceleration;
         }
+        // TODO having ground_deceleration > ground_acceleration will have a weird effect here.
         if (!controls.this_frame[C_LEFT] && !controls.this_frame[C_RIGHT]) {
             if (guy.ground_speed > 0) {
                 guy.ground_speed -= guy.ground_deceleration;

@@ -1,4 +1,5 @@
 require 'fileutils'
+require 'chunky_png'
 
 assets_base_dir = File.dirname File.expand_path __FILE__
 
@@ -36,7 +37,13 @@ end
 
 current_offset = 0
 # Write the start of the header and the assets.
+collision_data = []
 all_files.each do |file|
+  if /^(?<for_file>.+)\.collision$/ =~ file
+    # TODO Parse png file as tile collision
+    next
+  end
+
   bytes = IO.binread(file)
   assets.write(bytes)
 
@@ -50,6 +57,8 @@ all_files.each do |file|
 end
 
 header.write "};\n\n"
+
+# TODO use collision_data to generate int (or float) arrays specifying collision points within tiles.
 
 all_files.each_with_index do |file, index|
   header.write("const static int ASSET_#{ident(file)} = #{index};\n")
