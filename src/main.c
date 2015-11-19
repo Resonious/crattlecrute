@@ -60,12 +60,6 @@ int main(int argc, char** argv) {
     int test_tilemap[15] = {
         0,0,0,0,0,0,0,1,2,2,2,3,0,0,0
     };
-    int heights0[] = {
-        12, 12, 12, 12, 12, 12, 12, 12,
-        12, 12, 12, 12, 12, 12, 12, 12,
-        12, 12, 12, 12, 12, 12, 12, 12,
-        12, 12, 12, 12, 12, 12, 12, 12
-    };
 
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
     open_assets_file();
@@ -83,6 +77,8 @@ int main(int argc, char** argv) {
     renderer = SDL_CreateRenderer(window, -1, 0);
     if (renderer == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), window);
     SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
+
+    SDL_Texture* tiles = load_texture(renderer, ASSET_TERRAIN_TESTGROUND_PNG);
 
     SDL_Texture* textures[3] = {
         load_texture(renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG),
@@ -171,10 +167,25 @@ int main(int argc, char** argv) {
         __m128 movement = {guy.ground_speed, dy, 0.0f, 0.0f};
         guy.position.simd = _mm_add_ps(guy.position.simd, movement);
 
-        // Temporary ground @ 10px
-        if (guy.position.x[1] < 100) {
-            guy.position.x[1] = 100;
+        // Temporary ground @ 20px
+        if (guy.position.x[1] < 20) {
+            guy.position.x[1] = 20;
             dy = 0;
+        }
+        // Test out tile collision!!!
+        const int y_offset_to_center = 75;
+        const int x_offset_to_center = 75 / 2;
+        if (guy.position.x[1] < 100 + y_offset_to_center) {
+            int tile_location = ((int)guy.position.x[0] + x_offset_to_center) / 32;
+            if (tile_location < 15) {
+                int tile_index = test_tilemap[tile_location];
+                TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
+                int* heights = collision_heights->top2down;
+                int x_position_within_tile = (guy.position.x[0] + x_offset_to_center) - tile_location * 32;
+
+                guy.position.x[1] = (100 - 32) + heights[x_position_within_tile] + y_offset_to_center;
+                dy = 0;
+            }
         }
 
         // Test sound effect
@@ -185,6 +196,12 @@ int main(int argc, char** argv) {
 
         // Draw!!! Finally!!!
         SDL_RenderClear(renderer);
+
+        for (int i = 0; i < 15; i++) {
+            SDL_Rect src = { test_tilemap[i] * 32, 0, 32, 32 };
+            SDL_Rect dest = { i * 32, window_height - 100, 32, 32 };
+            SDL_RenderCopy(renderer, tiles, &src, &dest);
+        }
 
         SDL_Rect src = { animation_frame * 90, 0, 90, 90 };
         // The dude's center of mass is still at the corner.
