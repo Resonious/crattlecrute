@@ -10,6 +10,13 @@
 #endif
 typedef unsigned char byte;
 
+#define BENCH_START Uint64 before = SDL_GetPerformanceCounter();
+#define BENCH_END \
+    Uint64 after = SDL_GetPerformanceCounter();\
+    Uint64 ticks = after - before;\
+    double seconds = (double)ticks / (double)SDL_GetPerformanceFrequency();\
+    DebugBreak();
+
 union vec4 {
     __m128 simd;
     float x[4];
