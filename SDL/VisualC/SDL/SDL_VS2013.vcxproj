@@ -151,7 +151,7 @@
       <Command>ruby $(SolutionDir)..\..\compile_assets.rb</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>cp "$(TargetPath)" "$(SolutionDir)..\..\build\$(ProjectName)-$(Configuration).exe"</Command>
+      <Command>copy "$(TargetPath)" "$(SolutionDir)..\..\build\$(ProjectName)-$(Configuration).exe"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
