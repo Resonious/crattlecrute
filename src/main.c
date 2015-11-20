@@ -55,11 +55,24 @@ int main(int argc, char** argv) {
     guy.position.x[1] = 500.0f;
 
     // Testing tiles (for physics, mainly)!!!!
-    const int num_tiles = 15;
-    // just one dimensional for now... to test slopes.
-    int test_tilemap[15] = {
-        0,0,0,0,0,0,0,1,2,2,2,3,0,0,0
+    int test_tilemap[] = {
+        6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,
+        6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,
+        9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
+        9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
+        9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
+        9,-1,-1,-1,-1,-1,1,2,11,10,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
+        9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
+        9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
+        9,1,2,11,10,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
+        9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
+        9,-1,-1,-1,-1,-1,-1,-1,1,2,0,0,0,0,11,10,-1,-1,-1,9,
+        9,-1,-1,-1,-1,-1,1,2,3,9,-1,-1,-1,-1,-1,12,11,-1,-1,9,
+        9,-1,-1,-1,1,13,3,9,4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
+        9,0,0,0,3,4,4,4,9,11,10,-1,-1,-1,-1,-1,-1,-1,-1,9,
+        9,4,4,9,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,9
     };
+
 
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
     open_assets_file();
@@ -173,18 +186,22 @@ int main(int argc, char** argv) {
             dy = 0;
         }
         // Test out tile collision!!!
-        const int y_offset_to_center = 75;
-        const int x_offset_to_center = 75 / 2;
-        if (guy.position.x[1] < 100 + y_offset_to_center) {
-            int tile_location = ((int)guy.position.x[0] + x_offset_to_center) / 32;
-            if (tile_location < 15) {
-                int tile_index = test_tilemap[tile_location];
-                TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
-                int* heights = collision_heights->top2down;
-                int x_position_within_tile = (guy.position.x[0] + x_offset_to_center) - tile_location * 32;
-
-                guy.position.x[1] = (100 - 32) + heights[x_position_within_tile] + y_offset_to_center;
-                dy = 0;
+        {
+            const int y_offset_to_center = 75;
+            const int x_offset_to_center = 75 / 2;
+            const int guy_x = (int)guy.position.x[0] + x_offset_to_center;
+            const int guy_y = (int)guy.position.x[1] - y_offset_to_center;
+            const int tile_x = guy_x / 32;
+            const int tile_y = (window_height - guy_y) / 32;
+            if (tile_y >= 0 && tile_y < 15 && tile_x >= 0 && tile_x < 20) {
+                const int tile_index = test_tilemap[tile_y * 20 + tile_x];
+                if (tile_index >= 0) {
+                    TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
+                    int* heights = collision_heights->top2down;
+                    int x_position_within_tile = guy_x - tile_x * 32;
+                    guy.position.x[1] = (window_height - tile_y * 32 - 32) + heights[x_position_within_tile] + y_offset_to_center;
+                    dy = 0;
+                }
             }
         }
 
@@ -197,10 +214,27 @@ int main(int argc, char** argv) {
         // Draw!!! Finally!!!
         SDL_RenderClear(renderer);
 
-        for (int i = 0; i < 15; i++) {
-            SDL_Rect src = { test_tilemap[i] * 32, 0, 32, 32 };
-            SDL_Rect dest = { i * 32, window_height - 100, 32, 32 };
-            SDL_RenderCopy(renderer, tiles, &src, &dest);
+        for (int i = 0; i < 20; i++) {
+            for (int j = 0; j < 15; j++) {
+                int tile_index = test_tilemap[j * 20 + i];
+                if (tile_index == -1) continue;
+
+                SDL_Rect src = { 0, 0, 32, 32 };
+                // Hack this since we don't yet have a way to know the dimensions of the tile image
+                if (tile_index >= 8) {
+                    src.x = tile_index - 8;
+                    src.y = 1;
+                }
+                else {
+                    src.x = tile_index;
+                    src.y = 0;
+                }
+                src.x *= 32;
+                src.y *= 32;
+                SDL_Rect dest = { i * 32, j * 32, 32, 32 };
+
+                SDL_RenderCopy(renderer, tiles, &src, &dest);
+            }
         }
 
         SDL_Rect src = { animation_frame * 90, 0, 90, 90 };

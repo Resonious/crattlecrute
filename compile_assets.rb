@@ -66,7 +66,7 @@ all_files.each do |file|
           found = false
           (0...32).each do |y|
             pixel = pixel_at[x, y]
-            if pixel != 0xFFFFFF00
+            if (pixel & 0x000000FF) != 0
               collision.top2down << 32 - y
               found = true and break # out of this y-scan to find the next y
             end
@@ -79,7 +79,7 @@ all_files.each do |file|
           found = false
           (0...32).reverse_each do |y|
             pixel = pixel_at[x, y]
-            if pixel != 0xFFFFFF00
+            if (pixel & 0x000000FF) != 0
               collision.bottom2up << 32 - y
               found = true and break # out of this y-scan to find the next y
             end
@@ -92,7 +92,7 @@ all_files.each do |file|
           found = false
           (0...32).each do |x|
             pixel = pixel_at[x, y]
-            if pixel != 0xFFFFFF00
+            if (pixel & 0x000000FF) != 0
               collision.left2right << x
               found = true and break # out of this x-scan to find the next x
             end
@@ -105,7 +105,7 @@ all_files.each do |file|
           found = false
           (0...32).reverse_each do |x|
             pixel = pixel_at[x, y]
-            if pixel != 0xFFFFFF00
+            if (pixel & 0x000000FF) != 0
               collision.right2left << x
               found = true and break # out of this x-scan to find the next x
             end
@@ -148,7 +148,7 @@ header.write(
 )
 all_collision_data.each do |file, heights|
   file = file.gsub(/^.*[\/\\]assets[\/\\]/, '').gsub(/\.collision\.png/, '')
-  header.write("const static TileHeights COLLISION_#{ident(file)}[#{heights.size}] = {\n")
+  header.write("const static TileHeights COLLISION_#{ident(file)}[] = {\n")
 
   heights.each do |collision|
     header.write("    {\n")
