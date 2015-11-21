@@ -1,8 +1,12 @@
 require_relative 'compile_assets.rb'
 
 def debug_flags
-    return if ARGV.include? 'release'
-    '-g -O0'
+    if ARGV.include? 'release'
+      # TODO benchmark/compare O2 and O3 performance
+      '-O2 -DNDEBUG'
+    else
+      '-g -O0 -D_DEBUG'
+    end
 end
 
 if ARGV.include? 'noembed'
