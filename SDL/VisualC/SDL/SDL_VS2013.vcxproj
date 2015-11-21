@@ -242,6 +242,8 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\src\assets.h" />
     <ClInclude Include="..\..\..\src\dxsdkver.h" />
+    <ClInclude Include="..\..\..\src\game.h" />
+    <ClInclude Include="..\..\..\src\scene.h" />
     <ClInclude Include="..\..\..\src\sound.h" />
     <ClInclude Include="..\..\..\src\types.h" />
     <ClInclude Include="..\..\..\STB\stb_image.h" />
@@ -382,6 +384,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\src\assets.c" />
     <ClCompile Include="..\..\..\src\main.c" />
+    <ClCompile Include="..\..\..\src\scene_test.c" />
     <ClCompile Include="..\..\..\src\sound.c" />
     <ClCompile Include="..\..\src\core\windows\SDL_windows.c" />
     <ClCompile Include="..\..\src\dynapi\SDL_dynapi.c" />
