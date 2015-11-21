@@ -32,11 +32,11 @@ typedef struct {
     union vec4 position;
     float ground_speed;
     float ground_speed_max;
+    float ground_acceleration;
+    float ground_deceleration;
 } Character;
 
 int main(int argc, char** argv) {
-    test_vec2_no_simd();
-    test_vec2_simd();
     SDL_Window* window;
     SDL_Renderer* renderer;
     AudioQueue audio;
@@ -49,8 +49,23 @@ int main(int argc, char** argv) {
     Character guy;
     guy.ground_speed = 0.0f;
     guy.ground_speed_max = 6.0f;
+    guy.ground_acceleration = 1.15f;
+    guy.ground_deceleration = 1.1f;
     guy.position.simd = _mm_set1_ps(10.0f);
     guy.position.x[1] = 500.0f;
+
+    // Testing tiles (for physics, mainly)!!!!
+    const int num_tiles = 15;
+    // just one dimensional for now... to test slopes.
+    int test_tilemap[15] = {
+        0,0,0,0,0,0,0,1,2,2,2,3,0,0,0
+    };
+    int heights0[] = {
+        12, 12, 12, 12, 12, 12, 12, 12,
+        12, 12, 12, 12, 12, 12, 12, 12,
+        12, 12, 12, 12, 12, 12, 12, 12,
+        12, 12, 12, 12, 12, 12, 12, 12
+    };
 
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
     open_assets_file();
@@ -71,11 +86,9 @@ int main(int argc, char** argv) {
 
     SDL_Texture* textures[3] = {
         load_texture(renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG),
-        load_texture_with_color_change(renderer, ASSET_CRATTLECRUTE_BODY_PNG, 0xFFFF9400, 0xFFFF0000),
+        load_texture(renderer, ASSET_CRATTLECRUTE_BODY_PNG),
         load_texture(renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG)
     };
-
-    SDL_Texture* testbody = load_texture(renderer, ASSET_CRATTLECRUTE_BODY_PNG);
 
     // TODO oh god testing audio
     AudioWave* wave = open_and_play_music(&audio);
@@ -121,11 +134,11 @@ int main(int argc, char** argv) {
         dy -= gravity; // times 1 frame
         // Get accelerations from controls
         if (controls.this_frame[C_LEFT]) {
-            guy.ground_speed -= 1.5f;
+            guy.ground_speed -= guy.ground_acceleration;
             flip = SDL_FLIP_HORIZONTAL;
         }
         if (controls.this_frame[C_RIGHT]) {
-            guy.ground_speed += 1.5f;
+            guy.ground_speed += guy.ground_acceleration;
             flip = SDL_FLIP_NONE;
         }
         if (just_pressed(&controls, C_UP)) {
@@ -133,12 +146,12 @@ int main(int argc, char** argv) {
         }
         if (!controls.this_frame[C_LEFT] && !controls.this_frame[C_RIGHT]) {
             if (guy.ground_speed > 0) {
-                guy.ground_speed -= 1.1f;
+                guy.ground_speed -= guy.ground_deceleration;
                 if (guy.ground_speed < 0)
                     guy.ground_speed = 0;
             }
             else if (guy.ground_speed < 0) {
-                guy.ground_speed += 1.1f;
+                guy.ground_speed += guy.ground_deceleration;
                 if (guy.ground_speed > 0)
                     guy.ground_speed = 0;
             }
@@ -184,8 +197,6 @@ int main(int argc, char** argv) {
         else animation_frame = 0;
         for (int i = 0; i < 3; i++)
             SDL_RenderCopyEx(renderer, textures[i], &src, &dest, 0, NULL, flip);
-        dest.x -= 90;
-        SDL_RenderCopyEx(renderer, testbody, &src, &dest, 0, NULL, flip);
 
         SDL_RenderPresent(renderer);
 
