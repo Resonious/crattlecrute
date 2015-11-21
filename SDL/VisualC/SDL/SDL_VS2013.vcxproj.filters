@@ -288,6 +288,9 @@
     <ClInclude Include="..\..\..\src\game.h">
       <Filter>game</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\STB\stb_truetype.h">
+      <Filter>stb</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\..\src\main\windows\version.rc" />

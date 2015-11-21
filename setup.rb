@@ -70,6 +70,11 @@ download(
   File.join(destination_path, "STB", "stb_vorbis.c"),
   "Downloading stb_vorbis"
 )
+download(
+  URI("https://raw.githubusercontent.com/nothings/stb/master/stb_truetype.h"),
+  File.join(destination_path, "STB", "stb_truetype.c"),
+  "Downloading stb_truetype"
+)
 
 # Actually download SDL
 begin

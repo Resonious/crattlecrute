@@ -247,6 +247,7 @@
     <ClInclude Include="..\..\..\src\sound.h" />
     <ClInclude Include="..\..\..\src\types.h" />
     <ClInclude Include="..\..\..\STB\stb_image.h" />
+    <ClInclude Include="..\..\..\STB\stb_truetype.h" />
     <ClInclude Include="..\..\..\win\embedded_assets.h" />
     <ClInclude Include="..\..\include\SDL.h" />
     <ClInclude Include="..\..\include\SDL_assert.h" />
