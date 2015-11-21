@@ -11,15 +11,36 @@
 // Disgusting global window variable so that I can shit out message boxes
 // from wherever I want.
 SDL_Window* main_window;
+Uint64 ticks_per_second;
+
+void switch_scene(Game* game, int to_scene) {
+    assert(to_scene >= 0);
+    assert(to_scene < sizeof(SCENES) / sizeof(Scene));
+
+    game->current_scene->cleanup(game->current_scene_data, game);
+    memset(game->current_scene_data, 0, SCENE_DATA_SIZE);
+
+    game->current_scene = &SCENES[to_scene];
+    game->current_scene->initialize(game->current_scene_data, game);
+    // TODO do an update here? (this is the only case where a render can happen WITHOUT an update preceding..)
+}
 
 int main(int argc, char** argv) {
+    ticks_per_second = SDL_GetPerformanceFrequency();
+
     Game game;
     memset(&game, 0, sizeof(Game));
     game.window_width = 640.0f;
     game.window_height = 480.0f;
 
-    Scene* current_scene = &SCENES[SCENE_TEST];
-    byte* current_scene_data = malloc(4096);
+#ifdef _DEBUG
+    // All scene ids should equal their index
+    for (int i = 0; i < sizeof(SCENES) / sizeof(Scene); i++)
+        assert(SCENES[i].id == i);
+#endif
+
+    game.current_scene = &SCENES[SCENE_TEST];
+    game.current_scene_data = malloc(SCENE_DATA_SIZE);
 
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
     open_assets_file();
@@ -44,11 +65,11 @@ int main(int argc, char** argv) {
     // Main loop bitch
     SDL_Event event;
     bool running = true;
-    Uint64 milliseconds_per_tick = 1000 / SDL_GetPerformanceFrequency();
+    Uint64 milliseconds_per_tick = 1000 / ticks_per_second;
     Uint64 last_frame_ms = 17;
     // test stuff
 
-    current_scene->initialize(current_scene_data, &game);
+    game.current_scene->initialize(game.current_scene_data, &game);
 
     while (running) {
         Uint64 frame_start = SDL_GetPerformanceCounter();
@@ -69,12 +90,13 @@ int main(int argc, char** argv) {
         game.controls.this_frame[C_DOWN]  = keys[SDL_SCANCODE_DOWN]  || keys[SDL_SCANCODE_S];
         game.controls.this_frame[C_LEFT]  = keys[SDL_SCANCODE_LEFT]  || keys[SDL_SCANCODE_A];
         game.controls.this_frame[C_RIGHT] = keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D];
+        game.controls.this_frame[C_F1]    = keys[SDL_SCANCODE_F1];
 
-        current_scene->update(current_scene_data, &game);
+        game.current_scene->update(game.current_scene_data, &game);
 
         // Draw!!! Finally!!!
         SDL_RenderClear(game.renderer);
-        current_scene->render(current_scene_data, &game);
+        game.current_scene->render(game.current_scene_data, &game);
         SDL_RenderPresent(game.renderer);
 
         // ======================= Cap Framerate =====================
@@ -86,10 +108,9 @@ int main(int argc, char** argv) {
         }
     }
 
-    current_scene->cleanup(current_scene_data, &game);
+    game.current_scene->cleanup(game.current_scene_data, &game);
     SDL_PauseAudio(true);
     SDL_DestroyWindow(game.window);
-    // The wave is malloced, and the samples are malloced by stb_vorbis.
 
     SDL_Quit();
     return 0;

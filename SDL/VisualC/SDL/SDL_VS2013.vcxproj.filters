@@ -134,6 +134,9 @@
     <ClCompile Include="..\..\..\src\scene_test.c">
       <Filter>game</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\scene_offset_viewer.c">
+      <Filter>game</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\dxsdkver.h" />

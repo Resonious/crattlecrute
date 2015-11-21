@@ -49,16 +49,23 @@ void scene_test_initialize(TestScene* data, Game* game) {
     data->dy = 0; // pixels per second
     data->jump_acceleration = 20.0f;
 
+    BENCH_START(loading_tiles)
     data->tiles = load_texture(game->renderer, ASSET_TERRAIN_TESTGROUND_PNG);
+    BENCH_END(loading_tiles)
 
+    BENCH_START(loading_crattle)
     data->textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
     data->textures[1] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BODY_PNG);
     data->textures[2] = load_texture(game->renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
+    BENCH_END(loading_crattle)
 
     // TODO oh god testing audio
+    BENCH_START(loading_sound)
     data->wave = open_and_play_music(&game->audio);
     data->test_sound = decode_ogg(ASSET_SOUNDS_EXPLOSION_OGG);
+    BENCH_END(loading_sound)
 }
+
 void scene_test_update(TestScene* s, Game* game) {
     // Test movement (for controls' sake)
     s->dy -= s->gravity; // times 1 frame
@@ -132,6 +139,9 @@ void scene_test_update(TestScene* s, Game* game) {
         game->audio.oneshot_waves[0] = &s->test_sound;
     }
 
+    // Swap to offset viewer on F1 press
+    if (just_pressed(&game->controls, C_F1))
+        switch_scene(game, SCENE_OFFSET_VIEWER);
 }
 
 void scene_test_render(TestScene* s, Game* game) {
@@ -178,6 +188,8 @@ void scene_test_cleanup(TestScene* data, Game* game) {
     SDL_DestroyTexture(data->textures[0]);
     SDL_DestroyTexture(data->textures[1]);
     SDL_DestroyTexture(data->textures[2]);
+    game->audio.oneshot_waves[0] = NULL;
+    game->audio.looped_waves[0] = NULL; // This is from open_and_play_music, which sucks and should be removed asap.
     free(data->wave->samples);
     free(data->wave);
     free(data->test_sound.samples); // This one is local to this function so only the samples are malloced.
