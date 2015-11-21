@@ -72,7 +72,7 @@ download(
 )
 download(
   URI("https://raw.githubusercontent.com/nothings/stb/master/stb_truetype.h"),
-  File.join(destination_path, "STB", "stb_truetype.c"),
+  File.join(destination_path, "STB", "stb_truetype.h"),
   "Downloading stb_truetype"
 )
 
