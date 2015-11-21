@@ -86,11 +86,19 @@ int main(int argc, char** argv) {
             }
         }
 
-        game.controls.this_frame[C_UP]    = keys[SDL_SCANCODE_UP]    || keys[SDL_SCANCODE_W];
-        game.controls.this_frame[C_DOWN]  = keys[SDL_SCANCODE_DOWN]  || keys[SDL_SCANCODE_S];
-        game.controls.this_frame[C_LEFT]  = keys[SDL_SCANCODE_LEFT]  || keys[SDL_SCANCODE_A];
-        game.controls.this_frame[C_RIGHT] = keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D];
-        game.controls.this_frame[C_F1]    = keys[SDL_SCANCODE_F1];
+        {
+            game.controls.this_frame[C_UP]    = keys[SDL_SCANCODE_UP];
+            game.controls.this_frame[C_DOWN]  = keys[SDL_SCANCODE_DOWN];
+            game.controls.this_frame[C_LEFT]  = keys[SDL_SCANCODE_LEFT];
+            game.controls.this_frame[C_RIGHT] = keys[SDL_SCANCODE_RIGHT];
+
+            game.controls.this_frame[C_W] = keys[SDL_SCANCODE_W];
+            game.controls.this_frame[C_S] = keys[SDL_SCANCODE_S];
+            game.controls.this_frame[C_A] = keys[SDL_SCANCODE_A];
+            game.controls.this_frame[C_D] = keys[SDL_SCANCODE_D];
+
+            game.controls.this_frame[C_F1] = keys[SDL_SCANCODE_F1];
+        }
 
         game.current_scene->update(game.current_scene_data, &game);
 

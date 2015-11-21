@@ -162,9 +162,11 @@ all_collision_data.each do |file, heights|
   header.write("};\n\n")
 end
 
+# NOTE that at this point, `all_files` does not actually contain ALL files..
 all_files.each_with_index do |file, index|
   header.write("const static int ASSET_#{ident(file)} = #{index};\n")
 end
+header.write("const static int NUMBER_OF_ASSETS = #{all_files.size};\n")
 
 assets.close
 header.close

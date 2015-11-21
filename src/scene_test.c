@@ -5,7 +5,6 @@ typedef struct {
     float terminal_velocity;
     Character guy;
     SDL_Texture* tiles;
-    SDL_Texture* textures[3];
     AudioWave* wave;
     AudioWave test_sound;
     int animation_frame;
@@ -37,6 +36,7 @@ void scene_test_initialize(TestScene* data, Game* game) {
     // Testing physics!!!!
     data->gravity = 1.15f; // In pixels per frame per frame
     data->terminal_velocity = 14.3f;
+
     data->guy.ground_speed = 0.0f;
     data->guy.ground_speed_max = 6.0f;
     data->guy.ground_acceleration = 1.15f;
@@ -54,9 +54,9 @@ void scene_test_initialize(TestScene* data, Game* game) {
     BENCH_END(loading_tiles)
 
     BENCH_START(loading_crattle)
-    data->textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
-    data->textures[1] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BODY_PNG);
-    data->textures[2] = load_texture(game->renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
+    data->guy.textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
+    data->guy.textures[1] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BODY_PNG);
+    data->guy.textures[2] = load_texture(game->renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
     BENCH_END(loading_crattle)
 
     // TODO oh god testing audio
@@ -179,15 +179,15 @@ void scene_test_render(TestScene* s, Game* game) {
     }
     else s->animation_frame = 0;
     for (int i = 0; i < 3; i++)
-        SDL_RenderCopyEx(game->renderer, s->textures[i], &src, &dest, 0, NULL, s->flip);
+        SDL_RenderCopyEx(game->renderer, s->guy.textures[i], &src, &dest, 0, NULL, s->flip);
 
 }
 
 void scene_test_cleanup(TestScene* data, Game* game) {
     SDL_DestroyTexture(data->tiles);
-    SDL_DestroyTexture(data->textures[0]);
-    SDL_DestroyTexture(data->textures[1]);
-    SDL_DestroyTexture(data->textures[2]);
+    SDL_DestroyTexture(data->guy.textures[0]);
+    SDL_DestroyTexture(data->guy.textures[1]);
+    SDL_DestroyTexture(data->guy.textures[2]);
     game->audio.oneshot_waves[0] = NULL;
     game->audio.looped_waves[0] = NULL; // This is from open_and_play_music, which sucks and should be removed asap.
     free(data->wave->samples);
