@@ -76,6 +76,23 @@ AssetFile load_asset(int asset) {
 }
 #endif // EMBEDDED_ASSETS
 
+// only used within this file...
+static SDL_Surface* makesurface(byte* image, int width, int height) {
+    SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
+        image, width, height, 32, width * 4,
+#if SDL_BYTEORDER == SDL_LIL_ENDIAN
+        0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000
+#else
+        0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF
+#endif
+    );
+#ifdef _DEBUG
+    if (surface == NULL) {
+        SDL_ShowSimpleMessageBox(0, "BAD SURFACE!", SDL_GetError(), main_window);
+    }
+#endif
+    return surface;
+}
 
 SDL_Surface* load_image(int asset) {
     // leak when using asset file........
@@ -86,14 +103,7 @@ SDL_Surface* load_image(int asset) {
     if (image == NULL)
         SDL_ShowSimpleMessageBox(0, "YO!", "Couldn't load this image", main_window);
 
-    return SDL_CreateRGBSurfaceFrom(
-        image, width, height, 32, width * 4,
-#if SDL_BYTEORDER == SDL_LIL_ENDIAN
-        0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000
-#else
-        0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF
-#endif
-    );
+    return makesurface(image, width, height);
 }
 
 SDL_Texture* load_texture(SDL_Renderer* renderer, int asset) {

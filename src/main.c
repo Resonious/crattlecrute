@@ -2,9 +2,8 @@
 #include <malloc.h>
 #include <errno.h>
 #define STB_IMAGE_IMPLEMENTATION
-#define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_image.h"
-#include "stb_truetype.h"
+#undef STB_IMAGE_IMPLEMENTATION
 #include "game.h"
 #include "scene.h"
 

@@ -3,6 +3,8 @@
 typedef struct {
     Character crattlecrute;
     int scale;
+    SDL_Texture* font_tex;
+    int font_padding;
 } OffsetViewer;
 
 void scene_offset_viewer_initialize(OffsetViewer* data, Game* game) {
@@ -14,6 +16,9 @@ void scene_offset_viewer_initialize(OffsetViewer* data, Game* game) {
     sensor[2] = 90; sensor[3] = 0;
 
     data->scale = 5;
+// font image is 320x448
+    data->font_tex = load_texture(game->renderer, ASSET_FONT_FONT_PNG);
+    data->font_padding = 1;
 }
 void scene_offset_viewer_update(OffsetViewer* s, Game* game) {
     if (just_pressed(&game->controls, C_UP))
@@ -36,6 +41,18 @@ void scene_offset_viewer_update(OffsetViewer* s, Game* game) {
 
     if (just_pressed(&game->controls, C_F1))
         switch_scene(game, SCENE_TEST);
+}
+static void drawtext(Game* game, OffsetViewer* s, int x, int y, char* text) {
+    while (*text) {
+        // font image is 320x448
+        int char_index = *text;
+        SDL_Rect glyph = { (char_index % 16) * 20, (char_index / 16) * 28, 20, 28 };
+        SDL_Rect drawto = { x, game->window_height - y, 20, 28 };
+        SDL_RenderCopy(game->renderer, s->font_tex, &glyph, &drawto);
+
+        x += 20 + s->font_padding;
+        text++;
+    }
 }
 void scene_offset_viewer_render(OffsetViewer* s, Game* game) {
     int scale = s->scale;
@@ -69,6 +86,12 @@ void scene_offset_viewer_render(OffsetViewer* s, Game* game) {
     SDL_RenderFillRect(game->renderer, &offset);
 
     SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
+
+    float theta = (float)game->frame_count / 10.0f;
+    int color_mod = SDL_SetTextureColorMod(s->font_tex, 255, 127 + (Uint8)(sin(theta) * 128), 0);
+    SDL_assert(color_mod == 0);
+    drawtext(game, s, 10, game->window_height - 20, "HELLO THERE __ BUDDY\\");
+    SDL_SetTextureColorMod(s->font_tex, 1, 1, 1);
 }
 void scene_offset_viewer_cleanup(OffsetViewer* data, Game* game) {
     SDL_DestroyTexture(data->crattlecrute.textures[0]);
