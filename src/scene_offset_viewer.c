@@ -52,7 +52,7 @@ static void drawtext(Game* game, OffsetViewer* s, int x, int y, char* text, floa
         drawto.h = (int)roundf((float)drawto.h * scale);
         SDL_RenderCopy(game->renderer, s->font_tex, &glyph, &drawto);
 
-        x += 20 + s->font_padding;
+        x += (int)((float)(20 + s->font_padding) * scale);
         text++;
     }
 }
