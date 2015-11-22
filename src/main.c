@@ -96,6 +96,7 @@ int main(int argc, char** argv) {
             game.controls.this_frame[C_A] = keys[SDL_SCANCODE_A];
             game.controls.this_frame[C_D] = keys[SDL_SCANCODE_D];
 
+            game.controls.this_frame[C_SPACE] = keys[SDL_SCANCODE_SPACE];
             game.controls.this_frame[C_F1] = keys[SDL_SCANCODE_F1];
         }
 
