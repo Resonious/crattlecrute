@@ -7,7 +7,8 @@ typedef struct {
     int font_padding;
 } OffsetViewer;
 
-void scene_offset_viewer_initialize(OffsetViewer* data, Game* game) {
+void scene_offset_viewer_initialize(void* vdata, Game* game) {
+    OffsetViewer* data = (OffsetViewer*)vdata;
     data->crattlecrute.textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
     data->crattlecrute.textures[1] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BODY_PNG);
     data->crattlecrute.textures[2] = load_texture(game->renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
@@ -18,7 +19,8 @@ void scene_offset_viewer_initialize(OffsetViewer* data, Game* game) {
     data->font_tex = load_texture(game->renderer, ASSET_FONT_FONT_PNG);
     data->font_padding = -1;
 }
-void scene_offset_viewer_update(OffsetViewer* s, Game* game) {
+void scene_offset_viewer_update(void* vs, Game* game) {
+    OffsetViewer* s = (OffsetViewer*)vs;
     if (just_pressed(&game->controls, C_UP))
         s->crattlecrute.left_sensors.x[3] += 1;
     if (just_pressed(&game->controls, C_DOWN))
@@ -40,7 +42,8 @@ void scene_offset_viewer_update(OffsetViewer* s, Game* game) {
     if (just_pressed(&game->controls, C_F1))
         switch_scene(game, SCENE_TEST);
 }
-void scene_offset_viewer_render(OffsetViewer* s, Game* game) {
+void scene_offset_viewer_render(void* vs, Game* game) {
+    OffsetViewer* s = (OffsetViewer*)vs;
     int scale = s->scale;
 
     SDL_Rect src = { 0 * 90, 0, 90, 90 };
@@ -88,7 +91,8 @@ void scene_offset_viewer_render(OffsetViewer* s, Game* game) {
     set_text_color(game, 255, 127 + (Uint8)(sin(theta) * 128), 0);
     draw_text_ex_f(game, 10, game->window_height - 20, -3, 1.5f, "%c Very nice TEXT..!", (char)26);
 }
-void scene_offset_viewer_cleanup(OffsetViewer* data, Game* game) {
+void scene_offset_viewer_cleanup(void* vdata, Game* game) {
+    OffsetViewer* data = (OffsetViewer*)vdata;
     SDL_DestroyTexture(data->crattlecrute.textures[0]);
     SDL_DestroyTexture(data->crattlecrute.textures[1]);
     SDL_DestroyTexture(data->crattlecrute.textures[2]);

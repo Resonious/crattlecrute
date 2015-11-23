@@ -32,7 +32,8 @@ static const int test_tilemap[] = {
     9,4,4,9,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,9
 };
 
-void scene_test_initialize(TestScene* data, Game* game) {
+void scene_test_initialize(void* vdata, Game* game) {
+    TestScene* data = (TestScene*)vdata;
     // Testing physics!!!!
     data->gravity = 1.15f; // In pixels per frame per frame
     data->terminal_velocity = 14.3f;
@@ -63,7 +64,8 @@ void scene_test_initialize(TestScene* data, Game* game) {
     BENCH_END(loading_sound)
 }
 
-void scene_test_update(TestScene* s, Game* game) {
+void scene_test_update(void* vs, Game* game) {
+    TestScene* s = (TestScene*)vs;
     // Test movement (for controls' sake)
     s->dy -= s->gravity; // times 1 frame
     // Get accelerations from controls
@@ -364,7 +366,8 @@ void scene_test_update(TestScene* s, Game* game) {
         switch_scene(game, SCENE_OFFSET_VIEWER);
 }
 
-void scene_test_render(TestScene* s, Game* game) {
+void scene_test_render(void* vs, Game* game) {
+    TestScene* s = (TestScene*)vs;
     // Draw tiles!
     // DEBUG: b-sensor 1 tile index
     int sense_x = s->guy.position.x[0] + s->guy.bottom_sensors.x[0];
@@ -514,7 +517,8 @@ void scene_test_render(TestScene* s, Game* game) {
     SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
 }
 
-void scene_test_cleanup(TestScene* data, Game* game) {
+void scene_test_cleanup(void* vdata, Game* game) {
+    TestScene* data = (TestScene*)vdata;
     SDL_DestroyTexture(data->tiles);
     SDL_DestroyTexture(data->guy.textures[0]);
     SDL_DestroyTexture(data->guy.textures[1]);
