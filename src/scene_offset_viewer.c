@@ -11,9 +11,7 @@ void scene_offset_viewer_initialize(OffsetViewer* data, Game* game) {
     data->crattlecrute.textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
     data->crattlecrute.textures[1] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BODY_PNG);
     data->crattlecrute.textures[2] = load_texture(game->renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
-    int* sensor = data->crattlecrute.bottom_sensors.x;
-    sensor[0] = 0;  sensor[1] = 0;
-    sensor[2] = 90; sensor[3] = 0;
+    default_character(&data->crattlecrute);
 
     data->scale = 5;
 // font image is 320x448
@@ -22,39 +20,25 @@ void scene_offset_viewer_initialize(OffsetViewer* data, Game* game) {
 }
 void scene_offset_viewer_update(OffsetViewer* s, Game* game) {
     if (just_pressed(&game->controls, C_UP))
-        s->crattlecrute.bottom_sensors.x[3] += 1;
+        s->crattlecrute.left_sensors.x[3] += 1;
     if (just_pressed(&game->controls, C_DOWN))
-        s->crattlecrute.bottom_sensors.x[3] -= 1;
+        s->crattlecrute.left_sensors.x[3] -= 1;
     if (just_pressed(&game->controls, C_LEFT))
-        s->crattlecrute.bottom_sensors.x[2] -= 1;
+        s->crattlecrute.left_sensors.x[2] -= 1;
     if (just_pressed(&game->controls, C_RIGHT))
-        s->crattlecrute.bottom_sensors.x[2] += 1;
+        s->crattlecrute.left_sensors.x[2] += 1;
 
     if (just_pressed(&game->controls, C_W))
-        s->crattlecrute.bottom_sensors.x[1] += 1;
+        s->crattlecrute.left_sensors.x[1] += 1;
     if (just_pressed(&game->controls, C_S))
-        s->crattlecrute.bottom_sensors.x[1] -= 1;
+        s->crattlecrute.left_sensors.x[1] -= 1;
     if (just_pressed(&game->controls, C_A))
-        s->crattlecrute.bottom_sensors.x[0] -= 1;
+        s->crattlecrute.left_sensors.x[0] -= 1;
     if (just_pressed(&game->controls, C_D))
-        s->crattlecrute.bottom_sensors.x[0] += 1;
+        s->crattlecrute.left_sensors.x[0] += 1;
 
     if (just_pressed(&game->controls, C_F1))
         switch_scene(game, SCENE_TEST);
-}
-static void drawtext(Game* game, OffsetViewer* s, int x, int y, char* text, float scale) {
-    while (*text) {
-        // font image is 320x448
-        int char_index = *text;
-        SDL_Rect glyph = { (char_index % 16) * 20, (char_index / 16) * 28, 20, 28 };
-        SDL_Rect drawto = { x, game->window_height - y, 20, 28 };
-        drawto.w = (int)roundf((float)drawto.w * scale);
-        drawto.h = (int)roundf((float)drawto.h * scale);
-        SDL_RenderCopy(game->renderer, s->font_tex, &glyph, &drawto);
-
-        x += (int)((float)(20 + s->font_padding) * scale);
-        text++;
-    }
 }
 void scene_offset_viewer_render(OffsetViewer* s, Game* game) {
     int scale = s->scale;
@@ -77,31 +61,32 @@ void scene_offset_viewer_render(OffsetViewer* s, Game* game) {
     SDL_Rect offset = { 0, 0, scale, scale };
 
     // Draw bottom sensor 1
-    offset.x = dest.x + s->crattlecrute.bottom_sensors.x[0] * scale;
-    offset.y = game->window_height - (dest.y + s->crattlecrute.bottom_sensors.x[1] * scale);
+    offset.x = dest.x + s->crattlecrute.left_sensors.x[0] * scale;
+    offset.y = game->window_height - (dest.y + s->crattlecrute.left_sensors.x[1] * scale);
     SDL_SetRenderDrawColor(game->renderer, 255, 100, 100, 255);
     SDL_RenderFillRect(game->renderer, &offset);
-    SDL_SetTextureColorMod(s->font_tex, 255, 100, 100);
-    char str[32];
-    SDL_snprintf(str, 32, "(%i,%i)", s->crattlecrute.bottom_sensors.x[0], s->crattlecrute.bottom_sensors.x[1]);
-    drawtext(game, s, 50, 50, str, 0.8f);
+    set_text_color(game, 255, 100, 100);
+    draw_text_ex_f(
+        game, 50, 50, -1, 0.8f, "(%i,%i)",
+        s->crattlecrute.left_sensors.x[0], s->crattlecrute.left_sensors.x[1]
+    );
 
     // Draw bottom sensor 2
-    offset.x = dest.x + s->crattlecrute.bottom_sensors.x[2] * scale;
-    offset.y = game->window_height - (dest.y + s->crattlecrute.bottom_sensors.x[3] * scale);
+    offset.x = dest.x + s->crattlecrute.left_sensors.x[2] * scale;
+    offset.y = game->window_height - (dest.y + s->crattlecrute.left_sensors.x[3] * scale);
     SDL_SetRenderDrawColor(game->renderer, 100, 100, 255, 255);
     SDL_RenderFillRect(game->renderer, &offset);
-    SDL_SetTextureColorMod(s->font_tex, 100, 100, 255);
-    SDL_snprintf(str, 32, "(%i,%i)", s->crattlecrute.bottom_sensors.x[2], s->crattlecrute.bottom_sensors.x[3]);
-    drawtext(game, s, game->window_width - 150, 50, str, 0.8f);
+    set_text_color(game, 100, 100, 255);
+    draw_text_ex_f(
+        game, game->window_width - 150, 50, -1, 0.8f, "(%i,%i)",
+        s->crattlecrute.left_sensors.x[2], s->crattlecrute.left_sensors.x[3]
+    );
 
     SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
 
     float theta = (float)game->frame_count / 10.0f;
-    int color_mod = SDL_SetTextureColorMod(s->font_tex, 255, 127 + (Uint8)(sin(theta) * 128), 0);
-    SDL_assert(color_mod == 0);
-    SDL_snprintf(str, 32, "%c Very nice TEXT..!", (char)25);
-    drawtext(game, s, 10, game->window_height - 20, str, 1.5f);
+    set_text_color(game, 255, 127 + (Uint8)(sin(theta) * 128), 0);
+    draw_text_ex_f(game, 10, game->window_height - 20, -3, 1.5f, "%c Very nice TEXT..!", (char)26);
 }
 void scene_offset_viewer_cleanup(OffsetViewer* data, Game* game) {
     SDL_DestroyTexture(data->crattlecrute.textures[0]);

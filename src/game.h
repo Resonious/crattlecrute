@@ -32,25 +32,61 @@ typedef struct {
     Controls controls;
     float window_width, window_height;
     Uint64 frame_count;
+    SDL_Texture* font;
     // Remember to #include "scene.h" if you're gonna use this.
     struct Scene* current_scene;
     void* current_scene_data;
 } Game;
 
+// Switch to a new scene (COMING SOON: fade to scene!?)
 void switch_scene(Game* game, int to_scene);
+
+// === Text functions ===
+
+#define set_text_color(game, r, g, b) SDL_SetTextureColorMod((game)->font, (r), (g), (b));
+void draw_text_ex(Game* game, int x, int y, char* text, int padding, float scale);
+void draw_text(Game* game, int x, int y, char* text);
+#define draw_text_ex_f(game, x, y, padding, scale, fmttext, ...)\
+    {\
+        char _strbuf[sizeof(fmttext) * 2];\
+        SDL_snprintf(_strbuf, sizeof(_strbuf), fmttext, __VA_ARGS__);\
+        draw_text_ex(game, x, y, _strbuf, padding, scale);\
+    }
+#define draw_text_f(game, x, y, fmttext, ...)\
+    {\
+        char _strbuf[sizeof(fmttext) * 2];\
+        SDL_snprintf(_strbuf, sizeof(_strbuf), fmttext, __VA_ARGS__);\
+        draw_text(game, x, y, _strbuf);\
+    }
+// For those REALLY dire situations...
+#define draw_text_ex_f_len(game, x, y, padding, scale, buflen, fmttext, ...)\
+    {\
+        char _strbuf[buflen];\
+        SDL_snprintf(_strbuf, buflen, fmttext, __VA_ARGS__);\
+        draw_text_ex(game, x, y, _strbuf, padding, scale);\
+    }
 
 typedef struct {
     // (x[0] left to right, x[1] down to up)
     vec4 position;
 
     // (x[0], x[1])  (x[2], x[3])
+    vec4i top_sensors;
+    // (x[0], x[1])  (x[2], x[3])
     vec4i bottom_sensors;
+    // (x[0], x[1])  (x[2], x[3])
+    vec4i left_sensors;
+    // (x[0], x[1])  (x[2], x[3])
+    vec4i right_sensors;
 
     float ground_speed;
     float ground_speed_max;
     float ground_acceleration;
     float ground_deceleration;
     SDL_Texture* textures[3];
+    int width, height;
 } Character;
+
+void default_character(Character* target);
 
 #endif

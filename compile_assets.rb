@@ -93,7 +93,7 @@ all_files.each do |file|
           (0...32).each do |x|
             pixel = pixel_at[x, y]
             if (pixel & 0x000000FF) != 0
-              collision.left2right << x
+              collision.left2right << 32 - x
               found = true and break # out of this x-scan to find the next x
             end
           end
@@ -142,8 +142,8 @@ header.write(
   "typedef struct {\n"\
   "    int top2down[32];\n"\
   "    int bottom2up[32];\n"\
-  "    int left2right[32];\n"\
   "    int right2left[32];\n"\
+  "    int left2right[32];\n"\
   "} TileHeights;\n\n"
 )
 all_collision_data.each do |file, heights|
@@ -154,6 +154,8 @@ all_collision_data.each do |file, heights|
     header.write("    {\n")
     header.write("        { #{collision.top2down.join(', ')} },\n")
     header.write("        { #{collision.bottom2up.join(', ')} },\n")
+    # NOTE we wright left2right and right2left in opposite order. It's more intuitive here to say
+    # that we _SCAN_ left to right, but this results in a _HEIGHT_ from right to left.
     header.write("        { #{collision.left2right.join(', ')} },\n")
     header.write("        { #{collision.right2left.join(', ')} }\n\n")
     header.write("    },\n")

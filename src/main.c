@@ -24,6 +24,61 @@ void switch_scene(Game* game, int to_scene) {
     // TODO do an update here? (this is the only case where a render can happen WITHOUT an update preceding..)
 }
 
+void draw_text_ex(Game* game, int x, int y, char* text, int padding, float scale) {
+    while (*text) {
+        // font image is 320x448
+        int char_index = *text;
+        SDL_Rect glyph = { (char_index % 16) * 20, (char_index / 16) * 28, 20, 28 };
+        SDL_Rect drawto = { x, game->window_height - y, 20, 28 };
+        drawto.w = (int)roundf((float)drawto.w * scale);
+        drawto.h = (int)roundf((float)drawto.h * scale);
+        SDL_RenderCopy(game->renderer, game->font, &glyph, &drawto);
+
+        x += 20.0f * scale + padding;
+        text++;
+    }
+}
+void draw_text(Game* game, int x, int y, char* text) {
+    draw_text_ex(game, x, y, text, -1, 1.0f);
+}
+
+void default_character(Character* target) {
+    target->width = 90;
+    target->height = 90;
+    target->ground_speed = 0.0f;
+    target->ground_speed_max = 6.0f;
+    target->ground_acceleration = 1.15f;
+    target->ground_deceleration = 1.1f;
+    target->position.simd = _mm_set1_ps(0.0f);
+
+    target->top_sensors.x[0] = 31;
+    target->top_sensors.x[1] = 71;
+    target->top_sensors.x[2] = 58;
+    target->top_sensors.x[3] = 71;
+
+    target->bottom_sensors.x[0] = 31;
+    target->bottom_sensors.x[1] = 16;
+    target->bottom_sensors.x[2] = 58;
+    target->bottom_sensors.x[3] = 16;
+
+    target->left_sensors.x[0] = 26;
+    target->left_sensors.x[1] = 71;
+    target->left_sensors.x[2] = 29;
+    target->left_sensors.x[3] = 33;
+
+    target->right_sensors.x[0] = 63;
+    target->right_sensors.x[1] = 71;
+    target->right_sensors.x[2] = 60;
+    target->right_sensors.x[3] = 33;
+    /*
+    data->animation_frame = 0;
+    data->flip = SDL_FLIP_NONE;
+    data->flip = false;
+    data->dy = 0; // pixels per second
+    data->jump_acceleration = 20.0f;
+    */
+}
+
 int main(int argc, char** argv) {
     ticks_per_second = SDL_GetPerformanceFrequency();
 
@@ -57,6 +112,8 @@ int main(int argc, char** argv) {
     game.renderer = SDL_CreateRenderer(game.window, -1, 0);
     if (game.renderer == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), game.window);
     SDL_SetRenderDrawColor(game.renderer, 20, 20, 20, 255);
+
+    game.font = load_texture(game.renderer, ASSET_FONT_FONT_PNG);
 
     int key_count;
     const Uint8* keys = SDL_GetKeyboardState(&key_count);
