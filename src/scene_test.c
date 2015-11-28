@@ -12,24 +12,25 @@ typedef struct {
     bool animate;
     float dy;
     float jump_acceleration;
+    int* test_tilemap;
 } TestScene;
 
-static const int test_tilemap[] = {
-    6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,
-    6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,
+static const int inverted_test_tilemap[] = {
+    9,4,4,9,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,9,
+    9,0,0,0,3,4,4,4,9,11,10,-1,-1,-1,-1,-1,-1,-1,-1,9,
+    9,-1,-1,-1,1,13,3,9,4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
+    9,-1,-1,-1,-1,-1,1,2,3,9,-1,-1,-1,-1,-1,12,11,-1,-1,9,
+    9,-1,-1,-1,-1,-1,-1,-1,1,2,0,0,0,0,11,10,-1,-1,-1,9,
     9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
+    9,1,2,11,10,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
     9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
     9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
     9,-1,-1,-1,-1,-1,1,2,11,10,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
     9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
     9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    9,1,2,11,10,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
     9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    9,-1,-1,-1,-1,-1,-1,-1,1,2,0,0,0,0,11,10,-1,-1,-1,9,
-    9,-1,-1,-1,-1,-1,1,2,3,9,-1,-1,-1,-1,-1,12,11,-1,-1,9,
-    9,-1,-1,-1,1,13,3,9,4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    9,0,0,0,3,4,4,4,9,11,10,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    9,4,4,9,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,9
+    6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,
+    6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,
 };
 
 void scene_test_initialize(void* vdata, Game* game) {
@@ -37,6 +38,10 @@ void scene_test_initialize(void* vdata, Game* game) {
     // Testing physics!!!!
     data->gravity = 1.15f; // In pixels per frame per frame
     data->terminal_velocity = 14.3f;
+
+    data->test_tilemap = malloc(sizeof(inverted_test_tilemap));
+    // The output we got has 0 = top, we are not barbarians and want 0 = bottom
+    SDL_memcpy(data->test_tilemap, inverted_test_tilemap, sizeof(inverted_test_tilemap));
 
     BENCH_START(loading_crattle)
     data->guy.textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
@@ -122,14 +127,14 @@ void scene_test_update(void* vs, Game* game) {
         sense_x = s->guy.position.x[0] + s->guy.left_sensors.x[0];
         sense_y = s->guy.position.x[1] + s->guy.left_sensors.x[1];
         tilespace_x = sense_x / 32;
-        tilespace_y = (game->window_height - sense_y) / 32;
+        tilespace_y = sense_y / 32;
         // left side of tile
         tile_x = tilespace_x * 32;
         // bottom of tile
-        tile_y = game->window_height - tilespace_y * 32 - 32;
+        tile_y = tilespace_y * 32;
 
         if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = test_tilemap[tilespace_y * 20 + tilespace_x];
+            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->left2right;
@@ -148,14 +153,14 @@ void scene_test_update(void* vs, Game* game) {
         sense_x = s->guy.position.x[0] + s->guy.left_sensors.x[2];
         sense_y = s->guy.position.x[1] + s->guy.left_sensors.x[3];
         tilespace_x = sense_x / 32;
-        tilespace_y = (game->window_height - sense_y) / 32;
+        tilespace_y = sense_y / 32;
         // left side of tile
         tile_x = tilespace_x * 32;
         // bottom of tile
-        tile_y = game->window_height - tilespace_y * 32 - 32;
+        tile_y = tilespace_y * 32;
 
         if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = test_tilemap[tilespace_y * 20 + tilespace_x];
+            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->left2right;
@@ -174,14 +179,14 @@ void scene_test_update(void* vs, Game* game) {
         sense_x = s->guy.position.x[0] + s->guy.right_sensors.x[0];
         sense_y = s->guy.position.x[1] + s->guy.right_sensors.x[1];
         tilespace_x = sense_x / 32;
-        tilespace_y = (game->window_height - sense_y) / 32;
+        tilespace_y = sense_y / 32;
         // left side of tile
         tile_x = tilespace_x * 32;
         // bottom of tile
-        tile_y = game->window_height - tilespace_y * 32 - 32;
+        tile_y = tilespace_y * 32;
 
         if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = test_tilemap[tilespace_y * 20 + tilespace_x];
+            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->right2left;
@@ -200,14 +205,14 @@ void scene_test_update(void* vs, Game* game) {
         sense_x = s->guy.position.x[0] + s->guy.right_sensors.x[2];
         sense_y = s->guy.position.x[1] + s->guy.right_sensors.x[3];
         tilespace_x = sense_x / 32;
-        tilespace_y = (game->window_height - sense_y) / 32;
+        tilespace_y = sense_y / 32;
         // left side of tile
         tile_x = tilespace_x * 32;
         // bottom of tile
-        tile_y = game->window_height - tilespace_y * 32 - 32;
+        tile_y = tilespace_y * 32;
 
         if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = test_tilemap[tilespace_y * 20 + tilespace_x];
+            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->right2left;
@@ -226,14 +231,14 @@ void scene_test_update(void* vs, Game* game) {
         sense_x = s->guy.position.x[0] + s->guy.top_sensors.x[0];
         sense_y = s->guy.position.x[1] + s->guy.top_sensors.x[1];
         tilespace_x = sense_x / 32;
-        tilespace_y = (game->window_height - sense_y) / 32;
+        tilespace_y = sense_y / 32;
         // left side of tile
         tile_x = tilespace_x * 32;
         // bottom of tile
-        tile_y = game->window_height - tilespace_y * 32 - 32;
+        tile_y = tilespace_y * 32;
 
         if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = test_tilemap[tilespace_y * 20 + tilespace_x];
+            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->bottom2up;
@@ -254,14 +259,14 @@ void scene_test_update(void* vs, Game* game) {
         sense_x = s->guy.position.x[0] + s->guy.top_sensors.x[2];
         sense_y = s->guy.position.x[1] + s->guy.top_sensors.x[3];
         tilespace_x = sense_x / 32;
-        tilespace_y = (game->window_height - sense_y) / 32;
+        tilespace_y = sense_y / 32;
         // left side of tile
         tile_x = tilespace_x * 32;
         // bottom of tile
-        tile_y = game->window_height - tilespace_y * 32 - 32;
+        tile_y = tilespace_y * 32;
 
         if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = test_tilemap[tilespace_y * 20 + tilespace_x];
+            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->bottom2up;
@@ -283,15 +288,15 @@ void scene_test_update(void* vs, Game* game) {
         sense_x = s->guy.position.x[0] + s->guy.bottom_sensors.x[0];
         sense_y = s->guy.position.x[1] + s->guy.bottom_sensors.x[1];
         tilespace_x = sense_x / 32;
-        tilespace_y = (game->window_height - sense_y) / 32;
+        tilespace_y = sense_y / 32;
     B1Go:
         // left side of tile
         tile_x = tilespace_x * 32;
         // bottom of tile
-        tile_y = game->window_height - tilespace_y * 32 - 32;
+        tile_y = tilespace_y * 32;
 
         if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = test_tilemap[tilespace_y * 20 + tilespace_x];
+            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->top2down;
@@ -326,10 +331,10 @@ void scene_test_update(void* vs, Game* game) {
         // left side of tile
         tile_x = tilespace_x * 32;
         // bottom of tile
-        tile_y = game->window_height - tilespace_y * 32 - 32;
+        tile_y = tilespace_y * 32;
 
         if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = test_tilemap[tilespace_y * 20 + tilespace_x];
+            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->top2down;
@@ -373,37 +378,37 @@ void scene_test_render(void* vs, Game* game) {
     int sense_x = s->guy.position.x[0] + s->guy.bottom_sensors.x[0];
     int sense_y = s->guy.position.x[1] + s->guy.bottom_sensors.x[1];
     int b1_tilespace_x = sense_x / 32;
-    int b1_tilespace_y = (game->window_height - sense_y) / 32;
+    int b1_tilespace_y = sense_y / 32;
     // DEBUG: b-sensor 2 tile index
     sense_x = s->guy.position.x[0] + s->guy.bottom_sensors.x[2];
     sense_y = s->guy.position.x[1] + s->guy.bottom_sensors.x[3];
     int b2_tilespace_x = sense_x / 32;
-    int b2_tilespace_y = (game->window_height - sense_y) / 32;
+    int b2_tilespace_y = sense_y / 32;
     // DEBUG: l-sensor 1 tile index
     sense_x = s->guy.position.x[0] + s->guy.left_sensors.x[0];
     sense_y = s->guy.position.x[1] + s->guy.left_sensors.x[1];
     int l1_tilespace_x = sense_x / 32;
-    int l1_tilespace_y = (game->window_height - sense_y) / 32;
+    int l1_tilespace_y = sense_y / 32;
     // DEBUG: l-sensor 2 tile index
     sense_x = s->guy.position.x[0] + s->guy.left_sensors.x[2];
     sense_y = s->guy.position.x[1] + s->guy.left_sensors.x[3];
     int l2_tilespace_x = sense_x / 32;
-    int l2_tilespace_y = (game->window_height - sense_y) / 32;
+    int l2_tilespace_y = sense_y / 32;
     // DEBUG: r-sensor 1 tile index
     sense_x = s->guy.position.x[0] + s->guy.right_sensors.x[0];
     sense_y = s->guy.position.x[1] + s->guy.right_sensors.x[1];
     int r1_tilespace_x = sense_x / 32;
-    int r1_tilespace_y = (game->window_height - sense_y) / 32;
+    int r1_tilespace_y = sense_y / 32;
     // DEBUG: r-sensor 2 tile index
     sense_x = s->guy.position.x[0] + s->guy.right_sensors.x[2];
     sense_y = s->guy.position.x[1] + s->guy.right_sensors.x[3];
     int r2_tilespace_x = sense_x / 32;
-    int r2_tilespace_y = (game->window_height - sense_y) / 32;
+    int r2_tilespace_y = sense_y / 32;
 
     for (int i = 0; i < 20; i++) {
         for (int j = 0; j < 15; j++) {
-            SDL_Rect tile_rect = { i * 32, j * 32, 32, 32 };
-            int tile_index = test_tilemap[j * 20 + i];
+            SDL_Rect tile_rect = { i * 32, game->window_height - j * 32 - 32, 32, 32 };
+            int tile_index = s->test_tilemap[j * 20 + i];
 
             if (tile_index != -1) {
                 SDL_Rect src = { 0, 0, 32, 32 };
@@ -528,4 +533,5 @@ void scene_test_cleanup(void* vdata, Game* game) {
     free(data->wave->samples);
     free(data->wave);
     free(data->test_sound.samples); // This one is local to this function so only the samples are malloced.
+    free(data->test_tilemap);
 }
