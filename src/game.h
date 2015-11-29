@@ -71,6 +71,15 @@ typedef struct {
     int width, height;
 } Tilemap;
 
+#define S1X 0
+#define S1Y 1
+#define S2X 2
+#define S2Y 3
+#define SENSOR_1 0
+#define SENSOR_2 2
+#define X 0
+#define Y 1
+
 typedef struct {
     // (x[0] left to right, x[1] down to up)
     vec4 position;

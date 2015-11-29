@@ -88,7 +88,7 @@ void scene_test_initialize(void* vdata, Game* game) {
 
     // TODO oh god testing audio
     BENCH_START(loading_sound)
-    data->wave = open_and_play_music(&game->audio);
+    // data->wave = open_and_play_music(&game->audio);
     data->test_sound = decode_ogg(ASSET_SOUNDS_EXPLOSION_OGG);
     BENCH_END(loading_sound)
 }
@@ -198,8 +198,12 @@ void scene_test_update(void* vs, Game* game) {
                 }
             }
         }
+        guy_pos.simd = _mm_set_epi32(
+            (int)s->guy.position.x[1], (int)s->guy.position.x[0],
+            (int)s->guy.position.x[1], (int)s->guy.position.x[0]
+        );
 
-        // == RIGHT SENSOR 1 ==
+        // == RIGHT SENSORS ==
         sense_tile(&guy_pos, &tilemap_dim, &s->guy.right_sensors, &t);
 
         if (t.indices_are_valid.x[0] && t.indices_are_valid.x[1]) {
@@ -232,26 +236,23 @@ void scene_test_update(void* vs, Game* game) {
                 }
             }
         }
+        guy_pos.simd = _mm_set_epi32(
+            (int)s->guy.position.x[1], (int)s->guy.position.x[0],
+            (int)s->guy.position.x[1], (int)s->guy.position.x[0]
+        );
 
         // == TOP SENSOR 1 ==
-        sense_x = s->guy.position.x[0] + s->guy.top_sensors.x[0];
-        sense_y = s->guy.position.x[1] + s->guy.top_sensors.x[1];
-        tilespace_x = sense_x / 32;
-        tilespace_y = sense_y / 32;
-        // left side of tile
-        tile_x = tilespace_x * 32;
-        // bottom of tile
-        tile_y = tilespace_y * 32;
+        sense_tile(&guy_pos, &tilemap_dim, &s->guy.top_sensors, &t);
 
-        if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = s->test_tilemap.tiles[tilespace_y * 20 + tilespace_x];
+        if (t.indices_are_valid.x[S1X] && t.indices_are_valid.x[S1Y]) {
+            int tile_index = s->test_tilemap.tiles[t.tilespace.x[S1Y] * s->test_tilemap.width + t.tilespace.x[S1X]];
             if (tile_index >= 0) {
-                TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
-                int* heights = collision_heights->bottom2up;
-                int x_position_within_tile = sense_x - tile_x;
-                int height = heights[x_position_within_tile];
+                TileHeights* collision_height_list = &COLLISION_TERRAIN_TESTGROUND[tile_index];
+                int* heights = collision_height_list->bottom2up;
+
+                int height = heights[t.position_within_tile.x[S1X]];
                 if (height >= 0) {
-                    int y_placement = tile_y - height - s->guy.top_sensors.x[1];
+                    int y_placement = t.tilepos.x[S1Y] - height - s->guy.top_sensors.x[S1Y];
 
                     if (y_placement < s->guy.position.x[1]) {
                         s->guy.position.x[1] = y_placement;
@@ -260,26 +261,15 @@ void scene_test_update(void* vs, Game* game) {
                 }
             }
         }
-
-        // == TOP SENSOR 2 ==
-        sense_x = s->guy.position.x[0] + s->guy.top_sensors.x[2];
-        sense_y = s->guy.position.x[1] + s->guy.top_sensors.x[3];
-        tilespace_x = sense_x / 32;
-        tilespace_y = sense_y / 32;
-        // left side of tile
-        tile_x = tilespace_x * 32;
-        // bottom of tile
-        tile_y = tilespace_y * 32;
-
-        if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = s->test_tilemap.tiles[tilespace_y * 20 + tilespace_x];
+        if (t.indices_are_valid.x[S2X] && t.indices_are_valid.x[S2Y]) {
+            int tile_index = s->test_tilemap.tiles[t.tilespace.x[S2Y] * s->test_tilemap.width + t.tilespace.x[S2X]];
             if (tile_index >= 0) {
-                TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
-                int* heights = collision_heights->bottom2up;
-                int x_position_within_tile = sense_x - tile_x;
-                int height = heights[x_position_within_tile];
+                TileHeights* collision_height_list = &COLLISION_TERRAIN_TESTGROUND[tile_index];
+                int* heights = collision_height_list->bottom2up;
+
+                int height = heights[t.position_within_tile.x[S2X]];
                 if (height >= 0) {
-                    int y_placement = tile_y - height - s->guy.top_sensors.x[3];
+                    int y_placement = t.tilepos.x[S2Y] - height - s->guy.top_sensors.x[S2Y];
 
                     if (y_placement < s->guy.position.x[1]) {
                         s->guy.position.x[1] = y_placement;
@@ -441,7 +431,7 @@ void scene_test_render(void* vs, Game* game) {
                 ||
                 i == l2_tilespace_x && j == l2_tilespace_y
                 ) {
-                SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 128);
+                SDL_SetRenderDrawColor(game->renderer, 255, 0, 50, 128);
                 SDL_RenderDrawRect(game->renderer, &tile_rect);
             }
             if (
@@ -449,7 +439,7 @@ void scene_test_render(void* vs, Game* game) {
                 ||
                 i == r2_tilespace_x && j == r2_tilespace_y
                 ) {
-                SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 128);
+                SDL_SetRenderDrawColor(game->renderer, 255, 0, 50, 128);
                 SDL_RenderDrawRect(game->renderer, &tile_rect);
             }
             if (
@@ -462,7 +452,7 @@ void scene_test_render(void* vs, Game* game) {
                 tile_rect.y += 1;
                 tile_rect.h -= 2;
                 tile_rect.w -= 2;
-                SDL_SetRenderDrawColor(game->renderer, 0, 255, 0, 128);
+                SDL_SetRenderDrawColor(game->renderer, 0, 255, 50, 128);
                 SDL_RenderDrawRect(game->renderer, &tile_rect);
             }
 
@@ -536,7 +526,7 @@ void scene_test_cleanup(void* vdata, Game* game) {
     SDL_DestroyTexture(data->guy.textures[2]);
     game->audio.oneshot_waves[0] = NULL;
     game->audio.looped_waves[0] = NULL; // This is from open_and_play_music, which sucks and should be removed asap.
-    free(data->wave->samples);
-    free(data->wave);
+    // free(data->wave->samples);
+    // free(data->wave);
     free(data->test_sound.samples); // This one is local to this function so only the samples are malloced.
 }
