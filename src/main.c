@@ -81,6 +81,7 @@ void default_character(Character* target) {
 
 int main(int argc, char** argv) {
     ticks_per_second = SDL_GetPerformanceFrequency();
+    _MM_SET_ROUNDING_MODE(_MM_ROUND_DOWN);
 
     Game game;
     memset(&game, 0, sizeof(Game));

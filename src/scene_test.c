@@ -12,7 +12,7 @@ typedef struct {
     bool animate;
     float dy;
     float jump_acceleration;
-    int* test_tilemap;
+    Tilemap test_tilemap;
 } TestScene;
 
 static const int inverted_test_tilemap[] = {
@@ -33,15 +33,39 @@ static const int inverted_test_tilemap[] = {
     6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,
 };
 
+typedef struct {
+    vec4i tilespace;
+    vec4i tilepos;
+    vec4i position_within_tile;
+    vec4i indices_are_valid;
+} SensedTile;
+
+void sense_tile(vec4i* guy_pos, vec4i* tilemap_dim, vec4i* sensors, /*out*/SensedTile* result) {
+    // absolute sensor position
+    vec4i sense; // = guy_pos + guy.left_sensor
+    sense.simd = _mm_add_epi32(guy_pos->simd, sensors->simd);
+    // x/y index into tilemap // = (int)((float)sense / 32.0f)
+    result->tilespace.simd = _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(sense.simd), _mm_set_ps1(32.0f)));
+    // bottom left corner of the tile // = tilespace * 32
+    result->tilepos.simd = _mm_mul_epi32_x4(result->tilespace.simd, _mm_set1_epi32(32));
+    // Position within the tile (valid or otherwise)
+    result->position_within_tile.simd = _mm_sub_epi32(sense.simd, result->tilepos.simd);
+    // Check the tilespaces to see if they're valid
+    result->indices_are_valid.simd = _mm_and_si128(
+        _mm_cmpgt_epi32(result->tilespace.simd, _mm_set1_epi32(-1)),
+        _mm_cmplt_epi32(result->tilespace.simd, tilemap_dim->simd)
+    );
+}
+
 void scene_test_initialize(void* vdata, Game* game) {
     TestScene* data = (TestScene*)vdata;
     // Testing physics!!!!
     data->gravity = 1.15f; // In pixels per frame per frame
     data->terminal_velocity = 14.3f;
 
-    data->test_tilemap = malloc(sizeof(inverted_test_tilemap));
-    // The output we got has 0 = top, we are not barbarians and want 0 = bottom
-    SDL_memcpy(data->test_tilemap, inverted_test_tilemap, sizeof(inverted_test_tilemap));
+    data->test_tilemap.tiles  = inverted_test_tilemap;
+    data->test_tilemap.width  = 20;
+    data->test_tilemap.height = 15;
 
     BENCH_START(loading_crattle)
     data->guy.textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
@@ -123,87 +147,51 @@ void scene_test_update(void* vs, Game* game) {
     {
         int sense_x, sense_y, tile_x, tile_y, tilespace_x, tilespace_y;
 
-        // == LEFT SENSOR SIMD??? (TEST!!) ==
-        // absolute sensor position
-        vec4i sense; // = (int)guy.position + guy.left_sensor
-        sense.simd = _mm_add_epi32(_mm_castps_si128(s->guy.position.simd), s->guy.left_sensors.simd);
-        // x/y index into tilemap
-        vec4i tilespace; // = (int)((float)sense / 32.0f)
-        tilespace.simd = _mm_castps_si128(_mm_div_ps(_mm_castsi128_ps(sense.simd), _mm_set_ps1(32.0f)));
-        // bottom left corner of the tile
-        vec4i tilepos; // = tilespace * 32
-        tilepos.simd = _mm_mul_epi32_x4(tilespace.simd, _mm_set1_epi16(32));
-        if ((tilespace.x[0] >= 0 && tilespace.x[0] < 20)
-            &&
-            (tilespace.x[1] >= 0 && tilespace.x[1] < 15)
-        ) {
-            int tile_index = s->test_tilemap[tilespace.x[0] * 20 + tilespace.x[1]];
+        // === These are needed for all sensor operations ===
+        // guy's position twice (x,y,x,y)
+        vec4i guy_pos;
+        guy_pos.simd = _mm_set_epi32(
+            (int)s->guy.position.x[1], (int)s->guy.position.x[0],
+            (int)s->guy.position.x[1], (int)s->guy.position.x[0]
+        );
+        // tilemap dimensions twice (w,h,w,h)
+        vec4i tilemap_dim;
+        tilemap_dim.simd = _mm_set_epi32(
+            s->test_tilemap.height, s->test_tilemap.width,
+            s->test_tilemap.height, s->test_tilemap.width
+        );
+
+        // == BOTH LEFT SENSOR SIMD??? (TEST!!) ==
+        SensedTile t;
+        sense_tile(&guy_pos, &tilemap_dim, &s->guy.left_sensors, &t);
+
+        if (t.indices_are_valid.x[0] && t.indices_are_valid.x[1]) {
+            int tile_index = s->test_tilemap.tiles[t.tilespace.x[1] * s->test_tilemap.width + t.tilespace.x[0]];
             if (tile_index >= 0) {
                 TileHeights* collision_height_list = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 // TODO assumes left2right
                 int* heights = collision_height_list->left2right;
-                vec4i position_within_tile;
-                position_within_tile.simd = _mm_sub_epi32(sense.simd, tilepos.simd);
 
                 // TODO assumes left2right
-                int height = heights[position_within_tile.x[1]];
+                int height = heights[t.position_within_tile.x[1]];
                 if (height >= 0) {
                     // TODO left2right-specific behavior:
-                    int x_placement = tile_x + height - s->guy.left_sensors.x[0];
+                    int x_placement = t.tilepos.x[0] + height - s->guy.left_sensors.x[0];
 
                     if (x_placement > s->guy.position.x[0])
                         s->guy.position.x[0] = x_placement;
                 }
             }
         }
-
-        /*
-        // == LEFT SENSOR 1 ==
-        sense_x = s->guy.position.x[0] + s->guy.left_sensors.x[0];
-        sense_y = s->guy.position.x[1] + s->guy.left_sensors.x[1];
-        tilespace_x = sense_x / 32;
-        tilespace_y = sense_y / 32;
-        // left side of tile
-        tile_x = tilespace_x * 32;
-        // bottom of tile
-        tile_y = tilespace_y * 32;
-
-        if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
+        if (t.indices_are_valid.x[2] && t.indices_are_valid.x[3]) {
+            int tile_index = s->test_tilemap.tiles[t.tilespace.x[3] * s->test_tilemap.width + t.tilespace.x[2]];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->left2right;
-                int y_position_within_tile = sense_y - tile_y;
-                int height = heights[y_position_within_tile];
+
+                int height = heights[t.position_within_tile.x[3]];
                 if (height >= 0) {
-                    int x_placement = tile_x + height - s->guy.left_sensors.x[0];
-
-                    if (x_placement > s->guy.position.x[0])
-                        s->guy.position.x[0] = x_placement;
-                }
-            }
-        }
-        */
-
-        // == LEFT SENSOR 2 == (barely modified copypaste of LS1)
-        sense_x = s->guy.position.x[0] + s->guy.left_sensors.x[2];
-        sense_y = s->guy.position.x[1] + s->guy.left_sensors.x[3];
-        tilespace_x = sense_x / 32;
-        tilespace_y = sense_y / 32;
-        // left side of tile
-        tile_x = tilespace_x * 32;
-        // bottom of tile
-        tile_y = tilespace_y * 32;
-
-        if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
-            if (tile_index >= 0) {
-                TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
-                int* heights = collision_heights->left2right;
-                int y_position_within_tile = sense_y - tile_y;
-                int height = heights[y_position_within_tile];
-                if (height >= 0) {
-                    int x_placement = tile_x + height - s->guy.left_sensors.x[2];
+                    int x_placement = t.tilepos.x[2] + height - s->guy.left_sensors.x[2];
 
                     if (x_placement > s->guy.position.x[0])
                         s->guy.position.x[0] = x_placement;
@@ -212,50 +200,32 @@ void scene_test_update(void* vs, Game* game) {
         }
 
         // == RIGHT SENSOR 1 ==
-        sense_x = s->guy.position.x[0] + s->guy.right_sensors.x[0];
-        sense_y = s->guy.position.x[1] + s->guy.right_sensors.x[1];
-        tilespace_x = sense_x / 32;
-        tilespace_y = sense_y / 32;
-        // left side of tile
-        tile_x = tilespace_x * 32;
-        // bottom of tile
-        tile_y = tilespace_y * 32;
+        sense_tile(&guy_pos, &tilemap_dim, &s->guy.right_sensors, &t);
 
-        if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
+        if (t.indices_are_valid.x[0] && t.indices_are_valid.x[1]) {
+            int tile_index = s->test_tilemap.tiles[t.tilespace.x[1] * s->test_tilemap.width + t.tilespace.x[0]];
             if (tile_index >= 0) {
-                TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
-                int* heights = collision_heights->right2left;
-                int y_position_within_tile = sense_y - tile_y;
-                int height = heights[y_position_within_tile];
+                TileHeights* collision_height_list = &COLLISION_TERRAIN_TESTGROUND[tile_index];
+                int* heights = collision_height_list->right2left;
+
+                int height = heights[t.position_within_tile.x[1]];
                 if (height >= 0) {
-                    int x_placement = tile_x + 32 - height - s->guy.right_sensors.x[0];
+                    int x_placement = t.tilepos.x[0] + 32 - height - s->guy.right_sensors.x[0];
 
                     if (x_placement < s->guy.position.x[0])
                         s->guy.position.x[0] = x_placement;
                 }
             }
         }
-
-        // == RIGHT SENSOR 2 == (barely modified copypaste of RS1)
-        sense_x = s->guy.position.x[0] + s->guy.right_sensors.x[2];
-        sense_y = s->guy.position.x[1] + s->guy.right_sensors.x[3];
-        tilespace_x = sense_x / 32;
-        tilespace_y = sense_y / 32;
-        // left side of tile
-        tile_x = tilespace_x * 32;
-        // bottom of tile
-        tile_y = tilespace_y * 32;
-
-        if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
+        if (t.indices_are_valid.x[2] && t.indices_are_valid.x[3]) {
+            int tile_index = s->test_tilemap.tiles[t.tilespace.x[3] * s->test_tilemap.width + t.tilespace.x[2]];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->right2left;
-                int y_position_within_tile = sense_y - tile_y;
-                int height = heights[y_position_within_tile];
+
+                int height = heights[t.position_within_tile.x[3]];
                 if (height >= 0) {
-                    int x_placement = tile_x + 32 - height - s->guy.right_sensors.x[2];
+                    int x_placement = t.tilepos.x[2] + 32 - height - s->guy.right_sensors.x[2];
 
                     if (x_placement < s->guy.position.x[0])
                         s->guy.position.x[0] = x_placement;
@@ -274,7 +244,7 @@ void scene_test_update(void* vs, Game* game) {
         tile_y = tilespace_y * 32;
 
         if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
+            int tile_index = s->test_tilemap.tiles[tilespace_y * 20 + tilespace_x];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->bottom2up;
@@ -302,7 +272,7 @@ void scene_test_update(void* vs, Game* game) {
         tile_y = tilespace_y * 32;
 
         if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
+            int tile_index = s->test_tilemap.tiles[tilespace_y * 20 + tilespace_x];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->bottom2up;
@@ -332,7 +302,7 @@ void scene_test_update(void* vs, Game* game) {
         tile_y = tilespace_y * 32;
 
         if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
+            int tile_index = s->test_tilemap.tiles[tilespace_y * 20 + tilespace_x];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->top2down;
@@ -370,7 +340,7 @@ void scene_test_update(void* vs, Game* game) {
         tile_y = tilespace_y * 32;
 
         if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = s->test_tilemap[tilespace_y * 20 + tilespace_x];
+            int tile_index = s->test_tilemap.tiles[tilespace_y * 20 + tilespace_x];
             if (tile_index >= 0) {
                 TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
                 int* heights = collision_heights->top2down;
@@ -444,7 +414,7 @@ void scene_test_render(void* vs, Game* game) {
     for (int i = 0; i < 20; i++) {
         for (int j = 0; j < 15; j++) {
             SDL_Rect tile_rect = { i * 32, game->window_height - j * 32 - 32, 32, 32 };
-            int tile_index = s->test_tilemap[j * 20 + i];
+            int tile_index = s->test_tilemap.tiles[j * 20 + i];
 
             if (tile_index != -1) {
                 SDL_Rect src = { 0, 0, 32, 32 };
@@ -569,5 +539,4 @@ void scene_test_cleanup(void* vdata, Game* game) {
     free(data->wave->samples);
     free(data->wave);
     free(data->test_sound.samples); // This one is local to this function so only the samples are malloced.
-    free(data->test_tilemap);
 }

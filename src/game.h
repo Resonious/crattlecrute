@@ -67,6 +67,11 @@ void draw_text(Game* game, int x, int y, char* text);
     }
 
 typedef struct {
+    int* tiles;
+    int width, height;
+} Tilemap;
+
+typedef struct {
     // (x[0] left to right, x[1] down to up)
     vec4 position;
 
