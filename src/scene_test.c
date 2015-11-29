@@ -123,6 +123,41 @@ void scene_test_update(void* vs, Game* game) {
     {
         int sense_x, sense_y, tile_x, tile_y, tilespace_x, tilespace_y;
 
+        // == LEFT SENSOR SIMD??? (TEST!!) ==
+        // absolute sensor position
+        vec4i sense; // = (int)guy.position + guy.left_sensor
+        sense.simd = _mm_add_epi32(_mm_castps_si128(s->guy.position.simd), s->guy.left_sensors.simd);
+        // x/y index into tilemap
+        vec4i tilespace; // = (int)((float)sense / 32.0f)
+        tilespace.simd = _mm_castps_si128(_mm_div_ps(_mm_castsi128_ps(sense.simd), _mm_set_ps1(32.0f)));
+        // bottom left corner of the tile
+        vec4i tilepos; // = tilespace * 32
+        tilepos.simd = _mm_mul_epi32_x4(tilespace.simd, _mm_set1_epi16(32));
+        if ((tilespace.x[0] >= 0 && tilespace.x[0] < 20)
+            &&
+            (tilespace.x[1] >= 0 && tilespace.x[1] < 15)
+        ) {
+            int tile_index = s->test_tilemap[tilespace.x[0] * 20 + tilespace.x[1]];
+            if (tile_index >= 0) {
+                TileHeights* collision_height_list = &COLLISION_TERRAIN_TESTGROUND[tile_index];
+                // TODO assumes left2right
+                int* heights = collision_height_list->left2right;
+                vec4i position_within_tile;
+                position_within_tile.simd = _mm_sub_epi32(sense.simd, tilepos.simd);
+
+                // TODO assumes left2right
+                int height = heights[position_within_tile.x[1]];
+                if (height >= 0) {
+                    // TODO left2right-specific behavior:
+                    int x_placement = tile_x + height - s->guy.left_sensors.x[0];
+
+                    if (x_placement > s->guy.position.x[0])
+                        s->guy.position.x[0] = x_placement;
+                }
+            }
+        }
+
+        /*
         // == LEFT SENSOR 1 ==
         sense_x = s->guy.position.x[0] + s->guy.left_sensors.x[0];
         sense_y = s->guy.position.x[1] + s->guy.left_sensors.x[1];
@@ -148,6 +183,7 @@ void scene_test_update(void* vs, Game* game) {
                 }
             }
         }
+        */
 
         // == LEFT SENSOR 2 == (barely modified copypaste of LS1)
         sense_x = s->guy.position.x[0] + s->guy.left_sensors.x[2];
@@ -313,9 +349,9 @@ void scene_test_update(void* vs, Game* game) {
                 }
             }
         }
-        if (b1_hit && (tilespace_y * 32) - (game->window_height - sense_y) <= 3) {
+        if (b1_hit && (tilespace_y * 32) - sense_y <= 3) {
             // check tile above
-            tilespace_y -= 1;
+            tilespace_y += 1;
             sense_y += 1;
             b1_hit = false;
             goto B1Go;
@@ -351,9 +387,9 @@ void scene_test_update(void* vs, Game* game) {
                 }
             }
         }
-        if (b2_hit && (tilespace_y * 32) - (game->window_height - sense_y) <= 3) {
+        if (b2_hit && (tilespace_y * 32) - sense_y <= 3) {
             // check tile above
-            tilespace_y -= 1;
+            tilespace_y += 1;
             sense_y += 1;
             b2_hit = false;
             goto B2Go;

@@ -139,6 +139,10 @@ all_files -= to_remove
 header.write "};\n\n"
 
 header.write(
+  "#define TOP2DOWN 0;\n"\
+  "#define BOTTOM2UP 1;\n"\
+  "#define RIGHT2LEFT 2;\n"\
+  "#define LEFT2RIGHT 3;\n"\
   "typedef struct {\n"\
   "    int top2down[32];\n"\
   "    int bottom2up[32];\n"\
