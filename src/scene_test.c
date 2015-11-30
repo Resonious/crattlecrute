@@ -40,10 +40,14 @@ typedef struct {
     vec4i indices_are_valid;
 } SensedTile;
 
-void sense_tile(vec4i* guy_pos, vec4i* tilemap_dim, vec4i* sensors, /*out*/SensedTile* result) {
+void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/SensedTile* result) {
+    // Player position twice (x,y,x,y)
+    vec4i guy_pos;
+    guy_pos.simd = _mm_shuffle_epi32(_mm_cvtps_epi32(guy_pos_f->simd), _MM_SHUFFLE(1, 0, 1, 0));
+
     // absolute sensor position
     vec4i sense; // = guy_pos + guy.left_sensor
-    sense.simd = _mm_add_epi32(guy_pos->simd, sensors->simd);
+    sense.simd = _mm_add_epi32(guy_pos.simd, sensors->simd);
     // x/y index into tilemap // = (int)((float)sense / 32.0f)
     result->tilespace.simd = _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(sense.simd), _mm_set_ps1(32.0f)));
     // bottom left corner of the tile // = tilespace * 32
@@ -148,12 +152,6 @@ void scene_test_update(void* vs, Game* game) {
         int sense_x, sense_y, tile_x, tile_y, tilespace_x, tilespace_y;
 
         // === These are needed for all sensor operations ===
-        // guy's position twice (x,y,x,y)
-        vec4i guy_pos;
-        guy_pos.simd = _mm_set_epi32(
-            (int)s->guy.position.x[1], (int)s->guy.position.x[0],
-            (int)s->guy.position.x[1], (int)s->guy.position.x[0]
-        );
         // tilemap dimensions twice (w,h,w,h)
         vec4i tilemap_dim;
         tilemap_dim.simd = _mm_set_epi32(
@@ -163,7 +161,7 @@ void scene_test_update(void* vs, Game* game) {
 
         // == BOTH LEFT SENSOR SIMD??? (TEST!!) ==
         SensedTile t;
-        sense_tile(&guy_pos, &tilemap_dim, &s->guy.left_sensors, &t);
+        sense_tile(&s->guy.position, &tilemap_dim, &s->guy.left_sensors, &t);
 
         if (t.indices_are_valid.x[0] && t.indices_are_valid.x[1]) {
             int tile_index = s->test_tilemap.tiles[t.tilespace.x[1] * s->test_tilemap.width + t.tilespace.x[0]];
@@ -198,13 +196,9 @@ void scene_test_update(void* vs, Game* game) {
                 }
             }
         }
-        guy_pos.simd = _mm_set_epi32(
-            (int)s->guy.position.x[1], (int)s->guy.position.x[0],
-            (int)s->guy.position.x[1], (int)s->guy.position.x[0]
-        );
 
         // == RIGHT SENSORS ==
-        sense_tile(&guy_pos, &tilemap_dim, &s->guy.right_sensors, &t);
+        sense_tile(&s->guy.position, &tilemap_dim, &s->guy.right_sensors, &t);
 
         if (t.indices_are_valid.x[0] && t.indices_are_valid.x[1]) {
             int tile_index = s->test_tilemap.tiles[t.tilespace.x[1] * s->test_tilemap.width + t.tilespace.x[0]];
@@ -236,13 +230,9 @@ void scene_test_update(void* vs, Game* game) {
                 }
             }
         }
-        guy_pos.simd = _mm_set_epi32(
-            (int)s->guy.position.x[1], (int)s->guy.position.x[0],
-            (int)s->guy.position.x[1], (int)s->guy.position.x[0]
-        );
 
         // == TOP SENSOR 1 ==
-        sense_tile(&guy_pos, &tilemap_dim, &s->guy.top_sensors, &t);
+        sense_tile(&s->guy.position, &tilemap_dim, &s->guy.top_sensors, &t);
 
         if (t.indices_are_valid.x[S1X] && t.indices_are_valid.x[S1Y]) {
             int tile_index = s->test_tilemap.tiles[t.tilespace.x[S1Y] * s->test_tilemap.width + t.tilespace.x[S1X]];
