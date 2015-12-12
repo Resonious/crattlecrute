@@ -149,7 +149,16 @@ void scene_test_update(void* vs, Game* game) {
     }
     // Test out tile collision!!!
     {
-        int sense_x, sense_y, tile_x, tile_y, tilespace_x, tilespace_y;
+#define IF_COLLIDE(t, sensor, heights2use, height_dim) \
+if (t.indices_are_valid.x[sensor] && t.indices_are_valid.x[sensor + 1]) {\
+    int tile_index = s->test_tilemap.tiles[t.tilespace.x[sensor + 1] * s->test_tilemap.width + t.tilespace.x[sensor]];\
+    if (tile_index >= 0) {\
+        TileHeights* collision_height_list = &COLLISION_TERRAIN_TESTGROUND[tile_index];\
+        int* heights = collision_height_list->heights2use;\
+        int height = heights[t.position_within_tile.x[height_dim]];\
+        if (height >= 0) {
+#define END_COLLIDE }}}
+#define OTHERWISE } else {
 
         // === These are needed for all sensor operations ===
         // tilemap dimensions twice (w,h,w,h)
@@ -159,191 +168,74 @@ void scene_test_update(void* vs, Game* game) {
             s->test_tilemap.height, s->test_tilemap.width
         );
 
-        // == BOTH LEFT SENSOR SIMD??? (TEST!!) ==
+        // == LEFT SENSORS ==
         SensedTile t;
         sense_tile(&s->guy.position, &tilemap_dim, &s->guy.left_sensors, &t);
+        IF_COLLIDE(t, SENSOR_1, left2right, S1Y)
+            int x_placement = t.tilepos.x[S1X] + height - s->guy.left_sensors.x[S1X];
 
-        if (t.indices_are_valid.x[0] && t.indices_are_valid.x[1]) {
-            int tile_index = s->test_tilemap.tiles[t.tilespace.x[1] * s->test_tilemap.width + t.tilespace.x[0]];
-            if (tile_index >= 0) {
-                TileHeights* collision_height_list = &COLLISION_TERRAIN_TESTGROUND[tile_index];
-                // TODO assumes left2right
-                int* heights = collision_height_list->left2right;
+            if (x_placement > s->guy.position.x[X])
+                s->guy.position.x[X] = x_placement;
+        END_COLLIDE
+        IF_COLLIDE(t, SENSOR_2, left2right, S2Y)
+            int x_placement = t.tilepos.x[S2X] + height - s->guy.left_sensors.x[S2X];
 
-                // TODO assumes left2right
-                int height = heights[t.position_within_tile.x[1]];
-                if (height >= 0) {
-                    // TODO left2right-specific behavior:
-                    int x_placement = t.tilepos.x[0] + height - s->guy.left_sensors.x[0];
-
-                    if (x_placement > s->guy.position.x[0])
-                        s->guy.position.x[0] = x_placement;
-                }
-            }
-        }
-        if (t.indices_are_valid.x[2] && t.indices_are_valid.x[3]) {
-            int tile_index = s->test_tilemap.tiles[t.tilespace.x[3] * s->test_tilemap.width + t.tilespace.x[2]];
-            if (tile_index >= 0) {
-                TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
-                int* heights = collision_heights->left2right;
-
-                int height = heights[t.position_within_tile.x[3]];
-                if (height >= 0) {
-                    int x_placement = t.tilepos.x[2] + height - s->guy.left_sensors.x[2];
-
-                    if (x_placement > s->guy.position.x[0])
-                        s->guy.position.x[0] = x_placement;
-                }
-            }
-        }
+            if (x_placement > s->guy.position.x[X])
+                s->guy.position.x[X] = x_placement;
+        END_COLLIDE
 
         // == RIGHT SENSORS ==
         sense_tile(&s->guy.position, &tilemap_dim, &s->guy.right_sensors, &t);
+        IF_COLLIDE(t, SENSOR_1, right2left, S1Y)
+            int x_placement = t.tilepos.x[S1X] + 32 - height - s->guy.right_sensors.x[S1X];
 
-        if (t.indices_are_valid.x[0] && t.indices_are_valid.x[1]) {
-            int tile_index = s->test_tilemap.tiles[t.tilespace.x[1] * s->test_tilemap.width + t.tilespace.x[0]];
-            if (tile_index >= 0) {
-                TileHeights* collision_height_list = &COLLISION_TERRAIN_TESTGROUND[tile_index];
-                int* heights = collision_height_list->right2left;
+            if (x_placement < s->guy.position.x[X])
+                s->guy.position.x[X] = x_placement - 1;
+        END_COLLIDE
+        IF_COLLIDE(t, SENSOR_2, right2left, S2Y)
+            int x_placement = t.tilepos.x[S2X] + 32 - height - s->guy.right_sensors.x[S2X];
 
-                int height = heights[t.position_within_tile.x[1]];
-                if (height >= 0) {
-                    int x_placement = t.tilepos.x[0] + 32 - height - s->guy.right_sensors.x[0];
+            if (x_placement < s->guy.position.x[X])
+                s->guy.position.x[X] = x_placement - 1;
+        END_COLLIDE
 
-                    if (x_placement < s->guy.position.x[0])
-                        s->guy.position.x[0] = x_placement;
-                }
-            }
-        }
-        if (t.indices_are_valid.x[2] && t.indices_are_valid.x[3]) {
-            int tile_index = s->test_tilemap.tiles[t.tilespace.x[3] * s->test_tilemap.width + t.tilespace.x[2]];
-            if (tile_index >= 0) {
-                TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
-                int* heights = collision_heights->right2left;
-
-                int height = heights[t.position_within_tile.x[3]];
-                if (height >= 0) {
-                    int x_placement = t.tilepos.x[2] + 32 - height - s->guy.right_sensors.x[2];
-
-                    if (x_placement < s->guy.position.x[0])
-                        s->guy.position.x[0] = x_placement;
-                }
-            }
-        }
-
-        // == TOP SENSOR 1 ==
+        // == TOP SENSORS ==
         sense_tile(&s->guy.position, &tilemap_dim, &s->guy.top_sensors, &t);
+        IF_COLLIDE(t, SENSOR_1, bottom2up, S1X)
+            int y_placement = t.tilepos.x[S1Y] + height - s->guy.top_sensors.x[S1Y] - 2;
 
-        if (t.indices_are_valid.x[S1X] && t.indices_are_valid.x[S1Y]) {
-            int tile_index = s->test_tilemap.tiles[t.tilespace.x[S1Y] * s->test_tilemap.width + t.tilespace.x[S1X]];
-            if (tile_index >= 0) {
-                TileHeights* collision_height_list = &COLLISION_TERRAIN_TESTGROUND[tile_index];
-                int* heights = collision_height_list->bottom2up;
-
-                int height = heights[t.position_within_tile.x[S1X]];
-                if (height >= 0) {
-                    int y_placement = t.tilepos.x[S1Y] - height - s->guy.top_sensors.x[S1Y];
-
-                    if (y_placement < s->guy.position.x[1]) {
-                        s->guy.position.x[1] = y_placement;
-                        s->dy = 0;
-                    }
-                }
+            if (y_placement < s->guy.position.x[Y]) {
+                s->guy.position.x[Y] = y_placement;
+                s->dy = 0;
             }
-        }
-        if (t.indices_are_valid.x[S2X] && t.indices_are_valid.x[S2Y]) {
-            int tile_index = s->test_tilemap.tiles[t.tilespace.x[S2Y] * s->test_tilemap.width + t.tilespace.x[S2X]];
-            if (tile_index >= 0) {
-                TileHeights* collision_height_list = &COLLISION_TERRAIN_TESTGROUND[tile_index];
-                int* heights = collision_height_list->bottom2up;
+        END_COLLIDE
+        IF_COLLIDE(t, SENSOR_2, bottom2up, S2X)
+            int y_placement = t.tilepos.x[S2Y] + height - s->guy.top_sensors.x[S2Y] - 2;
 
-                int height = heights[t.position_within_tile.x[S2X]];
-                if (height >= 0) {
-                    int y_placement = t.tilepos.x[S2Y] - height - s->guy.top_sensors.x[S2Y];
-
-                    if (y_placement < s->guy.position.x[1]) {
-                        s->guy.position.x[1] = y_placement;
-                        s->dy = 0;
-                    }
-                }
+            if (y_placement < s->guy.position.x[Y]) {
+                s->guy.position.x[Y] = y_placement;
+                s->dy = 0;
             }
-        }
+        END_COLLIDE
 
-        // == BOTTOM SENSOR 1 ==
-        bool b1_hit = false;
-        sense_x = s->guy.position.x[0] + s->guy.bottom_sensors.x[0];
-        sense_y = s->guy.position.x[1] + s->guy.bottom_sensors.x[1];
-        tilespace_x = sense_x / 32;
-        tilespace_y = sense_y / 32;
-    B1Go:
-        // left side of tile
-        tile_x = tilespace_x * 32;
-        // bottom of tile
-        tile_y = tilespace_y * 32;
+        // == BOTTOM SENSORS ==
+        sense_tile(&s->guy.position, &tilemap_dim, &s->guy.bottom_sensors, &t);
+        IF_COLLIDE(t, SENSOR_1, top2down, S1X)
+            int y_placement = t.tilepos.x[S1Y] + height - s->guy.bottom_sensors.x[S1Y];
 
-        if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = s->test_tilemap.tiles[tilespace_y * 20 + tilespace_x];
-            if (tile_index >= 0) {
-                TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
-                int* heights = collision_heights->top2down;
-                int x_position_within_tile = sense_x - tile_x;
-                int height = heights[x_position_within_tile];
-                if (height >= 0) {
-                    int y_placement = tile_y + height - s->guy.bottom_sensors.x[1];
-
-                    if (y_placement > s->guy.position.x[1]) {
-                        s->guy.position.x[1] = y_placement;
-                        s->dy = 0;
-                        b1_hit = true;
-                    }
-                }
+            if (y_placement > s->guy.position.x[Y]) {
+                s->guy.position.x[Y] = y_placement;
+                s->dy = 0;
             }
-        }
-        if (b1_hit && (tilespace_y * 32) - sense_y <= 3) {
-            // check tile above
-            tilespace_y += 1;
-            sense_y += 1;
-            b1_hit = false;
-            goto B1Go;
-        }
+        END_COLLIDE
+        IF_COLLIDE(t, SENSOR_2, top2down, S2X)
+            int y_placement = t.tilepos.x[S2Y] + height - s->guy.bottom_sensors.x[S2Y];
 
-        // == BOTTOM SENSOR 2 == (COPOPASTO)
-        bool b2_hit = false;
-        sense_x = s->guy.position.x[0] + s->guy.bottom_sensors.x[2];
-        sense_y = s->guy.position.x[1] + s->guy.bottom_sensors.x[3];
-        tilespace_x = sense_x / 32;
-        tilespace_y = (game->window_height - sense_y) / 32;
-    B2Go:
-        // left side of tile
-        tile_x = tilespace_x * 32;
-        // bottom of tile
-        tile_y = tilespace_y * 32;
-
-        if (tilespace_y >= 0 && tilespace_y < 15 && tilespace_x >= 0 && tilespace_x < 20) {
-            int tile_index = s->test_tilemap.tiles[tilespace_y * 20 + tilespace_x];
-            if (tile_index >= 0) {
-                TileHeights* collision_heights = &COLLISION_TERRAIN_TESTGROUND[tile_index];
-                int* heights = collision_heights->top2down;
-                int x_position_within_tile = sense_x - tile_x;
-                int height = heights[x_position_within_tile];
-                if (height >= 0) {
-                    int y_placement = tile_y + height - s->guy.bottom_sensors.x[3];
-
-                    if (y_placement > s->guy.position.x[1]) {
-                        s->guy.position.x[1] = y_placement;
-                        s->dy = 0;
-                        b2_hit = true;
-                    }
-                }
+            if (y_placement > s->guy.position.x[Y]) {
+                s->guy.position.x[Y] = y_placement;
+                s->dy = 0;
             }
-        }
-        if (b2_hit && (tilespace_y * 32) - sense_y <= 3) {
-            // check tile above
-            tilespace_y += 1;
-            sense_y += 1;
-            b2_hit = false;
-            goto B2Go;
-        }
+        END_COLLIDE
     }
 
     // Test sound effect
