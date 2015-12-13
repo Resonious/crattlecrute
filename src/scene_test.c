@@ -1,5 +1,8 @@
 #include "scene.h"
 
+#define TILE_AT(tilemap, tilespace, sensor) \
+    tilemap.tiles[tilespace.x[sensor + 1] * tilemap.width + tilespace.x[sensor]]
+
 typedef struct {
     float gravity;
     float terminal_velocity;
@@ -61,6 +64,86 @@ void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/Sens
     );
 }
 
+static float process_bottom_sensor_one_tile_down(TestScene* s, SensedTile* t, const int sensor) {
+    float guy_y = s->guy.position.x[Y];
+
+    int new_tilespace_y = t->tilespace.x[sensor+Y] - 1;
+    // Make sure "one tile down" is in fact a valid tile index..
+    if (new_tilespace_y >= 0 && new_tilespace_y < s->test_tilemap.height) {
+        t->tilespace.x[sensor + Y] = new_tilespace_y;
+        t->tilepos.x[sensor + Y] -= 32;
+
+        int* heights = NULL;
+        int tile_index = TILE_AT(s->test_tilemap, t->tilespace, sensor);
+        if (tile_index >= 0) {
+            heights = COLLISION_TERRAIN_TESTGROUND[tile_index].top2down;
+            int height = heights[t->position_within_tile.x[sensor + X]];
+            if (height < 0)
+                return guy_y;
+
+            int y_placement = t->tilepos.x[sensor+Y] + height - s->guy.bottom_sensors.x[sensor+Y];
+            // Just assume that we want to be placed here (this function should only be called when grounded)
+            s->dy = 0;
+            return (float)y_placement;
+        }
+    }
+
+    return guy_y;
+}
+
+static float process_bottom_sensor(TestScene* s, SensedTile* t, const int sensor) {
+    float guy_y = s->guy.position.x[Y];
+
+    if (t->indices_are_valid.x[sensor+X] && t->indices_are_valid.x[sensor+Y]) {
+        int tile_index = TILE_AT(s->test_tilemap, t->tilespace, sensor);
+        // This would mean we're in the air!
+        if (tile_index == -1) {
+            if (s->guy.grounded)
+                return process_bottom_sensor_one_tile_down(s, t, sensor);
+            else
+                return guy_y;
+        }
+
+        int* heights = COLLISION_TERRAIN_TESTGROUND[tile_index].top2down;
+        int height = heights[t->position_within_tile.x[sensor+X]];
+
+        // Try next tile up
+        if (height == 32) {
+            int new_tilespace_y = t->tilespace.x[sensor+Y] + 1;
+            // Make sure "one tile up" is in fact a valid tile index..
+            if (new_tilespace_y >= 0 && new_tilespace_y < s->test_tilemap.height) {
+                t->tilespace.x[sensor+Y] = new_tilespace_y;
+                t->tilepos.x[sensor + Y] += 32;
+
+                tile_index = TILE_AT(s->test_tilemap, t->tilespace, sensor);
+                if (tile_index >= 0) {
+                    heights = COLLISION_TERRAIN_TESTGROUND[tile_index].top2down;
+                    int new_height = heights[t->position_within_tile.x[sensor + X]];
+                    if (new_height >= 0)
+                        height = new_height;
+                    else
+                        t->tilepos.x[sensor + Y] -= 32;
+                }
+                else
+                    t->tilepos.x[sensor + Y] -= 32;
+            }
+        }
+
+        if (height >= 0) {
+            int y_placement = t->tilepos.x[sensor+Y] + height - s->guy.bottom_sensors.x[sensor+Y];
+            if (y_placement > s->guy.position.x[Y] || s->guy.grounded) {
+                s->dy = 0;
+                s->guy.grounded = true;
+                return (float)y_placement;
+            }
+        }
+        else
+            s->guy.grounded = false;
+    }
+
+    return guy_y;
+}
+
 void scene_test_initialize(void* vdata, Game* game) {
     TestScene* data = (TestScene*)vdata;
     // Testing physics!!!!
@@ -110,7 +193,9 @@ void scene_test_update(void* vs, Game* game) {
         s->guy.ground_speed += s->guy.ground_acceleration;
         s->flip = SDL_FLIP_NONE;
     }
+    // JUMP
     if (just_pressed(&game->controls, C_UP)) {
+        s->guy.grounded = false;
         s->dy += s->jump_acceleration;
     }
     // TODO having ground_deceleration > ground_acceleration will have a weird effect here.
@@ -149,7 +234,7 @@ void scene_test_update(void* vs, Game* game) {
     {
 #define IF_COLLIDE(t, sensor, heights2use, height_dim) \
 if (t.indices_are_valid.x[sensor] && t.indices_are_valid.x[sensor + 1]) {\
-    int tile_index = s->test_tilemap.tiles[t.tilespace.x[sensor + 1] * s->test_tilemap.width + t.tilespace.x[sensor]];\
+    int tile_index = TILE_AT(s->test_tilemap, t.tilespace, sensor);\
     if (tile_index >= 0) {\
         TileHeights* collision_height_list = &COLLISION_TERRAIN_TESTGROUND[tile_index];\
         int* heights = collision_height_list->heights2use;\
@@ -218,22 +303,11 @@ if (t.indices_are_valid.x[sensor] && t.indices_are_valid.x[sensor + 1]) {\
 
         // == BOTTOM SENSORS ==
         sense_tile(&s->guy.position, &tilemap_dim, &s->guy.bottom_sensors, &t);
-        IF_COLLIDE(t, SENSOR_1, top2down, S1X)
-            int y_placement = t.tilepos.x[S1Y] + height - s->guy.bottom_sensors.x[S1Y];
 
-            if (y_placement > s->guy.position.x[Y]) {
-                s->guy.position.x[Y] = y_placement;
-                s->dy = 0;
-            }
-        END_COLLIDE
-        IF_COLLIDE(t, SENSOR_2, top2down, S2X)
-            int y_placement = t.tilepos.x[S2Y] + height - s->guy.bottom_sensors.x[S2Y];
-
-            if (y_placement > s->guy.position.x[Y]) {
-                s->guy.position.x[Y] = y_placement;
-                s->dy = 0;
-            }
-        END_COLLIDE
+        s->guy.position.x[Y] = fmaxf(
+            process_bottom_sensor(s, &t, SENSOR_1),
+            process_bottom_sensor(s, &t, SENSOR_2)
+        );
     }
 
     // Test sound effect
