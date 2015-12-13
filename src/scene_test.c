@@ -149,33 +149,45 @@ static TileCollision process_bottom_sensor(TestScene* s, SensedTile* t, const in
     return result;
 }
 
-static TileCollision dont_call_me(SensedTile* t, Character* guy, int height, const int sensor) {
+static TileCollision dont_call_me(Tilemap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     // This should never happen!!!
 #ifdef _DEBUG
     SDL_assert(false);
 #endif
 }
-static TileCollision left_sensor_placement(SensedTile* t, Character* guy, int height, const int sensor) {
+static TileCollision left_sensor_placement(Tilemap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + height - guy->left_sensors.x[sensor+X]);
     result.hit = result.new_position > guy->position.x[X];
     return result;
 }
-static TileCollision right_sensor_placement(SensedTile* t, Character* guy, int height, const int sensor) {
+static TileCollision right_sensor_placement(Tilemap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + 32 - height - guy->right_sensors.x[sensor+X]);
     result.hit = result.new_position < guy->position.x[X];
     return result;
 }
-static TileCollision top_sensor_placement(SensedTile* t, Character* guy, int height, const int sensor) {
+static TileCollision top_sensor_placement(Tilemap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
+    result.hit = false;
+
+    // Don't collide top sensor if it connects with a tile below
+    // (This kind of thing should be calculated statically for each map maybe...)
+    t->tilespace.x[Y] -= 1;
+    int tile_below_index = TILE_AT((*tilemap), t->tilespace, sensor);
+    if (tile_below_index >= 0) {
+        int height_below = COLLISION_TERRAIN_TESTGROUND[tile_below_index].top2down[t->position_within_tile.x[X]];
+        if (height_below == 32)
+            return result;
+    }
+
     result.new_position = (float)(t->tilepos.x[sensor+Y] + height - guy->top_sensors.x[sensor+Y]);
     result.hit = result.new_position < guy->position.x[Y];
     return result;
 }
 
 // NOTE the functions in here should line up with BOTTOM_SENSOR, TOP_SENSOR, RIGHT_SENSOR, and LEFT_SENSOR.
-const static TileCollision(*placement_functions[])(SensedTile* t, Character* guy, int height, const int sensor) = {
+const static TileCollision(*placement_functions[])(Tilemap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) = {
     dont_call_me, // Bottom sensors are special case
     top_sensor_placement,
     right_sensor_placement,
@@ -204,7 +216,7 @@ static TileCollision process_sensor(TestScene* s, SensedTile* t, const int senso
 #endif
             int height = heights[t->position_within_tile.x[sensor + !dim]];
             if (height >= 0) {
-                return placement_functions[sensor_dir](t, &s->guy, height, sensor);
+                return placement_functions[sensor_dir](&s->test_tilemap, t, &s->guy, height, sensor);
             }
         }
     }
@@ -332,10 +344,39 @@ void scene_test_update(void* vs, Game* game) {
         TileCollision t_collision_2 = process_sensor(s, &t, TOP_SENSOR, SENSOR_2, Y);
         bool top_hit = t_collision_1.hit || t_collision_2.hit;
 
-        // Adjust guy's position before even considering bottom sensors.
+        // Process top/left/right sensors before even calculating for bottom sensors
+
+        // First, get the dumb edge cases out of the way (and in the process, probably add more edge cases)
+        if (top_hit) {
+            if (left_hit && right_hit) {
+                // If top, left, AND right are hit, we definitely came from below.
+                left_hit = right_hit = false;
+            }
+            else if ((l_collision_1.hit && l_collision_2.hit) || (r_collision_1.hit && r_collision_2.hit)) {
+                // If both left or right sensors are hit, we definitely came from the side.
+                top_hit = false;
+            }
+            // Assumes top sensors are ordered left then right, and that side sensors are ordered top then bottom
+            else if (t_collision_1.hit && l_collision_1.hit) {
+                vec4i displacement;
+                displacement.simd = _mm_abs_epi32(_mm_cvtps_epi32(_mm_sub_ps(s->guy.position.simd, s->guy.old_position.simd)));
+                if (displacement.x[X] > displacement.x[Y])
+                    top_hit = false;
+                else
+                    left_hit = false;
+            }
+            else if (t_collision_2.hit && r_collision_1.hit) {
+                vec4i displacement;
+                displacement.simd = _mm_abs_epi32(_mm_cvtps_epi32(_mm_sub_ps(s->guy.position.simd, s->guy.old_position.simd)));
+                if (displacement.x[X] > displacement.x[Y])
+                    top_hit = false;
+                else
+                    right_hit = false;
+            }
+        }
+
         if (left_hit && right_hit) {
-            s->guy.position.x[X] = 64;
-            s->guy.position.x[Y] = 256;
+            // Squish!!!
         }
         else {
             if (left_hit)
@@ -362,6 +403,8 @@ void scene_test_update(void* vs, Game* game) {
             s->guy.position.x[Y] = b_collision_1.new_position;
         else if (b_collision_2.hit)
             s->guy.position.x[Y] = b_collision_2.new_position;
+        else
+            s->guy.grounded = false;
     }
     // === END OF COLLISION ===
 
@@ -370,6 +413,9 @@ void scene_test_update(void* vs, Game* game) {
         s->test_sound.samples_pos = 0;
         game->audio.oneshot_waves[0] = &s->test_sound;
     }
+
+    // This should happen after all entities are done interacting (riiight at the end of the frame)
+    s->guy.old_position = s->guy.position;
 
     // Swap to offset viewer on F1 press
     if (just_pressed(&game->controls, C_F1))

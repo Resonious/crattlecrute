@@ -88,6 +88,8 @@ typedef struct {
 typedef struct {
     // (x[0] left to right, x[1] down to up)
     vec4 position;
+    // (x[0] left to right, x[1] down to up)
+    vec4 old_position;
 
     // (x[0], x[1])  (x[2], x[3])
     vec4i top_sensors;
