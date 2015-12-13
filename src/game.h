@@ -80,6 +80,10 @@ typedef struct {
 #define SENSOR_2 2
 #define X 0
 #define Y 1
+#define BOTTOM_SENSOR 0
+#define TOP_SENSOR 1
+#define RIGHT_SENSOR 2
+#define LEFT_SENSOR 3
 
 typedef struct {
     // (x[0] left to right, x[1] down to up)

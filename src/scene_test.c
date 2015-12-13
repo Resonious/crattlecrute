@@ -149,6 +149,73 @@ static TileCollision process_bottom_sensor(TestScene* s, SensedTile* t, const in
     return result;
 }
 
+static TileCollision dont_call_me(SensedTile* t, Character* guy, int height, const int sensor) {
+    // This should never happen!!!
+#ifdef _DEBUG
+    SDL_assert(false);
+#endif
+}
+static TileCollision left_sensor_placement(SensedTile* t, Character* guy, int height, const int sensor) {
+    TileCollision result;
+    result.new_position = (float)(t->tilepos.x[sensor+X] + height - guy->left_sensors.x[sensor+X]);
+    result.hit = result.new_position > guy->position.x[X];
+    return result;
+}
+static TileCollision right_sensor_placement(SensedTile* t, Character* guy, int height, const int sensor) {
+    TileCollision result;
+    result.new_position = (float)(t->tilepos.x[sensor+X] + 32 - height - guy->right_sensors.x[sensor+X]);
+    result.hit = result.new_position < guy->position.x[X];
+    return result;
+}
+static TileCollision top_sensor_placement(SensedTile* t, Character* guy, int height, const int sensor) {
+    TileCollision result;
+    result.new_position = (float)(t->tilepos.x[sensor+Y] + height - guy->top_sensors.x[sensor+Y]);
+    result.hit = result.new_position < guy->position.x[Y];
+    return result;
+}
+
+// NOTE the functions in here should line up with BOTTOM_SENSOR, TOP_SENSOR, RIGHT_SENSOR, and LEFT_SENSOR.
+const static TileCollision(*placement_functions[])(SensedTile* t, Character* guy, int height, const int sensor) = {
+    dont_call_me, // Bottom sensors are special case
+    top_sensor_placement,
+    right_sensor_placement,
+    left_sensor_placement
+};
+
+static TileCollision process_sensor(TestScene* s, SensedTile* t, const int sensor_dir, const int sensor, const int dim) {
+    if (t->indices_are_valid.x[sensor + X] && t->indices_are_valid.x[sensor + Y]) {
+        int tile_index = TILE_AT(s->test_tilemap, t->tilespace, sensor);
+        if (tile_index >= 0) {
+            int* heights = TILE_HEIGHT_FOR_SENSOR(COLLISION_TERRAIN_TESTGROUND, tile_index, sensor_dir);
+#ifdef _DEBUG
+            // Make sure TILE_HEIGHT_FOR_SENSOR is working correctly.
+            if (sensor_dir == LEFT_SENSOR)
+                SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND[tile_index].left2right);
+            else if (sensor_dir == RIGHT_SENSOR)
+                SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND[tile_index].right2left);
+            else if (sensor_dir == TOP_SENSOR)
+                SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND[tile_index].bottom2up);
+            else
+                SDL_assert(false);
+
+            // Sanity
+            if      (dim == X) SDL_assert(!dim == Y);
+            else if (dim == Y) SDL_assert(!dim == X);
+#endif
+            int height = heights[t->position_within_tile.x[sensor + !dim]];
+            if (height >= 0) {
+                return placement_functions[sensor_dir](t, &s->guy, height, sensor);
+            }
+        }
+    }
+
+    TileCollision result;
+    result.hit = false;
+    result.new_position = s->guy.position.x[dim];
+
+    return result;
+}
+
 void scene_test_initialize(void* vdata, Game* game) {
     TestScene* data = (TestScene*)vdata;
     // Testing physics!!!!
@@ -235,19 +302,9 @@ void scene_test_update(void* vs, Game* game) {
         s->guy.position.x[1] = 20;
         s->dy = 0;
     }
-    // Test out tile collision!!!
-    {
-#define IF_COLLIDE(t, sensor, heights2use, height_dim) \
-if (t.indices_are_valid.x[sensor] && t.indices_are_valid.x[sensor + 1]) {\
-    int tile_index = TILE_AT(s->test_tilemap, t.tilespace, sensor);\
-    if (tile_index >= 0) {\
-        TileHeights* collision_height_list = &COLLISION_TERRAIN_TESTGROUND[tile_index];\
-        int* heights = collision_height_list->heights2use;\
-        int height = heights[t.position_within_tile.x[height_dim]];\
-        if (height >= 0) {
-#define END_COLLIDE }}}
-#define OTHERWISE } else {
 
+    // ==== COLLISION BEGINS! ====
+    {
         // === These are needed for all sensor operations ===
         // tilemap dimensions twice (w,h,w,h)
         vec4i tilemap_dim;
@@ -259,58 +316,43 @@ if (t.indices_are_valid.x[sensor] && t.indices_are_valid.x[sensor + 1]) {\
         // == LEFT SENSORS ==
         SensedTile t;
         sense_tile(&s->guy.position, &tilemap_dim, &s->guy.left_sensors, &t);
-        IF_COLLIDE(t, SENSOR_1, left2right, S1Y)
-            int x_placement = t.tilepos.x[S1X] + height - s->guy.left_sensors.x[S1X];
-
-            if (x_placement > s->guy.position.x[X])
-                s->guy.position.x[X] = x_placement;
-        END_COLLIDE
-        IF_COLLIDE(t, SENSOR_2, left2right, S2Y)
-            int x_placement = t.tilepos.x[S2X] + height - s->guy.left_sensors.x[S2X];
-
-            if (x_placement > s->guy.position.x[X])
-                s->guy.position.x[X] = x_placement;
-        END_COLLIDE
+        TileCollision l_collision_1 = process_sensor(s, &t, LEFT_SENSOR, SENSOR_1, X);
+        TileCollision l_collision_2 = process_sensor(s, &t, LEFT_SENSOR, SENSOR_2, X);
+        bool left_hit = l_collision_1.hit || l_collision_2.hit;
 
         // == RIGHT SENSORS ==
         sense_tile(&s->guy.position, &tilemap_dim, &s->guy.right_sensors, &t);
-        IF_COLLIDE(t, SENSOR_1, right2left, S1Y)
-            int x_placement = t.tilepos.x[S1X] + 32 - height - s->guy.right_sensors.x[S1X];
-
-            if (x_placement < s->guy.position.x[X])
-                s->guy.position.x[X] = x_placement - 1;
-        END_COLLIDE
-        IF_COLLIDE(t, SENSOR_2, right2left, S2Y)
-            int x_placement = t.tilepos.x[S2X] + 32 - height - s->guy.right_sensors.x[S2X];
-
-            if (x_placement < s->guy.position.x[X])
-                s->guy.position.x[X] = x_placement - 1;
-        END_COLLIDE
+        TileCollision r_collision_1 = process_sensor(s, &t, RIGHT_SENSOR, SENSOR_1, X);
+        TileCollision r_collision_2 = process_sensor(s, &t, RIGHT_SENSOR, SENSOR_2, X);
+        bool right_hit = r_collision_1.hit || r_collision_2.hit;
 
         // == TOP SENSORS ==
         sense_tile(&s->guy.position, &tilemap_dim, &s->guy.top_sensors, &t);
-        IF_COLLIDE(t, SENSOR_1, bottom2up, S1X)
-            int y_placement = t.tilepos.x[S1Y] + height - s->guy.top_sensors.x[S1Y];
+        TileCollision t_collision_1 = process_sensor(s, &t, TOP_SENSOR, SENSOR_1, Y);
+        TileCollision t_collision_2 = process_sensor(s, &t, TOP_SENSOR, SENSOR_2, Y);
+        bool top_hit = t_collision_1.hit || t_collision_2.hit;
 
-            if (y_placement < s->guy.position.x[Y]) {
-                s->guy.position.x[Y] = y_placement;
+        // Adjust guy's position before even considering bottom sensors.
+        if (left_hit && right_hit) {
+            s->guy.position.x[X] = 64;
+            s->guy.position.x[Y] = 256;
+        }
+        else {
+            if (left_hit)
+                s->guy.position.x[X] = fmaxf(l_collision_1.new_position, l_collision_2.new_position);
+            if (right_hit)
+                s->guy.position.x[X] = fminf(r_collision_1.new_position, r_collision_2.new_position);
+            if (top_hit) {
+                s->guy.position.x[Y] = fminf(t_collision_1.new_position, t_collision_2.new_position);
                 s->dy = 0;
             }
-        END_COLLIDE
-        IF_COLLIDE(t, SENSOR_2, bottom2up, S2X)
-            int y_placement = t.tilepos.x[S2Y] + height - s->guy.top_sensors.x[S2Y];
-
-            if (y_placement < s->guy.position.x[Y]) {
-                s->guy.position.x[Y] = y_placement;
-                s->dy = 0;
-            }
-        END_COLLIDE
+        }
 
         // == BOTTOM SENSORS ==
         sense_tile(&s->guy.position, &tilemap_dim, &s->guy.bottom_sensors, &t);
-
         TileCollision b_collision_1 = process_bottom_sensor(s, &t, SENSOR_1);
         TileCollision b_collision_2 = process_bottom_sensor(s, &t, SENSOR_2);
+
         s->guy.grounded = b_collision_1.hit || b_collision_2.hit;
         if (s->guy.grounded)
             s->dy = 0;

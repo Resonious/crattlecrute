@@ -143,6 +143,9 @@ header.write(
   "#define BOTTOM2UP 1;\n"\
   "#define RIGHT2LEFT 2;\n"\
   "#define LEFT2RIGHT 3;\n"\
+  "#define TILE_HEIGHT_FOR_SENSOR(heights, tile_index, sensor_dir) \\\n"\
+  "    ((int*)(&heights[tile_index]) + (sensor_dir * 32)"\
+  ")\n"\
   "typedef struct {\n"\
   "    int top2down[32];\n"\
   "    int bottom2up[32];\n"\
