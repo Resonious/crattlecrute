@@ -25,16 +25,25 @@ void switch_scene(Game* game, int to_scene) {
 }
 
 void draw_text_ex(Game* game, int x, int y, char* text, int padding, float scale) {
+    const int original_x = x;
+
     while (*text) {
         // font image is 320x448
-        int char_index = *text;
-        SDL_Rect glyph = { (char_index % 16) * 20, (char_index / 16) * 28, 20, 28 };
-        SDL_Rect drawto = { x, game->window_height - y, 20, 28 };
-        drawto.w = (int)roundf((float)drawto.w * scale);
-        drawto.h = (int)roundf((float)drawto.h * scale);
-        SDL_RenderCopy(game->renderer, game->font, &glyph, &drawto);
+        // characters are 20x28
+        if (*text == '\n') {
+            x = original_x;
+            y -= 28 * scale + padding;
+        }
+        else {
+            int char_index = *text;
+            SDL_Rect glyph = { (char_index % 16) * 20, (char_index / 16) * 28, 20, 28 };
+            SDL_Rect drawto = { x, game->window_height - y, 20, 28 };
+            drawto.w = (int)roundf((float)drawto.w * scale);
+            drawto.h = (int)roundf((float)drawto.h * scale);
+            SDL_RenderCopy(game->renderer, game->font, &glyph, &drawto);
 
-        x += 20.0f * scale + padding;
+            x += 20.0f * scale + padding;
+        }
         text++;
     }
 }
@@ -50,6 +59,7 @@ void default_character(Character* target) {
     target->ground_acceleration = 1.15f;
     target->ground_deceleration = 1.1f;
     target->position.simd = _mm_set1_ps(0.0f);
+    target->grounded = false;
 
     target->top_sensors.x[S1X] = 31;
     target->top_sensors.x[S1Y] = 72;
@@ -103,7 +113,7 @@ int main(int argc, char** argv) {
     memset(&game.controls, 0, sizeof(game.controls));
 
     game.window = SDL_CreateWindow(
-        "Niiiice",
+        "Crattlecrute",
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
         game.window_width, game.window_height,
@@ -124,7 +134,9 @@ int main(int argc, char** argv) {
     bool running = true;
     Uint64 milliseconds_per_tick = 1000 / ticks_per_second;
     Uint64 last_frame_ms = 17;
-    // test stuff
+#if _DEBUG
+    bool debug_pause = false;
+#endif
 
     game.current_scene->initialize(game.current_scene_data, &game);
 
@@ -133,7 +145,8 @@ int main(int argc, char** argv) {
         game.frame_count += 1;
 
         memcpy(game.controls.last_frame, game.controls.this_frame, sizeof(game.controls.last_frame));
-        memset(game.controls.this_frame, 0, sizeof(game.controls.this_frame));
+        // NOTE all controls should be re-set every frame, so this technically shouldn't be necessary.
+        // memset(game.controls.this_frame, 0, sizeof(game.controls.this_frame));
 
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
@@ -154,15 +167,28 @@ int main(int argc, char** argv) {
             game.controls.this_frame[C_A] = keys[SDL_SCANCODE_A];
             game.controls.this_frame[C_D] = keys[SDL_SCANCODE_D];
 
+            game.controls.this_frame[C_PAUSE] = keys[SDL_SCANCODE_P];
+
             game.controls.this_frame[C_SPACE] = keys[SDL_SCANCODE_SPACE];
             game.controls.this_frame[C_F1] = keys[SDL_SCANCODE_F1];
         }
 
+#if _DEBUG
+        if (just_pressed(&game.controls, C_PAUSE))
+            debug_pause = !debug_pause;
+        if (!debug_pause || just_pressed(&game.controls, C_SPACE))
+#endif
         game.current_scene->update(game.current_scene_data, &game);
 
         // Draw!!! Finally!!!
         SDL_RenderClear(game.renderer);
         game.current_scene->render(game.current_scene_data, &game);
+#if _DEBUG
+        if (debug_pause) {
+            set_text_color(&game, 50, 50, 255);
+            draw_text_ex(&game, 32, game.window_height - 32, "FREEZE-FRAME!", 1, 0.7f);
+        }
+#endif
         SDL_RenderPresent(game.renderer);
 
         // ======================= Cap Framerate =====================
@@ -172,6 +198,11 @@ int main(int argc, char** argv) {
         if (frame_ms < 17) {
             SDL_Delay(17 - frame_ms);
         }
+#if _DEBUG
+        else if (frame_ms > 17) {
+            SDL_ShowSimpleMessageBox(0, "Bro..", "You lagging?", &game.window);
+        }
+#endif
     }
 
     game.current_scene->cleanup(game.current_scene_data, &game);

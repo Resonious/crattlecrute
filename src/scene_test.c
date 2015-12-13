@@ -92,7 +92,7 @@ void scene_test_initialize(void* vdata, Game* game) {
 
     // TODO oh god testing audio
     BENCH_START(loading_sound)
-    // data->wave = open_and_play_music(&game->audio);
+    data->wave = open_and_play_music(&game->audio);
     data->test_sound = decode_ogg(ASSET_SOUNDS_EXPLOSION_OGG);
     BENCH_END(loading_sound)
 }
@@ -136,8 +136,6 @@ void scene_test_update(void* vs, Game* game) {
     if (s->dy < -s->terminal_velocity)
         s->dy = -s->terminal_velocity;
 
-    if (game->controls.this_frame[C_SPACE])
-        s->dy = 0;
     // Actually move the dude (ground_speed is just x for now)
     __m128 movement = {s->guy.ground_speed, s->dy, 0.0f, 0.0f};
     s->guy.position.simd = _mm_add_ps(s->guy.position.simd, movement);
@@ -202,7 +200,7 @@ if (t.indices_are_valid.x[sensor] && t.indices_are_valid.x[sensor + 1]) {\
         // == TOP SENSORS ==
         sense_tile(&s->guy.position, &tilemap_dim, &s->guy.top_sensors, &t);
         IF_COLLIDE(t, SENSOR_1, bottom2up, S1X)
-            int y_placement = t.tilepos.x[S1Y] + height - s->guy.top_sensors.x[S1Y] - 2;
+            int y_placement = t.tilepos.x[S1Y] + height - s->guy.top_sensors.x[S1Y];
 
             if (y_placement < s->guy.position.x[Y]) {
                 s->guy.position.x[Y] = y_placement;
@@ -210,7 +208,7 @@ if (t.indices_are_valid.x[sensor] && t.indices_are_valid.x[sensor + 1]) {\
             }
         END_COLLIDE
         IF_COLLIDE(t, SENSOR_2, bottom2up, S2X)
-            int y_placement = t.tilepos.x[S2Y] + height - s->guy.top_sensors.x[S2Y] - 2;
+            int y_placement = t.tilepos.x[S2Y] + height - s->guy.top_sensors.x[S2Y];
 
             if (y_placement < s->guy.position.x[Y]) {
                 s->guy.position.x[Y] = y_placement;

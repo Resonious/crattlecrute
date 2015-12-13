@@ -46,7 +46,7 @@ void audio_callback(AudioQueue* queue, byte* byte_stream, int byte_stream_size) 
         int bytes_mixed_in = 0;
         do {
             int bytes_remaining_in_wave = wave->samples_size - wave->samples_pos;
-            int bytes_to_mix_in = min(bytes_remaining_in_wave, byte_stream_size);
+            int bytes_to_mix_in = min(bytes_remaining_in_wave, byte_stream_size - bytes_mixed_in);
 
             SDL_MixAudio(
                 byte_stream + bytes_mixed_in, wave->samples + wave->samples_pos,

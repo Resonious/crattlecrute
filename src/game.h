@@ -8,6 +8,7 @@
 enum Control {
     C_UP, C_DOWN, C_LEFT, C_RIGHT,
     C_W, C_S, C_A, C_D,
+    C_PAUSE,
     C_F1, C_SPACE,
     NUM_CONTROLS
 };
@@ -97,6 +98,7 @@ typedef struct {
     float ground_speed_max;
     float ground_acceleration;
     float ground_deceleration;
+    bool grounded;
     SDL_Texture* textures[3];
     int width, height;
 } Character;
