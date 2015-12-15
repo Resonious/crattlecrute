@@ -140,14 +140,17 @@ int main(int argc, char** argv) {
     // Main loop bitch
     SDL_Event event;
     bool running = true;
-    Uint64 milliseconds_per_tick = 1000 / ticks_per_second;
-    Uint64 last_frame_ms = 17;
+    const Uint64 milliseconds_per_tick = 1000 / ticks_per_second;
+    const Uint64 ticks_per_frame = ticks_per_second / 60;
+    Uint64 frame_start, frame_end;
+    Uint64 last_frame_ticks = 0;
 
     game.current_scene->initialize(game.current_scene_data, &game);
 
     while (running) {
-        Uint64 frame_start = SDL_GetPerformanceCounter();
+        frame_start = SDL_GetPerformanceCounter();
         game.frame_count += 1;
+        game.tick_count += last_frame_ticks;
 
         memcpy(game.controls.last_frame, game.controls.this_frame, sizeof(game.controls.last_frame));
         // NOTE all controls should be re-set every frame, so this technically shouldn't be necessary.
@@ -193,19 +196,27 @@ int main(int argc, char** argv) {
             set_text_color(&game, 50, 50, 255);
             draw_text_ex(&game, 32, game.window_height - 32, "FREEZE-FRAME!", 1, 0.7f);
         }
+
+        set_text_color(&game, 255, 255, 20);
+        float fps = (float)game.frame_count / ((float)game.tick_count / (float)ticks_per_second);
+        draw_text_ex_f(&game, game.window_width - 150, game.window_height - 20, -1, 0.7f, "FPS: %.2f", fps);
 #endif
         SDL_RenderPresent(game.renderer);
 
         // ======================= Cap Framerate =====================
-        Uint64 frame_end = SDL_GetPerformanceCounter();
-        Uint64 frame_ms = (frame_end - frame_start) * milliseconds_per_tick;
+        frame_end = SDL_GetPerformanceCounter();
+        last_frame_ticks = frame_end - frame_start;
 
-        if (frame_ms < 17) {
-            SDL_Delay(17 - frame_ms);
+        // Dunno if this is better than bigger sleep chunks or just not sleeping.
+        while (last_frame_ticks < ticks_per_frame - ticks_per_frame / 200) {
+            Uint64 i = SDL_GetPerformanceCounter();
+            SDL_Delay(1);
+            Uint64 f = SDL_GetPerformanceCounter();
+            last_frame_ticks += f - i;
         }
 #if _DEBUG
-        else if (frame_ms > 17) {
-            SDL_ShowSimpleMessageBox(0, "Bro..", "You lagging?", &game.window);
+        if (last_frame_ticks > 2 * ticks_per_frame) {
+            printf("Bro..", "You lagging?");
         }
 #endif
     }

@@ -33,6 +33,7 @@ typedef struct {
     Controls controls;
     float window_width, window_height;
     Uint64 frame_count;
+    Uint64 tick_count;
     SDL_Texture* font;
     // Remember to #include "scene.h" if you're gonna use this.
     struct Scene* current_scene;
