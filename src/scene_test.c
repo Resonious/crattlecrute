@@ -37,20 +37,21 @@ static const int inverted_test_tilemap[] = {
 };
 
 static const int test_tilemap_2[] = {
-    4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-    4,4,4,4,4,4,4,4,4,8,8,10,11,0,0,0,0,0,0,4,
-    4,0,0,0,0,1,2,3,4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,-1,-1,-1,-1,-1,-1,7,5,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,-1,-1,-1,-1,-1,-1,-1,6,8,8,8,8,10,11,0,0,-1,-1,4,
+    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
+    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
+    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,9,9,4,
+    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,8,8,8,4,
+    4,9,9,9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,4,4,4,
+    4,8,8,8,10,11,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,4,4,4,
+    4,4,4,4,4,4,-1,-1,-1,-1,-1,-1,-1,-1,1,2,4,4,4,4,
+    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
     4,-1,-1,-1,-1,-1,-1,-1,-1,9,9,9,9,-1,-1,-1,-1,-1,-1,4,
-    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,4,4,4,4,4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,8,8,8,10,11,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,9,9,9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
+    4,-1,-1,-1,-1,-1,-1,-1,6,8,8,8,8,10,11,0,0,-1,-1,4,
+    4,-1,-1,-1,-1,-1,-1,7,5,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
+    4,0,0,0,0,1,2,3,4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
+    4,4,4,4,4,4,4,4,4,8,8,10,11,0,0,0,0,0,0,4,
+    4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+    4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
 };
 
 typedef struct {
@@ -132,8 +133,11 @@ static TileCollision process_bottom_sensor(TestScene* s, SensedTile* t, const in
         int* heights = COLLISION_TERRAIN_TESTGROUND2[tile_index].top2down;
         int height = heights[t->position_within_tile.x[sensor+X]];
 
+        // This would also mean we're in the air
+        if (height == -1 && s->guy.grounded)
+            return process_bottom_sensor_one_tile_down(s, t, sensor);
         // Try next tile up
-        if (height == 32) {
+        else if (height == 32) {
             int new_tilespace_y = t->tilespace.x[sensor+Y] + 1;
             // Make sure "one tile up" is in fact a valid tile index..
             if (new_tilespace_y >= 0 && new_tilespace_y < s->test_tilemap.height) {
@@ -188,8 +192,10 @@ static TileCollision top_sensor_placement(Tilemap* tilemap, SensedTile* t, Chara
     TileCollision result;
     result.hit = false;
 
+    /*
     // Don't collide top sensor if it connects with a tile below
     // (This kind of thing should be calculated statically for each map maybe...)
+    // ACTUALLY it shouldn't be necessary.
     t->tilespace.x[Y] -= 1;
     int tile_below_index = TILE_AT((*tilemap), t->tilespace, sensor);
     if (tile_below_index >= 0) {
@@ -197,8 +203,9 @@ static TileCollision top_sensor_placement(Tilemap* tilemap, SensedTile* t, Chara
         if (height_below == 32)
             return result;
     }
+    */
 
-    result.new_position = (float)(t->tilepos.x[sensor+Y] + height - guy->top_sensors.x[sensor+Y]);
+    result.new_position = (float)(t->tilepos.x[sensor+Y] + height - 1 - guy->top_sensors.x[sensor+Y]);
     result.hit = result.new_position < guy->position.x[Y];
     return result;
 }
@@ -251,7 +258,11 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->gravity = 1.15f; // In pixels per frame per frame
     data->terminal_velocity = 14.3f;
 
-    data->test_tilemap.tiles  = test_tilemap_2;
+    data->test_tilemap.tiles  = malloc(sizeof(test_tilemap_2));
+    for (int x = 0; x < 20; x++) {
+        for (int y = 0; y < 15; y++)
+            data->test_tilemap.tiles[y * 20 + x] = test_tilemap_2[(15 - y) * 20 + x];
+    }
     data->test_tilemap.width  = 20;
     data->test_tilemap.height = 15;
 
@@ -342,68 +353,39 @@ void scene_test_update(void* vs, Game* game) {
             s->test_tilemap.height, s->test_tilemap.width
         );
 
+        vec4 guy_new_x_position;
+        guy_new_x_position.x[X] = s->guy.position.x[X];
+        guy_new_x_position.x[Y] = s->guy.old_position.x[Y];
+        vec4 guy_new_y_position;
+        guy_new_y_position.x[X] = s->guy.old_position.x[X];
+        guy_new_y_position.x[Y] = s->guy.position.x[Y];
+
         // == LEFT SENSORS ==
         SensedTile t;
-        sense_tile(&s->guy.position, &tilemap_dim, &s->guy.left_sensors, &t);
+        sense_tile(&guy_new_x_position, &tilemap_dim, &s->guy.left_sensors, &t);
         TileCollision l_collision_1 = process_sensor(s, &t, LEFT_SENSOR, SENSOR_1, X);
         TileCollision l_collision_2 = process_sensor(s, &t, LEFT_SENSOR, SENSOR_2, X);
         bool left_hit = l_collision_1.hit || l_collision_2.hit;
 
         // == RIGHT SENSORS ==
-        sense_tile(&s->guy.position, &tilemap_dim, &s->guy.right_sensors, &t);
+        sense_tile(&guy_new_x_position, &tilemap_dim, &s->guy.right_sensors, &t);
         TileCollision r_collision_1 = process_sensor(s, &t, RIGHT_SENSOR, SENSOR_1, X);
         TileCollision r_collision_2 = process_sensor(s, &t, RIGHT_SENSOR, SENSOR_2, X);
         bool right_hit = r_collision_1.hit || r_collision_2.hit;
 
         // == TOP SENSORS ==
-        sense_tile(&s->guy.position, &tilemap_dim, &s->guy.top_sensors, &t);
+        sense_tile(&guy_new_y_position, &tilemap_dim, &s->guy.top_sensors, &t);
         TileCollision t_collision_1 = process_sensor(s, &t, TOP_SENSOR, SENSOR_1, Y);
         TileCollision t_collision_2 = process_sensor(s, &t, TOP_SENSOR, SENSOR_2, Y);
         bool top_hit = t_collision_1.hit || t_collision_2.hit;
 
-        // Process top/left/right sensors before even calculating for bottom sensors
-
-        // First, get the dumb edge cases out of the way (and in the process, probably add more edge cases)
+        if (left_hit)
+            s->guy.position.x[X] = fmaxf(l_collision_1.new_position, l_collision_2.new_position);
+        if (right_hit)
+            s->guy.position.x[X] = fminf(r_collision_1.new_position, r_collision_2.new_position);
         if (top_hit) {
-            if (left_hit && right_hit) {
-                // If top, left, AND right are hit, we definitely came from below.
-                left_hit = right_hit = false;
-            }
-            else if ((l_collision_1.hit && l_collision_2.hit) || (r_collision_1.hit && r_collision_2.hit)) {
-                // If both left or right sensors are hit, we definitely came from the side.
-                top_hit = false;
-            }
-            // Assumes top sensors are ordered left then right, and that side sensors are ordered top then bottom
-            else if (t_collision_1.hit && l_collision_1.hit) {
-                vec4i displacement;
-                displacement.simd = _mm_abs_epi32(_mm_cvtps_epi32(_mm_sub_ps(s->guy.position.simd, s->guy.old_position.simd)));
-                if (displacement.x[X] > displacement.x[Y])
-                    top_hit = false;
-                else
-                    left_hit = false;
-            }
-            else if (t_collision_2.hit && r_collision_1.hit) {
-                vec4i displacement;
-                displacement.simd = _mm_abs_epi32(_mm_cvtps_epi32(_mm_sub_ps(s->guy.position.simd, s->guy.old_position.simd)));
-                if (displacement.x[X] > displacement.x[Y])
-                    top_hit = false;
-                else
-                    right_hit = false;
-            }
-        }
-
-        if (left_hit && right_hit) {
-            // Squish!!!
-        }
-        else {
-            if (left_hit)
-                s->guy.position.x[X] = fmaxf(l_collision_1.new_position, l_collision_2.new_position);
-            if (right_hit)
-                s->guy.position.x[X] = fminf(r_collision_1.new_position, r_collision_2.new_position);
-            if (top_hit) {
-                s->guy.position.x[Y] = fminf(t_collision_1.new_position, t_collision_2.new_position);
-                s->dy = 0;
-            }
+            s->guy.position.x[Y] = fminf(t_collision_1.new_position, t_collision_2.new_position);
+            s->dy = 0;
         }
 
         // == BOTTOM SENSORS ==
