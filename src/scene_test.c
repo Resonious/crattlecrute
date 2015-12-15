@@ -422,6 +422,15 @@ void scene_test_update(void* vs, Game* game) {
     }
     // === END OF COLLISION ===
 
+    // Animate here so that animation freezes along with freeze frame
+    if (s->animate) {
+        if (game->frame_count % 5 == 0)
+            s->animation_frame += 1;
+        if (s->animation_frame >= 9)
+            s->animation_frame = 1;
+    }
+    else s->animation_frame = 0;
+
     // Test sound effect
     if (just_pressed(&game->controls, C_UP)) {
         s->test_sound.samples_pos = 0;
@@ -541,13 +550,6 @@ void scene_test_render(void* vs, Game* game) {
     SDL_Rect dest = { s->guy.position.x[0] - s->guy.center_x, game->window_height - s->guy.position.x[1] - s->guy.center_y, 90, 90 };
     // Chearfully assume that center_y is right after center_x and aligned the same as SDL_Point...
     SDL_Point* center = (SDL_Point*)&s->guy.center_x;
-    if (s->animate) {
-        if (game->frame_count % 5 == 0)
-            s->animation_frame += 1;
-        if (s->animation_frame >= 9)
-            s->animation_frame = 1;
-    }
-    else s->animation_frame = 0;
     for (int i = 0; i < 3; i++)
         SDL_RenderCopyEx(game->renderer, s->guy.textures[i], &src, &dest, 360 - s->guy.ground_angle, center, s->flip);
 
