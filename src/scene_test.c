@@ -1,5 +1,9 @@
 #include "scene.h"
 
+#ifdef _DEBUG
+extern bool debug_pause;
+#endif
+
 #define TILE_AT(tilemap, tilespace, sensor) \
     tilemap.tiles[tilespace.x[sensor + 1] * tilemap.width + tilespace.x[sensor]]
 
@@ -424,36 +428,42 @@ void scene_test_update(void* vs, Game* game) {
 void scene_test_render(void* vs, Game* game) {
     TestScene* s = (TestScene*)vs;
     // Draw tiles!
-    // DEBUG: b-sensor 1 tile index
-    int sense_x = s->guy.position.x[0] + s->guy.bottom_sensors.x[0];
-    int sense_y = s->guy.position.x[1] + s->guy.bottom_sensors.x[1];
-    int b1_tilespace_x = sense_x / 32;
-    int b1_tilespace_y = sense_y / 32;
-    // DEBUG: b-sensor 2 tile index
-    sense_x = s->guy.position.x[0] + s->guy.bottom_sensors.x[2];
-    sense_y = s->guy.position.x[1] + s->guy.bottom_sensors.x[3];
-    int b2_tilespace_x = sense_x / 32;
-    int b2_tilespace_y = sense_y / 32;
-    // DEBUG: l-sensor 1 tile index
-    sense_x = s->guy.position.x[0] + s->guy.left_sensors.x[0];
-    sense_y = s->guy.position.x[1] + s->guy.left_sensors.x[1];
-    int l1_tilespace_x = sense_x / 32;
-    int l1_tilespace_y = sense_y / 32;
-    // DEBUG: l-sensor 2 tile index
-    sense_x = s->guy.position.x[0] + s->guy.left_sensors.x[2];
-    sense_y = s->guy.position.x[1] + s->guy.left_sensors.x[3];
-    int l2_tilespace_x = sense_x / 32;
-    int l2_tilespace_y = sense_y / 32;
-    // DEBUG: r-sensor 1 tile index
-    sense_x = s->guy.position.x[0] + s->guy.right_sensors.x[0];
-    sense_y = s->guy.position.x[1] + s->guy.right_sensors.x[1];
-    int r1_tilespace_x = sense_x / 32;
-    int r1_tilespace_y = sense_y / 32;
-    // DEBUG: r-sensor 2 tile index
-    sense_x = s->guy.position.x[0] + s->guy.right_sensors.x[2];
-    sense_y = s->guy.position.x[1] + s->guy.right_sensors.x[3];
-    int r2_tilespace_x = sense_x / 32;
-    int r2_tilespace_y = sense_y / 32;
+#ifdef _DEBUG
+    int b1_tilespace_x, b1_tilespace_y, l1_tilespace_x, l1_tilespace_y, r1_tilespace_x, r1_tilespace_y;
+    int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_tilespace_x, r2_tilespace_y;
+    if (debug_pause) {
+        // DEBUG: b-sensor 1 tile index
+        int sense_x = s->guy.position.x[0] + s->guy.bottom_sensors.x[0];
+        int sense_y = s->guy.position.x[1] + s->guy.bottom_sensors.x[1];
+        b1_tilespace_x = sense_x / 32;
+        b1_tilespace_y = sense_y / 32;
+        // DEBUG: b-sensor 2 tile index
+        sense_x = s->guy.position.x[0] + s->guy.bottom_sensors.x[2];
+        sense_y = s->guy.position.x[1] + s->guy.bottom_sensors.x[3];
+        b2_tilespace_x = sense_x / 32;
+        b2_tilespace_y = sense_y / 32;
+        // DEBUG: l-sensor 1 tile index
+        sense_x = s->guy.position.x[0] + s->guy.left_sensors.x[0];
+        sense_y = s->guy.position.x[1] + s->guy.left_sensors.x[1];
+        l1_tilespace_x = sense_x / 32;
+        l1_tilespace_y = sense_y / 32;
+        // DEBUG: l-sensor 2 tile index
+        sense_x = s->guy.position.x[0] + s->guy.left_sensors.x[2];
+        sense_y = s->guy.position.x[1] + s->guy.left_sensors.x[3];
+        l2_tilespace_x = sense_x / 32;
+        l2_tilespace_y = sense_y / 32;
+        // DEBUG: r-sensor 1 tile index
+        sense_x = s->guy.position.x[0] + s->guy.right_sensors.x[0];
+        sense_y = s->guy.position.x[1] + s->guy.right_sensors.x[1];
+        r1_tilespace_x = sense_x / 32;
+        r1_tilespace_y = sense_y / 32;
+        // DEBUG: r-sensor 2 tile index
+        sense_x = s->guy.position.x[0] + s->guy.right_sensors.x[2];
+        sense_y = s->guy.position.x[1] + s->guy.right_sensors.x[3];
+        r2_tilespace_x = sense_x / 32;
+        r2_tilespace_y = sense_y / 32;
+    }
+#endif
 
     for (int i = 0; i < 20; i++) {
         for (int j = 0; j < 15; j++) {
@@ -474,40 +484,44 @@ void scene_test_render(void* vs, Game* game) {
                 SDL_RenderCopy(game->renderer, s->tiles, &src, &tile_rect);
             }
 
-            // DEBUG: highlight tiles that sensors cover
-            Uint8 r, g, b, a;
-            SDL_GetRenderDrawColor(game->renderer, &r, &b, &g, &a);
-            if (
-                i == l1_tilespace_x && j == l1_tilespace_y
-                ||
-                i == l2_tilespace_x && j == l2_tilespace_y
-                ) {
-                SDL_SetRenderDrawColor(game->renderer, 255, 0, 50, 128);
-                SDL_RenderDrawRect(game->renderer, &tile_rect);
-            }
-            if (
-                i == r1_tilespace_x && j == r1_tilespace_y
-                ||
-                i == r2_tilespace_x && j == r2_tilespace_y
-                ) {
-                SDL_SetRenderDrawColor(game->renderer, 255, 0, 50, 128);
-                SDL_RenderDrawRect(game->renderer, &tile_rect);
-            }
-            if (
-                i == b1_tilespace_x && j == b1_tilespace_y
-                ||
-                i == b2_tilespace_x && j == b2_tilespace_y
-                ) {
-                // smaller rect so that we can see both
-                tile_rect.x += 1;
-                tile_rect.y += 1;
-                tile_rect.h -= 2;
-                tile_rect.w -= 2;
-                SDL_SetRenderDrawColor(game->renderer, 0, 255, 50, 128);
-                SDL_RenderDrawRect(game->renderer, &tile_rect);
-            }
+#ifdef _DEBUG
+            if (debug_pause) {
+                // DEBUG: highlight tiles that sensors cover
+                Uint8 r, g, b, a;
+                SDL_GetRenderDrawColor(game->renderer, &r, &b, &g, &a);
+                if (
+                    i == l1_tilespace_x && j == l1_tilespace_y
+                    ||
+                    i == l2_tilespace_x && j == l2_tilespace_y
+                    ) {
+                    SDL_SetRenderDrawColor(game->renderer, 255, 0, 50, 128);
+                    SDL_RenderDrawRect(game->renderer, &tile_rect);
+                }
+                if (
+                    i == r1_tilespace_x && j == r1_tilespace_y
+                    ||
+                    i == r2_tilespace_x && j == r2_tilespace_y
+                    ) {
+                    SDL_SetRenderDrawColor(game->renderer, 255, 0, 50, 128);
+                    SDL_RenderDrawRect(game->renderer, &tile_rect);
+                }
+                if (
+                    i == b1_tilespace_x && j == b1_tilespace_y
+                    ||
+                    i == b2_tilespace_x && j == b2_tilespace_y
+                    ) {
+                    // smaller rect so that we can see both
+                    tile_rect.x += 1;
+                    tile_rect.y += 1;
+                    tile_rect.h -= 2;
+                    tile_rect.w -= 2;
+                    SDL_SetRenderDrawColor(game->renderer, 0, 255, 50, 128);
+                    SDL_RenderDrawRect(game->renderer, &tile_rect);
+                }
 
-            SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
+                SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
+            }
+#endif
         }
     }
 
@@ -525,48 +539,52 @@ void scene_test_render(void* vs, Game* game) {
         SDL_RenderCopyEx(game->renderer, s->guy.textures[i], &src, &dest, 0, NULL, s->flip);
 
     // Draw sensors
-    SDL_Rect offset = { 0, 0, 1, 1 };
-    Uint8 r, g, b, a;
-    SDL_GetRenderDrawColor(game->renderer, &r, &b, &g, &a);
+#ifdef _DEBUG
+    if (debug_pause) {
+        SDL_Rect offset = { 0, 0, 1, 1 };
+        Uint8 r, g, b, a;
+        SDL_GetRenderDrawColor(game->renderer, &r, &b, &g, &a);
 
-    // TOP
-    SDL_SetRenderDrawColor(game->renderer, 0, 255, 0, 255);
-    offset.x = dest.x + s->guy.top_sensors.x[0];
-    offset.y = dest.y + s->guy.height - s->guy.top_sensors.x[1];
-    SDL_RenderFillRect(game->renderer, &offset);
-    offset.x = dest.x + s->guy.top_sensors.x[2];
-    offset.y = dest.y + s->guy.height - s->guy.top_sensors.x[3];
-    SDL_RenderFillRect(game->renderer, &offset);
+        // TOP
+        SDL_SetRenderDrawColor(game->renderer, 0, 255, 0, 255);
+        offset.x = dest.x + s->guy.top_sensors.x[0];
+        offset.y = dest.y + s->guy.height - s->guy.top_sensors.x[1];
+        SDL_RenderFillRect(game->renderer, &offset);
+        offset.x = dest.x + s->guy.top_sensors.x[2];
+        offset.y = dest.y + s->guy.height - s->guy.top_sensors.x[3];
+        SDL_RenderFillRect(game->renderer, &offset);
 
-    // BOTTOM
-    SDL_SetRenderDrawColor(game->renderer, 0, 255, 0, 255);
-    offset.x = dest.x + s->guy.bottom_sensors.x[0];
-    offset.y = dest.y + s->guy.height - s->guy.bottom_sensors.x[1];
-    SDL_RenderFillRect(game->renderer, &offset);
-    offset.x = dest.x + s->guy.bottom_sensors.x[2];
-    offset.y = dest.y + s->guy.height - s->guy.bottom_sensors.x[3];
-    SDL_RenderFillRect(game->renderer, &offset);
+        // BOTTOM
+        SDL_SetRenderDrawColor(game->renderer, 0, 255, 0, 255);
+        offset.x = dest.x + s->guy.bottom_sensors.x[0];
+        offset.y = dest.y + s->guy.height - s->guy.bottom_sensors.x[1];
+        SDL_RenderFillRect(game->renderer, &offset);
+        offset.x = dest.x + s->guy.bottom_sensors.x[2];
+        offset.y = dest.y + s->guy.height - s->guy.bottom_sensors.x[3];
+        SDL_RenderFillRect(game->renderer, &offset);
 
-    // LEFT
-    SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
-    offset.x = dest.x + s->guy.left_sensors.x[0];
-    offset.y = dest.y + s->guy.height - s->guy.left_sensors.x[1];
-    SDL_RenderFillRect(game->renderer, &offset);
-    offset.x = dest.x + s->guy.left_sensors.x[2];
-    offset.y = dest.y + s->guy.height - s->guy.left_sensors.x[3];
-    SDL_RenderFillRect(game->renderer, &offset);
+        // LEFT
+        SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
+        offset.x = dest.x + s->guy.left_sensors.x[0];
+        offset.y = dest.y + s->guy.height - s->guy.left_sensors.x[1];
+        SDL_RenderFillRect(game->renderer, &offset);
+        offset.x = dest.x + s->guy.left_sensors.x[2];
+        offset.y = dest.y + s->guy.height - s->guy.left_sensors.x[3];
+        SDL_RenderFillRect(game->renderer, &offset);
 
-    // RIGHT
-    SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
-    offset.x = dest.x + s->guy.right_sensors.x[0];
-    offset.y = dest.y + s->guy.height - s->guy.right_sensors.x[1];
-    SDL_RenderFillRect(game->renderer, &offset);
-    offset.x = dest.x + s->guy.right_sensors.x[2];
-    offset.y = dest.y + s->guy.height - s->guy.right_sensors.x[3];
-    SDL_RenderFillRect(game->renderer, &offset);
+        // RIGHT
+        SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
+        offset.x = dest.x + s->guy.right_sensors.x[0];
+        offset.y = dest.y + s->guy.height - s->guy.right_sensors.x[1];
+        SDL_RenderFillRect(game->renderer, &offset);
+        offset.x = dest.x + s->guy.right_sensors.x[2];
+        offset.y = dest.y + s->guy.height - s->guy.right_sensors.x[3];
+        SDL_RenderFillRect(game->renderer, &offset);
 
 
-    SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
+        SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
+    }
+#endif
 }
 
 void scene_test_cleanup(void* vdata, Game* game) {

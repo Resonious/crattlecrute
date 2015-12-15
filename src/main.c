@@ -12,6 +12,10 @@
 SDL_Window* main_window;
 Uint64 ticks_per_second;
 
+#if _DEBUG
+    bool debug_pause = false;
+#endif
+
 void switch_scene(Game* game, int to_scene) {
     assert(to_scene >= 0);
     assert(to_scene < sizeof(SCENES) / sizeof(Scene));
@@ -134,9 +138,6 @@ int main(int argc, char** argv) {
     bool running = true;
     Uint64 milliseconds_per_tick = 1000 / ticks_per_second;
     Uint64 last_frame_ms = 17;
-#if _DEBUG
-    bool debug_pause = false;
-#endif
 
     game.current_scene->initialize(game.current_scene_data, &game);
 
