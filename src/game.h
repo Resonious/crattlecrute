@@ -104,9 +104,12 @@ typedef struct {
     float ground_speed_max;
     float ground_acceleration;
     float ground_deceleration;
+    // In degrees
+    float ground_angle;
     bool grounded;
     SDL_Texture* textures[3];
     int width, height;
+    int center_x, center_y;
 } Character;
 
 void default_character(Character* target);

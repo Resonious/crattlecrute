@@ -277,7 +277,7 @@ void scene_test_initialize(void* vdata, Game* game) {
     BENCH_END(loading_crattle)
 
     default_character(&data->guy);
-    data->guy.position.simd = _mm_set1_ps(32.0f);
+    data->guy.position.simd = _mm_set1_ps(45.0f + 32.0f);
     data->guy.position.x[Y] = 120.0f;
     data->animation_frame = 0;
     data->flip = SDL_FLIP_NONE;
@@ -313,6 +313,12 @@ void scene_test_update(void* vs, Game* game) {
     if (just_pressed(&game->controls, C_UP)) {
         s->guy.grounded = false;
         s->dy += s->jump_acceleration;
+    }
+    // TEST ANGLE
+    if (game->controls.this_frame[C_SPACE]) {
+        s->guy.ground_angle += 2;
+        if (s->guy.ground_angle >= 360)
+            s->guy.ground_angle -= 360;
     }
     // TODO having ground_deceleration > ground_acceleration will have a weird effect here.
     if (!game->controls.this_frame[C_LEFT] && !game->controls.this_frame[C_RIGHT]) {
@@ -400,8 +406,13 @@ void scene_test_update(void* vs, Game* game) {
         s->guy.grounded = b_collision_1.hit || b_collision_2.hit;
         if (s->guy.grounded)
             s->dy = 0;
-        if (b_collision_1.hit && b_collision_2.hit)
+        if (b_collision_1.hit && b_collision_2.hit) {
             s->guy.position.x[Y] = fmaxf(b_collision_1.new_position, b_collision_2.new_position);
+            s->guy.ground_angle = atan2f(
+                b_collision_2.new_position - b_collision_1.new_position,
+                s->guy.bottom_sensors.x[S2X] - s->guy.bottom_sensors.x[S1X]
+            ) / M_PI * 180;
+        }
         else if (b_collision_1.hit)
             s->guy.position.x[Y] = b_collision_1.new_position;
         else if (b_collision_2.hit)
@@ -525,9 +536,11 @@ void scene_test_render(void* vs, Game* game) {
         }
     }
 
+    // DRAW GUY
     SDL_Rect src = { s->animation_frame * 90, 0, 90, 90 };
-    // The dude's center of mass is still at the corner.
-    SDL_Rect dest = { s->guy.position.x[0], game->window_height - s->guy.position.x[1] - s->guy.height, 90, 90 };
+    SDL_Rect dest = { s->guy.position.x[0] - s->guy.center_x, game->window_height - s->guy.position.x[1] - s->guy.center_y, 90, 90 };
+    // Chearfully assume that center_y is right after center_x and aligned the same as SDL_Point...
+    SDL_Point* center = (SDL_Point*)&s->guy.center_x;
     if (s->animate) {
         if (game->frame_count % 5 == 0)
             s->animation_frame += 1;
@@ -536,49 +549,50 @@ void scene_test_render(void* vs, Game* game) {
     }
     else s->animation_frame = 0;
     for (int i = 0; i < 3; i++)
-        SDL_RenderCopyEx(game->renderer, s->guy.textures[i], &src, &dest, 0, NULL, s->flip);
+        SDL_RenderCopyEx(game->renderer, s->guy.textures[i], &src, &dest, 360 - s->guy.ground_angle, center, s->flip);
 
     // Draw sensors
 #ifdef _DEBUG
     if (debug_pause) {
+        dest.x += s->guy.center_x;
         SDL_Rect offset = { 0, 0, 1, 1 };
         Uint8 r, g, b, a;
         SDL_GetRenderDrawColor(game->renderer, &r, &b, &g, &a);
 
         // TOP
         SDL_SetRenderDrawColor(game->renderer, 0, 255, 0, 255);
-        offset.x = dest.x + s->guy.top_sensors.x[0];
-        offset.y = dest.y + s->guy.height - s->guy.top_sensors.x[1];
+        offset.x = dest.x + s->guy.top_sensors.x[S1X];
+        offset.y = dest.y + s->guy.center_y - s->guy.top_sensors.x[S1Y];
         SDL_RenderFillRect(game->renderer, &offset);
-        offset.x = dest.x + s->guy.top_sensors.x[2];
-        offset.y = dest.y + s->guy.height - s->guy.top_sensors.x[3];
+        offset.x = dest.x + s->guy.top_sensors.x[S2X];
+        offset.y = dest.y + s->guy.center_y - s->guy.top_sensors.x[S2Y];
         SDL_RenderFillRect(game->renderer, &offset);
 
         // BOTTOM
         SDL_SetRenderDrawColor(game->renderer, 0, 255, 0, 255);
-        offset.x = dest.x + s->guy.bottom_sensors.x[0];
-        offset.y = dest.y + s->guy.height - s->guy.bottom_sensors.x[1];
+        offset.x = dest.x + s->guy.bottom_sensors.x[S1X];
+        offset.y = dest.y + s->guy.center_y - s->guy.bottom_sensors.x[S1Y];
         SDL_RenderFillRect(game->renderer, &offset);
-        offset.x = dest.x + s->guy.bottom_sensors.x[2];
-        offset.y = dest.y + s->guy.height - s->guy.bottom_sensors.x[3];
+        offset.x = dest.x + s->guy.bottom_sensors.x[S2X];
+        offset.y = dest.y + s->guy.center_y - s->guy.bottom_sensors.x[S2Y];
         SDL_RenderFillRect(game->renderer, &offset);
 
         // LEFT
         SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
-        offset.x = dest.x + s->guy.left_sensors.x[0];
-        offset.y = dest.y + s->guy.height - s->guy.left_sensors.x[1];
+        offset.x = dest.x + s->guy.left_sensors.x[S1X];
+        offset.y = dest.y + s->guy.center_y - s->guy.left_sensors.x[S1Y];
         SDL_RenderFillRect(game->renderer, &offset);
-        offset.x = dest.x + s->guy.left_sensors.x[2];
-        offset.y = dest.y + s->guy.height - s->guy.left_sensors.x[3];
+        offset.x = dest.x + s->guy.left_sensors.x[S2X];
+        offset.y = dest.y + s->guy.center_y - s->guy.left_sensors.x[S2Y];
         SDL_RenderFillRect(game->renderer, &offset);
 
         // RIGHT
         SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
-        offset.x = dest.x + s->guy.right_sensors.x[0];
-        offset.y = dest.y + s->guy.height - s->guy.right_sensors.x[1];
+        offset.x = dest.x + s->guy.right_sensors.x[S1X];
+        offset.y = dest.y + s->guy.center_y - s->guy.right_sensors.x[S1Y];
         SDL_RenderFillRect(game->renderer, &offset);
-        offset.x = dest.x + s->guy.right_sensors.x[2];
-        offset.y = dest.y + s->guy.height - s->guy.right_sensors.x[3];
+        offset.x = dest.x + s->guy.right_sensors.x[S2X];
+        offset.y = dest.y + s->guy.center_y - s->guy.right_sensors.x[S2Y];
         SDL_RenderFillRect(game->renderer, &offset);
 
 
@@ -595,7 +609,8 @@ void scene_test_cleanup(void* vdata, Game* game) {
     SDL_DestroyTexture(data->guy.textures[2]);
     game->audio.oneshot_waves[0] = NULL;
     game->audio.looped_waves[0] = NULL; // This is from open_and_play_music, which sucks and should be removed asap.
-    // free(data->wave->samples);
-    // free(data->wave);
+    free(data->wave->samples);
+    free(data->wave);
+    free(data->test_tilemap.tiles);
     free(data->test_sound.samples); // This one is local to this function so only the samples are malloced.
 }
