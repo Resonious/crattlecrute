@@ -207,16 +207,22 @@ int main(int argc, char** argv) {
         frame_end = SDL_GetPerformanceCounter();
         last_frame_ticks = frame_end - frame_start;
 
-        // Dunno if this is better than bigger sleep chunks or just not sleeping.
-        while (last_frame_ticks < ticks_per_frame - ticks_per_frame / 200) {
+        // Save energy sorta if we have a good amount of time until our 16.666 ms is up.
+        while (last_frame_ticks < ticks_per_frame - ticks_per_frame / 5) {
             Uint64 i = SDL_GetPerformanceCounter();
             SDL_Delay(1);
             Uint64 f = SDL_GetPerformanceCounter();
             last_frame_ticks += f - i;
         }
+        // Eagerly await next frame
+        while (last_frame_ticks < ticks_per_frame) {
+            Uint64 i = SDL_GetPerformanceCounter();
+            Uint64 f = SDL_GetPerformanceCounter();
+            last_frame_ticks += f - i;
+        }
 #if _DEBUG
         if (last_frame_ticks > 2 * ticks_per_frame) {
-            printf("Bro..", "You lagging?");
+            printf("Bro.. You lagging?");
         }
 #endif
     }

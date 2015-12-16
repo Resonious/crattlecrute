@@ -11,7 +11,6 @@ typedef struct {
     float gravity;
     float terminal_velocity;
     Character guy;
-    SDL_Texture* tiles;
     AudioWave* wave;
     AudioWave test_sound;
     int animation_frame;
@@ -286,7 +285,10 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->jump_acceleration = 20.0f;
 
     BENCH_START(loading_tiles)
-    data->tiles = load_texture(game->renderer, ASSET_TERRAIN_TESTGROUND2_PNG);
+    SDL_Surface* tiles_image = load_image(ASSET_TERRAIN_TESTGROUND2_PNG);
+    data->test_tilemap.tiles_per_row = tiles_image->w / 32;
+    data->test_tilemap.tex = SDL_CreateTextureFromSurface(game->renderer, tiles_image);
+    free_image(tiles_image);
     BENCH_END(loading_tiles)
 
     // TODO oh god testing audio
@@ -492,16 +494,14 @@ void scene_test_render(void* vs, Game* game) {
 
             if (tile_index != -1) {
                 SDL_Rect src = { tile_index, 0, 32, 32 };
-                // Hack this since we don't yet have a way to know the dimensions of the tiles image
-                const int hack_tilemap_tiles_per_row = 5;
-                while (src.x >= hack_tilemap_tiles_per_row) {
-                    src.x -= hack_tilemap_tiles_per_row;
+                while (src.x >= s->test_tilemap.tiles_per_row) {
+                    src.x -= s->test_tilemap.tiles_per_row;
                     src.y += 1;
                 }
                 src.x *= 32;
                 src.y *= 32;
 
-                SDL_RenderCopy(game->renderer, s->tiles, &src, &tile_rect);
+                SDL_RenderCopy(game->renderer, s->test_tilemap.tex, &src, &tile_rect);
             }
 
 #ifdef _DEBUG
@@ -605,7 +605,7 @@ void scene_test_render(void* vs, Game* game) {
 
 void scene_test_cleanup(void* vdata, Game* game) {
     TestScene* data = (TestScene*)vdata;
-    SDL_DestroyTexture(data->tiles);
+    SDL_DestroyTexture(data->test_tilemap.tex);
     SDL_DestroyTexture(data->guy.textures[0]);
     SDL_DestroyTexture(data->guy.textures[1]);
     SDL_DestroyTexture(data->guy.textures[2]);

@@ -69,6 +69,11 @@ void draw_text(Game* game, int x, int y, char* text);
     }
 
 typedef struct {
+    // Texture atlas to grab tiles from
+    SDL_Texture* tex;
+    // Amount of tiles per row in the texture atlas
+    int tiles_per_row;
+    // Array of tile indices - should be width * height long
     int* tiles;
     int width, height;
 } Tilemap;
