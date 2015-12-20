@@ -42,8 +42,10 @@ current_offset = 0
 # Write the start of the header and the assets.
 CollisionHeights = Struct.new(:top2down, :bottom2up, :left2right, :right2left)
 all_collision_data = {}
+tilemap_data = [] # TODO this should be handled differently..
 to_remove = []
 all_files.each do |file|
+  # Handle .collision.png files specially
   if /^(?<for_file>.+)\.collision.png$/ =~ file
     puts "COLLISION: #{file.gsub(/^.*[\/\\]assets[\/\\]/, '')}"
     # 32-bit tiles!!!
@@ -124,6 +126,59 @@ all_files.each do |file|
     # Don't generate an asset entry for this, since it's not going to be in the assets file
     to_remove << file
     next
+
+  # Handle tmx files separately
+  elsif /^.+\.tmx$/ =~ file
+    filename = File.basename(file)
+
+    tmx = File.open(file) { |f| Nokogiri::XML(f) }
+    map_count = tmx.css('map').count
+    map = tmx.css('map').first
+
+    # Make sure that sucker is valid
+    raise "More than one map in a tmx?? #{filename}" if map_count > 1
+    raise "No maps in this tmx?? #{filename}"        if map_count < 1
+
+    if map.attributes['orientation'].value != 'orthogonal'
+      raise "The tilemap #{filename} isn't orthogonal"
+    elsif map.attributes['tilewidth'].value =! '32' || map.attributes['tileheight'].value != '32'
+      raise "The tilemap #{filename} doesn't use 32x32 tiles"
+    end
+
+    # We will have to generate multiple tile map arrays for each tileset...
+    # Let's just assume one tileset for now (TODO)
+    raise "Gotta implement multiple tilesets dude" if map.css('tileset').size > 1
+
+    # Gotta subtract this from all data entries to get the right index
+    first_gid = map.css('tileset').first.attributes['firstgid'].value.to_i
+
+    # Let's also just not give a fuck about tileset for now actually
+
+    # Let's ALSO assume one layer
+    raise "Gotta implement multiple layers dude" if map.css('layer').size > 1
+
+    data = map.css('layer > data').first
+    raise "Gotta be CSV :(" if data.attributes['encoding'].value != 'csv'
+
+    out_data = []
+
+    data.content.split(',').each do |num|
+      num = num.to_i
+      out_data << -1 and next if num == 0
+
+      index = (num & 0x00FFFFFF) - first_gid
+      flags = (num & 0xFF000000) >> 24
+
+      raise "DON'T Y-FLIP!!!!" if (flags & (1 << 6)) != 0
+
+      out_data << (index | (flags << 24))
+    end
+
+    # TODO handle this differently
+    tilemap_data = out_data
+
+    to_remove << file
+    next
   end
 
   bytes = IO.binread(file)
@@ -140,6 +195,14 @@ end
 all_files -= to_remove
 
 header.write "};\n\n"
+
+# TODO here's the final part to the tilemap data situation
+header.write("const static int TEST_TILEMAP[] = {\n    ")
+tilemap_data.each_with_index do |tile_index, i|
+  header.write("#{tile_index},")
+  header.write((i + 1) % 20 == 0 ? "\n    " : " ") unless i == tilemap_data.size - 1
+end
+header.write("\n};\n\n")
 
 header.write(
   "typedef struct {\n"\
