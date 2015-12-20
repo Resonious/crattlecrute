@@ -266,7 +266,7 @@ void scene_test_initialize(void* vdata, Game* game) {
     BENCH_END(loading_crattle)
 
     default_character(&data->guy);
-    data->guy.position.simd = _mm_set1_ps(45.0f + 32.0f);
+    data->guy.position.simd = _mm_set1_ps(45.0f + 32.0f * 5.0f);
     data->guy.position.x[Y] = 120.0f;
     data->animation_frame = 0;
     data->flip = SDL_FLIP_NONE;
@@ -543,7 +543,7 @@ void scene_test_render(void* vs, Game* game) {
                     tile_rect.y += 1;
                     tile_rect.h -= 2;
                     tile_rect.w -= 2;
-                    SDL_SetRenderDrawColor(game->renderer, 0, 255, 50, 128);
+                    SDL_SetRenderDrawColor(game->renderer, 255, 0, 255, 128);
                     SDL_RenderDrawRect(game->renderer, &tile_rect);
                 }
 
@@ -575,7 +575,7 @@ void scene_test_render(void* vs, Game* game) {
         SDL_GetRenderDrawColor(game->renderer, &r, &b, &g, &a);
 
         // TOP
-        SDL_SetRenderDrawColor(game->renderer, 0, 255, 0, 255);
+        SDL_SetRenderDrawColor(game->renderer, 255, 0, 255, 255);
         offset.x = dest.x + s->guy.top_sensors.x[S1X];
         offset.y = dest.y + s->guy.center_y - s->guy.top_sensors.x[S1Y];
         SDL_RenderFillRect(game->renderer, &offset);
@@ -584,7 +584,7 @@ void scene_test_render(void* vs, Game* game) {
         SDL_RenderFillRect(game->renderer, &offset);
 
         // BOTTOM
-        SDL_SetRenderDrawColor(game->renderer, 0, 255, 0, 255);
+        SDL_SetRenderDrawColor(game->renderer, 255, 0, 255, 255);
         offset.x = dest.x + s->guy.bottom_sensors.x[S1X];
         offset.y = dest.y + s->guy.center_y - s->guy.bottom_sensors.x[S1Y];
         SDL_RenderFillRect(game->renderer, &offset);
