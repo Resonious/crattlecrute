@@ -245,6 +245,7 @@
     <ClInclude Include="..\..\..\src\game.h" />
     <ClInclude Include="..\..\..\src\scene.h" />
     <ClInclude Include="..\..\..\src\sound.h" />
+    <ClInclude Include="..\..\..\src\tilemap.h" />
     <ClInclude Include="..\..\..\src\types.h" />
     <ClInclude Include="..\..\..\STB\stb_image.h" />
     <ClInclude Include="..\..\..\win\embedded_assets.h" />
@@ -387,6 +388,7 @@
     <ClCompile Include="..\..\..\src\scene_offset_viewer.c" />
     <ClCompile Include="..\..\..\src\scene_test.c" />
     <ClCompile Include="..\..\..\src\sound.c" />
+    <ClCompile Include="..\..\..\src\tilemap.c" />
     <ClCompile Include="..\..\src\core\windows\SDL_windows.c" />
     <ClCompile Include="..\..\src\dynapi\SDL_dynapi.c" />
     <ClCompile Include="..\..\src\events\SDL_clipboardevents.c" />

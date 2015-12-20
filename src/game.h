@@ -4,6 +4,7 @@
 #include "types.h"
 #include "assets.h"
 #include "sound.h"
+#include "tilemap.h"
 
 enum Control {
     C_UP, C_DOWN, C_LEFT, C_RIGHT,
@@ -67,29 +68,6 @@ void draw_text(Game* game, int x, int y, char* text);
         SDL_snprintf(_strbuf, buflen, fmttext, __VA_ARGS__);\
         draw_text_ex(game, x, y, _strbuf, padding, scale);\
     }
-
-typedef struct {
-    // Texture atlas to grab tiles from
-    SDL_Texture* tex;
-    // Amount of tiles per row in the texture atlas
-    int tiles_per_row;
-    // Array of tile indices - should be width * height long
-    int* tiles;
-    int width, height;
-} Tilemap;
-
-#define S1X 0
-#define S1Y 1
-#define S2X 2
-#define S2Y 3
-#define SENSOR_1 0
-#define SENSOR_2 2
-#define X 0
-#define Y 1
-#define BOTTOM_SENSOR 0
-#define TOP_SENSOR 1
-#define RIGHT_SENSOR 2
-#define LEFT_SENSOR 3
 
 typedef struct {
     // (x[0] left to right, x[1] down to up)

@@ -137,6 +137,9 @@
     <ClCompile Include="..\..\..\src\scene_offset_viewer.c">
       <Filter>game\scenes</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\tilemap.c">
+      <Filter>game</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\dxsdkver.h" />
@@ -289,6 +292,9 @@
       <Filter>game</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\game.h">
+      <Filter>game</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\tilemap.h">
       <Filter>game</Filter>
     </ClInclude>
   </ItemGroup>

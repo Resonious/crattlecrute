@@ -1,5 +1,6 @@
 require 'fileutils'
 require 'chunky_png'
+require 'nokogiri'
 
 assets_base_dir = File.dirname File.expand_path __FILE__
 
@@ -9,6 +10,8 @@ FileUtils.mkdir_p "#{assets_base_dir}/build"
 assets = File.new("#{assets_base_dir}/build/crattlecrute.assets", 'wb')
 header = File.new("#{assets_base_dir}/src/assets.h", 'w')
 
+header.write("#ifndef ASSETS_H\n")
+header.write("#define ASSETS_H\n\n")
 header.write(%(#include "types.h"\n))
 header.write(%(#include "SDL.h"\n))
 header.write("// This is generated on compile - don't change it by hand!\n")
@@ -139,13 +142,6 @@ all_files -= to_remove
 header.write "};\n\n"
 
 header.write(
-  "#define TOP2DOWN 0;\n"\
-  "#define BOTTOM2UP 1;\n"\
-  "#define RIGHT2LEFT 2;\n"\
-  "#define LEFT2RIGHT 3;\n"\
-  "#define TILE_HEIGHT_FOR_SENSOR(heights, tile_index, sensor_dir) \\\n"\
-  "    ((int*)(&heights[tile_index]) + (sensor_dir * 32)"\
-  ")\n"\
   "typedef struct {\n"\
   "    int top2down[32];\n"\
   "    int bottom2up[32];\n"\
@@ -175,7 +171,8 @@ end
 all_files.each_with_index do |file, index|
   header.write("const static int ASSET_#{ident(file)} = #{index};\n")
 end
-header.write("const static int NUMBER_OF_ASSETS = #{all_files.size};\n")
+header.write("const static int NUMBER_OF_ASSETS = #{all_files.size};\n\n")
+header.write("#endif // ASSETS_H\n")
 
 assets.close
 header.close
