@@ -259,14 +259,6 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->gravity = 1.15f; // In pixels per frame per frame
     data->terminal_velocity = 14.3f;
 
-    data->test_tilemap.tiles  = malloc(sizeof(test_tilemap_2));
-    for (int x = 0; x < 20; x++) {
-        for (int y = 0; y < 15; y++)
-            data->test_tilemap.tiles[y * 20 + x] = test_tilemap_2[(15 - y) * 20 + x];
-    }
-    data->test_tilemap.width  = 20;
-    data->test_tilemap.height = 15;
-
     BENCH_START(loading_crattle)
     data->guy.textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
     data->guy.textures[1] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BODY_PNG);
@@ -283,6 +275,15 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->jump_acceleration = 20.0f;
 
     BENCH_START(loading_tiles)
+    data->test_tilemap.tiles  = malloc(sizeof(TEST_TILEMAP));
+    data->test_tilemap.width  = 50;
+    data->test_tilemap.height = 25;
+    for (int x = 0; x < data->test_tilemap.width; x++) {
+        for (int y = 0; y < data->test_tilemap.height; y++)
+            data->test_tilemap.tiles[y * data->test_tilemap.width + x] =
+                TEST_TILEMAP[(data->test_tilemap.height - y - 1) * data->test_tilemap.width + x];
+    }
+
     SDL_Surface* tiles_image = load_image(ASSET_TERRAIN_TESTGROUND2_PNG);
     data->test_tilemap.tiles_per_row = tiles_image->w / 32;
     data->test_tilemap.tex = SDL_CreateTextureFromSurface(game->renderer, tiles_image);
@@ -315,11 +316,13 @@ void scene_test_update(void* vs, Game* game) {
         s->dy += s->jump_acceleration;
     }
     // TEST ANGLE
+    /*
     if (game->controls.this_frame[C_SPACE]) {
         s->guy.ground_angle += 2;
         if (s->guy.ground_angle >= 360)
             s->guy.ground_angle -= 360;
     }
+    */
     // TODO having ground_deceleration > ground_acceleration will have a weird effect here.
     if (!game->controls.this_frame[C_LEFT] && !game->controls.this_frame[C_RIGHT]) {
         if (s->guy.ground_speed > 0) {
@@ -347,9 +350,9 @@ void scene_test_update(void* vs, Game* game) {
     __m128 movement = {s->guy.ground_speed, s->dy, 0.0f, 0.0f};
     s->guy.position.simd = _mm_add_ps(s->guy.position.simd, movement);
 
-    // Temporary ground @ 20px
-    if (s->guy.position.x[1] < 20) {
-        s->guy.position.x[1] = 20;
+    // Temporary ground @ 0px
+    if (s->guy.position.x[1] < 0) {
+        s->guy.position.x[1] = 0;
         s->dy = 0;
     }
 
@@ -447,7 +450,6 @@ void scene_test_update(void* vs, Game* game) {
 
 void scene_test_render(void* vs, Game* game) {
     TestScene* s = (TestScene*)vs;
-    // Draw tiles!
 #ifdef _DEBUG
     int b1_tilespace_x, b1_tilespace_y, l1_tilespace_x, l1_tilespace_y, r1_tilespace_x, r1_tilespace_y;
     int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_tilespace_x, r2_tilespace_y;
@@ -485,6 +487,7 @@ void scene_test_render(void* vs, Game* game) {
     }
 #endif
 
+    // Draw tiles!
     vec4i tilespace;
     for (int i = 0; i < s->test_tilemap.width; i++) {
         tilespace.x[X] = i;
@@ -552,7 +555,12 @@ void scene_test_render(void* vs, Game* game) {
 
     // DRAW GUY
     SDL_Rect src = { s->animation_frame * 90, 0, 90, 90 };
-    SDL_Rect dest = { s->guy.position.x[0] - s->guy.center_x, game->window_height - s->guy.position.x[1] - s->guy.center_y, 90, 90 };
+    SDL_Rect dest = {
+        s->guy.position.x[X] - s->guy.center_x,
+        game->window_height - s->guy.position.x[Y] - s->guy.center_y,
+
+        90, 90
+    };
     // Chearfully assume that center_y is right after center_x and aligned the same as SDL_Point...
     SDL_Point* center = (SDL_Point*)&s->guy.center_x;
     for (int i = 0; i < 3; i++)
