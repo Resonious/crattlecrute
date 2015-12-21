@@ -183,7 +183,7 @@ static TileCollision dont_call_me(Tilemap* tilemap, SensedTile* t, Character* gu
 }
 static TileCollision left_sensor_placement(Tilemap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
-    result.new_position = (float)(t->tilepos.x[sensor+X] + height - guy->left_sensors.x[sensor+X]);
+    result.new_position = (float)(t->tilepos.x[sensor+X] + height + 1 - guy->left_sensors.x[sensor+X]);
     result.hit = result.new_position > guy->position.x[X];
     return result;
 }
@@ -219,11 +219,17 @@ static TileCollision process_sensor(TestScene* s, SensedTile* t, const int senso
         if (!(tile_index.flags & NOT_A_TILE)) {
             int* heights = tile_height_for_sensor(COLLISION_TERRAIN_TESTGROUND2, &tile_index, sensor_dir);
 #ifdef _DEBUG
-            // Make sure TILE_HEIGHT_FOR_SENSOR is working correctly.
+            // Make sure tile_height_for_sensor is working correctly.
             if (sensor_dir == LEFT_SENSOR)
-                SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND2[tile_index.index].left2right);
+                if (tile_index.flags & TILE_FLIP_X)
+                    SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND2[tile_index.index].right2left);
+                else
+                    SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND2[tile_index.index].left2right);
             else if (sensor_dir == RIGHT_SENSOR)
-                SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND2[tile_index.index].right2left);
+                if (tile_index.flags & TILE_FLIP_X)
+                    SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND2[tile_index.index].left2right);
+                else
+                    SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND2[tile_index.index].right2left);
             else if (sensor_dir == TOP_SENSOR)
                 SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND2[tile_index.index].bottom2up);
             else

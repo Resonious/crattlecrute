@@ -23,8 +23,8 @@ int* tile_height_for_sensor(TileHeights* all_heights, TileIndex* tile_index, con
     if (sensor_dir > TOP_SENSOR) {
         if (tile_index->flags & TILE_FLIP_X) {
             // At this point, it's either left or right
-            int offset_to_use = sensor_dir == LEFT_SENSOR ? RIGHT_SENSOR : LEFT_SENSOR;
+            offset_to_use = sensor_dir == LEFT_SENSOR ? RIGHT_SENSOR : LEFT_SENSOR;
         }
     }
-    return (int*)(&all_heights[tile_index->index]) + (sensor_dir * 32);
+    return (int*)(&all_heights[tile_index->index]) + (offset_to_use * 32);
 }
