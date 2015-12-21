@@ -18,54 +18,6 @@ typedef struct {
     Tilemap test_tilemap;
 } TestScene;
 
-static const int inverted_test_tilemap[] = {
-    9,4,4,9,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,9,
-    9,0,0,0,3,4,4,4,9,11,10,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    9,-1,-1,-1,1,13,3,9,4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    9,-1,-1,-1,-1,-1,1,2,3,9,-1,-1,-1,-1,-1,12,11,-1,-1,9,
-    9,-1,-1,-1,-1,-1,-1,-1,1,2,0,0,0,0,11,10,-1,-1,-1,9,
-    9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    9,1,2,11,10,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    9,-1,-1,-1,-1,-1,1,2,11,10,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,
-    6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,
-    6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,
-};
-
-static const int test_tilemap_2[] = {
-    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,9,9,9,4,
-    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,8,8,8,4,
-    4,9,9,9,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,4,4,4,
-    4,8,8,8,10,11,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,4,4,4,
-    4,4,4,4,4,4,-1,-1,-1,-1,-1,-1,-1,-1,1,2,4,4,4,4,
-    4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,-1,-1,-1,-1,-1,-1,-1,-1,9,9,9,9,-1,-1,-1,-1,-1,-1,4,
-    4,-1,-1,-1,-1,-1,-1,-1,6,8,8,8,8,10,11,0,0,-1,-1,4,
-    4,-1,-1,-1,-1,-1,-1,7 | (1 << (7 + 24)),5,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,0,0,0,0,1,2 | (1 << (7 + 24)),3,4,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,4,
-    4,4,4,4,4,4,4,4,4,8,8,10,11,0,0,0,0,0,0,4,
-    4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-    4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-};
-
-typedef struct {
-    vec4i tilespace;
-    vec4i tilepos;
-    vec4i position_within_tile;
-    vec4i indices_are_valid;
-} SensedTile;
-
-typedef struct {
-    bool hit;
-    float new_position;
-} TileCollision;
-
 void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/SensedTile* result) {
     // Player position twice (x,y,x,y)
     vec4i guy_pos;
@@ -281,14 +233,10 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->jump_acceleration = 20.0f;
 
     BENCH_START(loading_tiles)
-    data->test_tilemap.tiles  = malloc(sizeof(TEST_TILEMAP));
+    // data->test_tilemap.tiles  = malloc(sizeof(TEST_TILEMAP));
+    data->test_tilemap.tiles = TEST_TILEMAP;
     data->test_tilemap.width  = 50;
     data->test_tilemap.height = 25;
-    for (int x = 0; x < data->test_tilemap.width; x++) {
-        for (int y = 0; y < data->test_tilemap.height; y++)
-            data->test_tilemap.tiles[y * data->test_tilemap.width + x] =
-                TEST_TILEMAP[(data->test_tilemap.height - y - 1) * data->test_tilemap.width + x];
-    }
 
     SDL_Surface* tiles_image = load_image(ASSET_TERRAIN_TESTGROUND2_PNG);
     data->test_tilemap.tiles_per_row = tiles_image->w / 32;
@@ -632,6 +580,5 @@ void scene_test_cleanup(void* vdata, Game* game) {
     game->audio.looped_waves[0] = NULL; // This is from open_and_play_music, which sucks and should be removed asap.
     free(data->wave->samples);
     free(data->wave);
-    free(data->test_tilemap.tiles);
     free(data->test_sound.samples); // This one is local to this function so only the samples are malloced.
 }

@@ -49,7 +49,19 @@ typedef struct {
 } TileIndex;
 
 TileIndex tile_at(Tilemap* tilemap, vec4i* tilespace, const int sensor);
-
 int* tile_height_for_sensor(TileHeights* all_heights, TileIndex* tile_index, const int sensor_dir);
+
+typedef struct {
+    vec4i tilespace;
+    vec4i tilepos;
+    vec4i position_within_tile;
+    vec4i indices_are_valid;
+} SensedTile;
+
+typedef struct {
+    bool hit;
+    float new_position;
+} TileCollision;
+
 
 #endif // TILEMAP_H

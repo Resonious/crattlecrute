@@ -174,8 +174,14 @@ all_files.each do |file|
       out_data << (index | (flags << 24))
     end
 
+    tiles_wide = map.attributes['width'].value.to_i
+    tiles_high = map.attributes['height'].value.to_i
     # TODO handle this differently
-    tilemap_data = out_data
+    (0...tiles_wide).each do |x|
+      (0...tiles_high).each do |y|
+        tilemap_data[y * tiles_wide + x] = out_data[(tiles_high - y - 1) * tiles_wide + x]
+      end
+    end
 
     to_remove << file
     next
