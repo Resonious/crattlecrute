@@ -2,29 +2,7 @@
 #define TILEMAP_H
 
 #include "SDL.h"
-#include "types.h"
-#include "assets.h"
-
-#define S1X 0
-#define S1Y 1
-#define S2X 2
-#define S2Y 3
-#define SENSOR_1 0
-#define SENSOR_2 2
-#define X 0
-#define Y 1
-#define BOTTOM_SENSOR 0
-#define TOP_SENSOR 1
-#define RIGHT_SENSOR 2
-#define LEFT_SENSOR 3
-
-#define TILE_AT(tilemap, tilespace, sensor) \
-    tilemap.tiles[tilespace.x[sensor + 1] * tilemap.width + tilespace.x[sensor]]
-
-#define TOP2DOWN 0
-#define BOTTOM2UP 1
-#define RIGHT2LEFT 2
-#define LEFT2RIGHT 3
+#include "game.h"
 #define TILE_HEIGHT_FOR_SENSOR(heights, tile_index, sensor_dir) \
   ((int*)(&heights[tile_index.index]) + (sensor_dir * 32))
 
@@ -63,5 +41,9 @@ typedef struct {
     float new_position;
 } TileCollision;
 
+TileCollision process_sensor(Character* guy, Tilemap* tilemap, SensedTile* t, const int sensor_dir, const int sensor, const int dim);
+TileCollision process_bottom_sensor(Character* guy, Tilemap* tilemap, SensedTile* t, const int sensor);
+TileCollision process_bottom_sensor_one_tile_down(Character* guy, Tilemap* tilemap, SensedTile* t, const int sensor);
+void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/SensedTile* result);
 
 #endif // TILEMAP_H
