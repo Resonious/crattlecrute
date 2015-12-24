@@ -4,6 +4,8 @@
 
 #ifdef _DEBUG
 extern bool debug_pause;
+extern int b1_tilespace_x, b1_tilespace_y, l1_tilespace_x, l1_tilespace_y, r1_tilespace_x, r1_tilespace_y;
+extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_tilespace_x, r2_tilespace_y;
 #endif
 
 typedef struct {
@@ -216,90 +218,10 @@ void scene_test_update(void* vs, Game* game) {
         switch_scene(game, SCENE_OFFSET_VIEWER);
 }
 
-static void increment_tilespace(vec4i* tilespace, int width, int increment_by) {
-    // Increment
-    tilespace->x[X] += increment_by;
-    if (tilespace->x[X] >= width) {
-        tilespace->x[X] = 0;
-        tilespace->x[Y] += increment_by;
-    }
-}
-
-static SDL_Rect tile_src_rect(TileIndex* tile_index, Tilemap* map) {
-    SDL_Rect src = { tile_index->index, 0, 32, 32 };
-    // OPTIMIZE out this while loop with multiplication lol?
-    while (src.x >= map->tiles_per_row) {
-        src.x -= map->tiles_per_row;
-        src.y += 1;
-    }
-    src.x *= 32;
-    src.y *= 32;
-    return src;
-}
-
-// NOTE dest.y is in GAME coordinates (0 bottom), src.y is in IMAGE coordinates (0 top)
-static void draw_tile(Game* game, Tilemap* tilemap, TileIndex* tile_index, SDL_Rect* src, SDL_Rect* dest) {
-    int old_dest_y = dest->y;
-    dest->y = game->window_height - dest->y - 32;
-
-    SDL_RendererFlip flip = (tile_index->flags & TILE_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_RenderCopyEx(game->renderer, tilemap->tex, src, dest, 0, NULL, flip);
-
-    dest->y = old_dest_y;
-}
-
-#ifdef _DEBUG
-static void draw_debug_borders(Game* game, SDL_Rect* dest, int i, int j,
-    int l1_tilespace_x, int l1_tilespace_y, int l2_tilespace_x, int l2_tilespace_y,
-    int r1_tilespace_x, int r1_tilespace_y, int r2_tilespace_x, int r2_tilespace_y,
-    int b1_tilespace_x, int b1_tilespace_y, int b2_tilespace_x, int b2_tilespace_y
-) {
-    // DEBUG: highlight tiles that sensors cover
-    SDL_Rect tile_rect;
-    SDL_memcpy(&tile_rect, dest, sizeof(SDL_Rect));
-
-    tile_rect.y = game->window_height - dest->y - 32;
-    Uint8 r, g, b, a;
-    SDL_GetRenderDrawColor(game->renderer, &r, &b, &g, &a);
-    if (
-        i == l1_tilespace_x && j == l1_tilespace_y
-        ||
-        i == l2_tilespace_x && j == l2_tilespace_y
-        ) {
-        SDL_SetRenderDrawColor(game->renderer, 255, 0, 50, 128);
-        SDL_RenderDrawRect(game->renderer, &tile_rect);
-    }
-    if (
-        i == r1_tilespace_x && j == r1_tilespace_y
-        ||
-        i == r2_tilespace_x && j == r2_tilespace_y
-        ) {
-        SDL_SetRenderDrawColor(game->renderer, 255, 0, 50, 128);
-        SDL_RenderDrawRect(game->renderer, &tile_rect);
-    }
-    if (
-        i == b1_tilespace_x && j == b1_tilespace_y
-        ||
-        i == b2_tilespace_x && j == b2_tilespace_y
-        ) {
-        // smaller rect so that we can see both
-        tile_rect.x += 1;
-        tile_rect.y += 1;
-        tile_rect.h -= 2;
-        tile_rect.w -= 2;
-        SDL_SetRenderDrawColor(game->renderer, 255, 0, 255, 128);
-        SDL_RenderDrawRect(game->renderer, &tile_rect);
-    }
-
-    SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
-}
-#endif
-
 void scene_test_render(void* vs, Game* game) {
     TestScene* s = (TestScene*)vs;
+    /* == Keeping this around in case I want it ==
 #ifdef _DEBUG
-    int b1_tilespace_x, b1_tilespace_y, l1_tilespace_x, l1_tilespace_y, r1_tilespace_x, r1_tilespace_y;
-    int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_tilespace_x, r2_tilespace_y;
     if (debug_pause) {
         // DEBUG: b-sensor 1 tile index
         int sense_x = s->guy.position.x[0] + s->guy.bottom_sensors.x[0];
@@ -333,64 +255,10 @@ void scene_test_render(void* vs, Game* game) {
         r2_tilespace_y = sense_y / 32;
     }
 #endif
+    */
 
     // Draw tiles!
-    {
-        int i = 0;
-        vec4i dest;
-        dest.simd = _mm_set_epi32(32, 32, 0, 0);
-        const int width_in_pixels = s->test_tilemap.width * 32;
-        const int height_in_pixels = s->test_tilemap.height * 32;
-        int* tile_data = s->test_tilemap.tiles;
-
-        while (dest.x[Y] < height_in_pixels) {
-            int tile_count = tile_data[i];
-
-            if (tile_count > 0) {
-                // Repetition
-                i += 1;
-
-                TileIndex repeated_index = tile_from_int(tile_data[i]);
-                SDL_Rect src = tile_src_rect(&repeated_index, &s->test_tilemap);
-
-                // Draw the tile `tile_count` times
-                for (int j = 0; j < tile_count; j++) {
-                    draw_tile(game, &s->test_tilemap, &repeated_index, &src, &dest.rect);
-#ifdef _DEBUG
-                    if (debug_pause) draw_debug_borders(
-                        game, &dest.rect, dest.x[X] / 32, dest.x[Y] / 32,
-                        l1_tilespace_x, l1_tilespace_y, l2_tilespace_x, l2_tilespace_y,
-                        r1_tilespace_x, r1_tilespace_y, r2_tilespace_x, r2_tilespace_y,
-                        b1_tilespace_x, b1_tilespace_y, b2_tilespace_x, b2_tilespace_y
-                    );
-#endif
-                    increment_tilespace(&dest, width_in_pixels, 32);
-                }
-
-                i += 1;
-            }
-            else {
-                // Alternation
-                tile_count = -tile_count;
-                i += 1;
-
-                for (int j = 0; j < tile_count; j++, i++) {
-                    TileIndex tile_index = tile_from_int(tile_data[i]);
-                    SDL_Rect src = tile_src_rect(&tile_index, &s->test_tilemap);
-                    draw_tile(game, &s->test_tilemap, &tile_index, &src, &dest.rect);
-#ifdef _DEBUG
-                    if (debug_pause) draw_debug_borders(
-                        game, &dest.rect, dest.x[X] / 32, dest.x[Y] / 32,
-                        l1_tilespace_x, l1_tilespace_y, l2_tilespace_x, l2_tilespace_y,
-                        r1_tilespace_x, r1_tilespace_y, r2_tilespace_x, r2_tilespace_y,
-                        b1_tilespace_x, b1_tilespace_y, b2_tilespace_x, b2_tilespace_y
-                    );
-#endif
-                    increment_tilespace(&dest, width_in_pixels, 32);
-                }
-            }// if (tile_count > 0)
-        }// while (dest.y < height)
-    }// block for render
+    draw_tilemap(game, &s->test_tilemap);
 
     // DRAW GUY
     SDL_Rect src = { s->animation_frame * 90, 0, 90, 90 };
