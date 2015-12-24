@@ -1,9 +1,8 @@
 #include "tilemap.h"
 
-TileIndex tile_at(Tilemap* tilemap, vec4i* tilespace, const int sensor) {
+TileIndex tile_from_int(int raw_tile_index) {
     TileIndex result;
 
-    int raw_tile_index = tilemap->tiles[tilespace->x[sensor + 1] * tilemap->width + tilespace->x[sensor]];
     if (raw_tile_index == -1) {
         result.flags = NOT_A_TILE;
         result.index = -1;
@@ -14,6 +13,11 @@ TileIndex tile_at(Tilemap* tilemap, vec4i* tilespace, const int sensor) {
     result.index = raw_tile_index & 0x00FFFFFF;
     result.flags = (raw_tile_index & 0xFF000000) >> 24;
     return result;
+}
+
+TileIndex tile_at(CollisionMap* tilemap, vec4i* tilespace, const int sensor) {
+    int raw_tile_index = tilemap->tiles[tilespace->x[sensor + 1] * tilemap->width + tilespace->x[sensor]];
+    return tile_from_int(raw_tile_index);
 }
 
 int* tile_height_for_sensor(TileHeights* all_heights, TileIndex* tile_index, const int sensor_dir) {
@@ -50,7 +54,7 @@ void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/Sens
     );
 }
 
-TileCollision process_bottom_sensor_one_tile_down(Character* guy, Tilemap* tilemap, SensedTile* t, const int sensor) {
+TileCollision process_bottom_sensor_one_tile_down(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
     TileCollision result;
     result.hit = false;
     result.new_position = guy->position.x[Y];
@@ -79,7 +83,7 @@ TileCollision process_bottom_sensor_one_tile_down(Character* guy, Tilemap* tilem
     return result;
 }
 
-TileCollision process_bottom_sensor(Character* guy, Tilemap* tilemap, SensedTile* t, const int sensor) {
+TileCollision process_bottom_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
     TileCollision result;
     result.hit = false;
     result.new_position = guy->position.x[Y];
@@ -138,25 +142,25 @@ TileCollision process_bottom_sensor(Character* guy, Tilemap* tilemap, SensedTile
     return result;
 }
 
-TileCollision dont_call_me(Tilemap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
+TileCollision dont_call_me(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     // This should never happen!!!
 #ifdef _DEBUG
     SDL_assert(false);
 #endif
 }
-TileCollision left_sensor_placement(Tilemap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
+TileCollision left_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + height + 1 - guy->left_sensors.x[sensor+X]);
     result.hit = result.new_position > guy->position.x[X];
     return result;
 }
-TileCollision right_sensor_placement(Tilemap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
+TileCollision right_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + 32 - height - guy->right_sensors.x[sensor+X]);
     result.hit = result.new_position < guy->position.x[X];
     return result;
 }
-TileCollision top_sensor_placement(Tilemap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
+TileCollision top_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+Y] + height - 1 - guy->top_sensors.x[sensor+Y]);
     result.hit = result.new_position < guy->position.x[Y];
@@ -164,14 +168,14 @@ TileCollision top_sensor_placement(Tilemap* tilemap, SensedTile* t, Character* g
 }
 
 // NOTE the functions in here should line up with BOTTOM_SENSOR, TOP_SENSOR, RIGHT_SENSOR, and LEFT_SENSOR.
-const static TileCollision(*placement_functions[])(Tilemap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) = {
+const static TileCollision(*placement_functions[])(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) = {
     dont_call_me, // Bottom sensors are special case
     top_sensor_placement,
     right_sensor_placement,
     left_sensor_placement
 };
 
-TileCollision process_sensor(Character* guy, Tilemap* tilemap, SensedTile* t, const int sensor_dir, const int sensor, const int dim) {
+TileCollision process_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor, const int dim) {
     if (t->indices_are_valid.x[sensor + X] && t->indices_are_valid.x[sensor + Y]) {
 
         TileIndex tile_index = tile_at(tilemap, &t->tilespace, sensor);

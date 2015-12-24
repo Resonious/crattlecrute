@@ -11,10 +11,16 @@ typedef struct {
     SDL_Texture* tex;
     // Amount of tiles per row in the texture atlas
     int tiles_per_row;
-    // Array of tile indices - should be width * height long
+    // Array of compressed tile indices
     int* tiles;
     int width, height;
 } Tilemap;
+
+typedef struct {
+    // Array of tile indices width * height long
+    int* tiles;
+    int width, height;
+} CollisionMap;
 
 // ENDIAN dependent?
 #define TILE_FLIP_X ((byte)(1 << 7))
@@ -41,6 +47,7 @@ typedef struct {
     float new_position;
 } TileCollision;
 
+TileIndex tile_from_int(int raw_tile_index);
 TileCollision process_sensor(Character* guy, Tilemap* tilemap, SensedTile* t, const int sensor_dir, const int sensor, const int dim);
 TileCollision process_bottom_sensor(Character* guy, Tilemap* tilemap, SensedTile* t, const int sensor);
 TileCollision process_bottom_sensor_one_tile_down(Character* guy, Tilemap* tilemap, SensedTile* t, const int sensor);
