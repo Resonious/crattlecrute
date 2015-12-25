@@ -5,7 +5,9 @@
 #include "stb_image.h"
 #undef STB_IMAGE_IMPLEMENTATION
 #include "game.h"
+#include "assets.h"
 #include "scene.h"
+#include "coords.h"
 
 // Disgusting global window variable so that I can shit out message boxes
 // from wherever I want.

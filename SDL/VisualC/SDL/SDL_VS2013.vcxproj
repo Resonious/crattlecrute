@@ -241,6 +241,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\assets.h" />
+    <ClInclude Include="..\..\..\src\coords.h" />
     <ClInclude Include="..\..\..\src\dxsdkver.h" />
     <ClInclude Include="..\..\..\src\game.h" />
     <ClInclude Include="..\..\..\src\scene.h" />

@@ -1,6 +1,13 @@
 require 'fileutils'
 require 'chunky_png'
 require 'nokogiri'
+require_relative 'tilemap_compressor'
+
+Tileset = Struct.new(:firstgid, :name, :tilewidth, :tileheight, :tilecount, :filename, :tiles_per_row)
+Layer = Struct.new(:name, :width, :height, :raw_data, :sublayers) do
+  def collision?; name == 'collision'; end
+end
+Sublayer = Struct.new(:tileset, :data, :compressed_data)
 
 assets_base_dir = File.dirname File.expand_path __FILE__
 
@@ -13,6 +20,7 @@ header = File.new("#{assets_base_dir}/src/assets.h", 'w')
 header.write("#ifndef ASSETS_H\n")
 header.write("#define ASSETS_H\n\n")
 header.write(%(#include "types.h"\n))
+header.write(%(#include "tilemap.h"\n))
 header.write(%(#include "SDL.h"\n))
 header.write("// This is generated on compile - don't change it by hand!\n")
 header.write("// Generated #{Time.now}\n\n")
@@ -35,14 +43,14 @@ header.write(
 )
 
 def ident(file)
-  file.gsub(/[\.\s\?!\/\\-]/, '_').upcase
+  file.gsub(/\.{2}\//, '').gsub(/[\.\s\?!\/\\-]/, '_').upcase
 end
 
 current_offset = 0
 # Write the start of the header and the assets.
 CollisionHeights = Struct.new(:top2down, :bottom2up, :left2right, :right2left)
 all_collision_data = {}
-tilemap_data = [] # TODO this should be handled differently..
+maps = []
 to_remove = []
 all_files.each do |file|
   # Handle .collision.png files specially
@@ -131,14 +139,18 @@ all_files.each do |file|
   elsif /^.+\.tmx$/ =~ file
     begin
       filename = File.basename(file)
+      map_name = filename.gsub('.tmx', '')
 
       tmx = File.open(file) { |f| Nokogiri::XML(f) }
       map_count = tmx.css('map').count
       map = tmx.css('map').first
 
-      # Make sure that sucker is valid
-      raise "More than one map in a tmx?? #{filename}" if map_count > 1
+      tiles_wide = map.attributes['width'].value.to_i
+      tiles_high = map.attributes['height'].value.to_i
+
+      # ========== Make sure that sucker is valid ==============
       raise "No maps in this tmx?? #{filename}"        if map_count < 1
+      raise "More than one map in a tmx?? #{filename}" if map_count > 1
 
       if map.attributes['orientation'].value != 'orthogonal'
         raise "The tilemap #{filename} isn't orthogonal"
@@ -146,45 +158,116 @@ all_files.each do |file|
         raise "The tilemap #{filename} doesn't use 32x32 tiles"
       end
 
-      # We will have to generate multiple tile map arrays for each tileset...
-      # Let's just assume one tileset for now (TODO)
-      raise "Gotta implement multiple tilesets dude" if map.css('tileset').size > 1
+      # ============ Grab tilesets =============
+      tilesets = []
+      map.css('tileset').each do |tileset|
+        attrs = tileset.attributes
+        image = tileset.css('image').first # assuming one image lol...
 
-      # Gotta subtract this from all data entries to get the right index
-      first_gid = map.css('tileset').first.attributes['firstgid'].value.to_i
-
-      # Let's also just not give a fuck about tileset for now actually
-
-      # Let's ALSO assume one layer
-      raise "Gotta implement multiple layers dude" if map.css('layer').size > 1
-
-      data = map.css('layer > data').first
-      raise "Gotta be CSV :(" if data.attributes['encoding'].value != 'csv'
-
-      out_data = []
-
-      data.content.split(',').each do |num|
-        num = num.to_i
-        out_data << -1 and next if num == 0
-
-        index = (num & 0x00FFFFFF) - first_gid
-        flags = (num & 0xFF000000) >> 24
-
-        raise "DON'T Y-FLIP!!!!" if (flags & (1 << 6)) != 0
-
-        out_data << (index | (flags << 24))
+        tilesets << Tileset.new(
+          attrs['firstgid'].value.to_i,
+          attrs['name'].value,
+          attrs['tilewidth'].value.to_i,
+          attrs['tileheight'].value.to_i,
+          attrs['tilecount'].value.to_i,
+          image.attributes['source'].value,
+          image.attributes['width'].value.to_i / 32
+        )
       end
+      # First tileset should be the one with the largest firstgid
+      tilesets.sort! { |a, b| b.firstgid <=> a.firstgid }
 
-      tiles_wide = map.attributes['width'].value.to_i
-      tiles_high = map.attributes['height'].value.to_i
-      # TODO handle this differently
-      (0...tiles_wide).each do |x|
-        (0...tiles_high).each do |y|
-          tilemap_data[y * tiles_wide + x] = out_data[(tiles_high - y - 1) * tiles_wide + x]
+      # ============== Grab layers ================
+      layers = []
+      found_collision_layer = false
+      map.css('layer').each do |layer|
+        attrs = layer.attributes
+        data = layer.css('data').first # Assuming 1 data lol
+        raise "Tile encoding must be csv #{filename}" if data.attributes['encoding'].value != 'csv'
+
+        layers << Layer.new(
+          attrs['name'].value.downcase.strip,
+          attrs['width'].value.to_i,
+          attrs['height'].value.to_i,
+          data.content.split(',').map(&:to_i),
+          {} # Sublayers come from multiple tilesets being used in one layer
+        )
+
+        if layers.last.collision?
+          if found_collision_layer
+            raise "Two collision layers found in tilemap #{filename}"
+          else
+            found_collision_layer = true
+          end
         end
       end
+      raise "No collision layer found in tilemap #{filename} (intentional or no?)" unless found_collision_layer
+
+      # ============ Populate sublayers ============
+
+      layers.each do |layer|
+        layer.raw_data.each_with_index do |num, i|
+          next if num == 0
+
+          global_index = (num & 0x00FFFFFF)
+          flags = (num & 0xFF000000) >> 24
+
+          raise "DON'T Y-FLIP!!!! #{filename}" if (flags & (1 << 6)) != 0
+
+          tileset = tilesets.find do |tileset|
+            global_index - tileset.firstgid >= 0
+          end
+          index = global_index - tileset.firstgid
+
+          layer.sublayers[tileset] ||= Sublayer.new(tileset, Array.new(layer.raw_data.size, -1), [])
+          layer.sublayers[tileset].data[i] = (index | (flags << 24))
+        end
+
+        # Flip the sublayer data upside-down (for 0=bottom)
+        layer.sublayers.values.each do |sublayer|
+          (0...tiles_wide).each do |x|
+            (0...tiles_high).each do |y|
+              sublayer.data[y * tiles_wide + x] = sublayer.data[(tiles_high - y - 1) * tiles_wide + x]
+            end
+          end
+        end
+
+        # Compress sublayer data if necessary
+        if layer.collision?
+          # Collision layer should not be compressed and only have one sublayer
+          raise "collision layer has more than one tileset. #{filename}" if layer.sublayers.size > 1
+        else
+          # Non-collision layers should all be compressed
+          layer.sublayers.each do |tileset, sublayer|
+            new_data = []
+            compress_tilemap_data(sublayer.data).each do |entry|
+              case entry
+              when TileRepetition
+                new_data += [entry.count, entry.tile_index]
+
+              when TileAlternation
+                new_data << -entry.count
+                tile_indices = sublayer.data[entry.first_index...(entry.first_index + entry.count)]
+                new_data += tile_indices
+
+              else
+                raise "what"
+              end
+            end
+            sublayer.compressed_data = new_data
+          end
+        end
+      end
+
+      # ============= Done! The rest of the work is writing to the header file =============
+      maps << Struct.new(:layers, :tiles_high, :tiles_wide, :name, :filename)
+                    .new( layers,  tiles_high,  tiles_wide, map_name, filename)
+
     rescue StandardError => e
+      puts "-----------------------------------"
       puts "SKIPPING #{file} -- #{e.message}"
+      puts e.backtrace.first
+      puts "-----------------------------------"
     end
 
     to_remove << file
@@ -206,161 +289,6 @@ all_files -= to_remove
 
 header.write "};\n\n"
 
-# TODO here's the final part to the tilemap data situation
-header.write("const static int TEST_TILEMAP[] = {\n    ")
-tilemap_data.each_with_index do |tile_index, i|
-  header.write("#{tile_index},")
-  header.write((i + 1) % 20 == 0 ? "\n    " : " ") unless i == tilemap_data.size - 1
-end
-header.write("\n};\n\n")
-
-# TODO trying out compression!
-begin
-  current_tile_index    = nil
-  last_tile_index       = tilemap_data[0]
-  last_tile_index_count = 1
-
-  # FIRST PASS: count repetitions
-  TileRepetition = Struct.new(:first_index, :count, :tile_index)
-  repetitions = []
-
-  i = 1
-  while i < tilemap_data.size
-    current_tile_index = tilemap_data[i]
-
-    if current_tile_index == last_tile_index
-      last_tile_index_count += 1
-    else
-      repetitions << TileRepetition.new(
-        i - last_tile_index_count,
-        last_tile_index_count,
-        last_tile_index
-      )
-
-      last_tile_index_count = 1
-    end
-
-    last_tile_index = current_tile_index
-    i += 1
-  end
-
-  # Add leftovers
-  repetitions << TileRepetition.new(
-    i - last_tile_index_count,
-    last_tile_index_count,
-    last_tile_index
-  )
-
-  puts "==========TILEMAP COMPRESSION INITIAL PASS=========="
-  puts repetitions.map { |t| "[#{t.count} #{t.tile_index}]" }.join(' | ')
-  puts "=============================="
-
-  # SECOND PASS: replace some repetitions with alternations
-  TileAlternation = Struct.new(:first_index, :count)
-  whole_map = []
-
-  current_rep = nil
-  rep_of_one_count     = 0
-  alternation_count    = 0
-  building_alternation = false
-
-  i = 0
-  while i < repetitions.size
-    current_rep = repetitions[i]
-
-    if current_rep.count == 1
-      # Always start (or continue) building alternation on reps of 1
-      # (A repetition of 1 and an alternation of 1 are the same size)
-      rep_of_one_count += 1
-      building_alternation ||= true
-
-    elsif building_alternation
-      # If we're already "building", and current rep count isn't 1, we
-      # have some options.
-
-      if current_rep.count == 2
-        # If this rep is a 2, it's just as good to toss it into the
-        # current alt as it is to stop the alt (maybe even better)
-        rep_of_one_count += 1
-      else
-        # If it's more than 2, we are no longer saving space by keeping
-        # it in the alternation.
-        reps_in_alt = repetitions[(i - rep_of_one_count)...i]
-        alt = TileAlternation.new(
-          reps_in_alt.first.first_index,
-          reps_in_alt.map(&:count).reduce(0, :+)
-        )
-
-        # Since current_rep is the the reason we want to stop building the alt,
-        # `alt` does not include the current_rep.
-        whole_map += [alt, current_rep]
-
-        building_alternation = false
-        rep_of_one_count = 0
-      end
-    else# at this point: (current_rep.count != 1) and (building_alternation == false)
-      whole_map << current_rep
-    end
-
-    i += 1
-  end
-
-  # Finish up any trailing alternations
-  if building_alternation
-    reps_in_alt = repetitions[(i - rep_of_one_count)...i]
-    whole_map << TileAlternation.new(
-      reps_in_alt.first.first_index,
-      reps_in_alt.map(&:count).reduce(0, :+)
-    )
-  end
-
-  puts "==========TILEMAP COMPRESSION SECOND PASS=========="
-  to_print = whole_map.map do |t|
-    case t
-    when TileRepetition  then "[#{t.count} #{t.tile_index}]"
-    when TileAlternation 
-      tile_indices = tilemap_data[t.first_index...(t.first_index + t.count)]
-      "[-#{t.count} (#{tile_indices.join(', ')})]"
-    end
-  end
-  puts to_print.join(' | ')
-  puts "=============================="
-
-  # Assert that we didn't fuck up
-  if (total_count = whole_map.map(&:count).reduce(0, :+)) != tilemap_data.size
-    raise "Uhhhh, total map count (#{total_count}) is not equal to the tilemap "\
-          "size (#{tilemap_data.size})"
-  end
-
-  # ===== FINAL PASS: write that shit ======
-  header.write("const static int TEST_TILEMAP_COMPRESSED[] = {\n    ")
-  whole_map.each_with_index do |entry, index|
-    case entry
-    when TileRepetition
-      header.write("#{entry.count}, #{entry.tile_index},  ")
-
-    when TileAlternation
-      header.write("\n    -#{entry.count}, ")
-      tile_indices = tilemap_data[entry.first_index...(entry.first_index + entry.count)]
-      header.write(tile_indices.join(', '))
-      header.write(",\n    ")
-
-    else
-      raise "what"
-    end
-  end
-  header.write("\n};\n\n")
-end # begin (for tilemap compression)
-
-
-header.write(
-  "typedef struct {\n"\
-  "    int top2down[32];\n"\
-  "    int bottom2up[32];\n"\
-  "    int right2left[32];\n"\
-  "    int left2right[32];\n"\
-  "} TileHeights;\n\n"
-)
 all_collision_data.each do |file, heights|
   file = file.gsub(/^.*[\/\\]assets[\/\\]/, '').gsub(/\.collision\.png/, '')
   header.write("const static TileHeights COLLISION_#{ident(file)}[] = {\n")
@@ -381,9 +309,85 @@ end
 
 # NOTE that at this point, `all_files` does not actually contain ALL files..
 all_files.each_with_index do |file, index|
-  header.write("const static int ASSET_#{ident(file)} = #{index};\n")
+  header.write("#define ASSET_#{ident(file)} #{index}\n")
 end
-header.write("const static int NUMBER_OF_ASSETS = #{all_files.size};\n\n")
+header.write("#define NUMBER_OF_ASSETS #{all_files.size}\n\n")
+
+# Tilemap time!!!
+def write_int_array(header, arr)
+  arr.each_with_index do |num, i|
+    header.write("#{num},")
+    if (i+1) % 20 == 0
+      header.write("\n    ")
+    elsif i < arr.size - 1
+      header.write(" ")
+    end
+  end
+  header.write("\n")
+end
+
+header.write("// NOTE DUDE okay we totally assume that these globals are stored sequentially...\n")
+maps.each do |map|
+  # map.name, map.filename, map.layers, map.tiles_high, map.tiles_wide
+
+  map_ident = ident(map.name)
+  first_tilemap_ident = nil
+
+  collision_layer = map.layers.find(&:collision?)
+  non_collision_layers = map.layers.reject(&:collision?)
+
+  # Write collision map first
+  header.write("const static int MAP_#{map_ident}_COLLISION[] = {\n    ")
+  write_int_array header, collision_layer.sublayers.values.first.data
+  header.write("};\n")
+
+  # Write non-collision arrays
+  non_collision_layers.each do |layer|
+    layer_ident = ident(layer.name)
+
+    layer.sublayers.values.each do |sublayer|
+      sublayer_ident = ident(sublayer.tileset.name)
+
+      data_ident = "MAP_#{map_ident}_#{layer_ident}_#{sublayer_ident}_DATA"
+      header.write("const static int #{data_ident}[] = {\n    ")
+      write_int_array header, sublayer.compressed_data
+      header.write("};\n")
+    end
+  end
+  header.write("\n")
+  # Write non-collision TileMaps
+  non_collision_layers.each do |layer|
+    layer_ident = ident(layer.name)
+
+    layer.sublayers.values.each do |sublayer|
+      sublayer_ident = ident(sublayer.tileset.name)
+
+      data_ident    = "MAP_#{map_ident}_#{layer_ident}_#{sublayer_ident}_DATA"
+      tilemap_ident = "MAP_#{map_ident}_#{layer_ident}_#{sublayer_ident}_TILEMAP"
+      first_tilemap_ident ||= tilemap_ident
+
+      header.write("static Tilemap #{tilemap_ident} = {\n")
+      # tex_asset, texture
+      header.write("    ASSET_#{ident(sublayer.tileset.filename)}, NULL,\n")
+      # tiles_per_row, width, height
+      header.write("    #{(map.tiles_wide / 32).to_i}, #{map.tiles_wide}, #{map.tiles_high},\n")
+      # tiles
+      header.write("    #{data_ident}\n")
+      header.write("};\n")
+    end
+  end
+
+  header.write("\n")
+  header.write("const static Map MAP_#{map_ident} = {\n")
+  # CollisionMap
+  header.write("    { #{map.tiles_wide}, #{map.tiles_high}, MAP_#{map_ident}_COLLISION },\n")
+  # number_of_tilemaps
+  header.write("    #{non_collision_layers.size},\n")
+  # Tilemaps
+  header.write("    &#{first_tilemap_ident}\n")
+  header.write("};\n\n")
+end
+
 header.write("#endif // ASSETS_H\n")
 
 assets.close

@@ -1,4 +1,6 @@
 #include "tilemap.h"
+#include "assets.h"
+#include "coords.h"
 #ifdef _DEBUG
 extern bool debug_pause;
 #endif
@@ -250,6 +252,8 @@ static SDL_Rect tile_src_rect(TileIndex* tile_index, Tilemap* map) {
 
 // NOTE dest.y is in GAME coordinates (0 bottom), src.y is in IMAGE coordinates (0 top)
 static void draw_tile(Game* game, Tilemap* tilemap, TileIndex* tile_index, SDL_Rect* src, SDL_Rect* dest) {
+    if (tile_index->flags | NOT_A_TILE) return;
+
     int old_dest_y = dest->y;
     dest->y = game->window_height - dest->y - 32;
 
@@ -316,11 +320,10 @@ void draw_tilemap(Game* game, Tilemap* tilemap) {
 
     while (dest.x[Y] < height_in_pixels) {
         int tile_count = tile_data[i];
+        i += 1;
 
         if (tile_count > 0) {
             // Repetition
-            i += 1;
-
             TileIndex repeated_index = tile_from_int(tile_data[i]);
             SDL_Rect src = tile_src_rect(&repeated_index, tilemap);
 
@@ -335,7 +338,6 @@ void draw_tilemap(Game* game, Tilemap* tilemap) {
         else {
             // Alternation
             tile_count = -tile_count;
-            i += 1;
 
             for (int j = 0; j < tile_count; j++, i++) {
                 TileIndex tile_index = tile_from_int(tile_data[i]);
@@ -345,4 +347,10 @@ void draw_tilemap(Game* game, Tilemap* tilemap) {
             }
         }// if (tile_count > 0)
     }// while (dest.y < height)
-}// block for render
+}
+
+void draw_map(Game* game, Map* map) {
+    for (int i = 0; i < map->number_of_tilemaps; i++) {
+        draw_tilemap(game, &map->tilemaps[i]);
+    }
+}

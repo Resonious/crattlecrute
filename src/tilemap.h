@@ -7,19 +7,30 @@
   ((int*)(&heights[tile_index.index]) + (sensor_dir * 32))
 
 typedef struct {
+    int top2down[32];
+    int bottom2up[32];
+    int right2left[32];
+    int left2right[32];
+} TileHeights;
+
+typedef struct {
+    // In case we need to load tex
+    int tex_asset;
     // Texture atlas to grab tiles from
     SDL_Texture* tex;
     // Amount of tiles per row in the texture atlas
     int tiles_per_row;
+    // dimensions
+    int width, height;
     // Array of compressed tile indices
     int* tiles;
-    int width, height;
 } Tilemap;
 
 typedef struct {
+    // dimensions
+    int width, height;
     // Array of tile indices width * height long
     int* tiles;
-    int width, height;
 } CollisionMap;
 
 // ENDIAN dependent?
@@ -32,7 +43,7 @@ typedef struct {
     int index;
 } TileIndex;
 
-TileIndex tile_at(Tilemap* tilemap, vec4i* tilespace, const int sensor);
+TileIndex tile_at(CollisionMap* tilemap, vec4i* tilespace, const int sensor);
 int* tile_height_for_sensor(TileHeights* all_heights, TileIndex* tile_index, const int sensor_dir);
 
 typedef struct {
@@ -48,10 +59,18 @@ typedef struct {
 } TileCollision;
 
 TileIndex tile_from_int(int raw_tile_index);
-TileCollision process_sensor(Character* guy, Tilemap* tilemap, SensedTile* t, const int sensor_dir, const int sensor, const int dim);
-TileCollision process_bottom_sensor(Character* guy, Tilemap* tilemap, SensedTile* t, const int sensor);
-TileCollision process_bottom_sensor_one_tile_down(Character* guy, Tilemap* tilemap, SensedTile* t, const int sensor);
+TileCollision process_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor, const int dim);
+TileCollision process_bottom_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
+TileCollision process_bottom_sensor_one_tile_down(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
 void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/SensedTile* result);
 void draw_tilemap(Game* game, Tilemap* tilemap);
+
+typedef struct {
+    CollisionMap tile_collision;
+    int number_of_tilemaps;
+    Tilemap* tilemaps;
+} Map;
+
+void draw_map(Game* game, Map* map);
 
 #endif // TILEMAP_H

@@ -1,6 +1,7 @@
 #include "scene.h"
 #include "game.h"
-#include "tilemap.h"
+#include "assets.h"
+#include "coords.h"
 
 #ifdef _DEBUG
 extern bool debug_pause;
@@ -19,8 +20,7 @@ typedef struct {
     bool animate;
     float dy;
     float jump_acceleration;
-    Tilemap test_tilemap;
-    CollisionMap map_collision;
+    Map* map;
 } TestScene;
 
 
@@ -46,18 +46,13 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->jump_acceleration = 20.0f;
 
     BENCH_START(loading_tiles)
-    data->test_tilemap.tiles = TEST_TILEMAP_COMPRESSED;
-    data->test_tilemap.width  = 50;
-    data->test_tilemap.height = 25;
-
-    SDL_Surface* tiles_image = load_image(ASSET_TERRAIN_TESTGROUND2_PNG);
-    data->test_tilemap.tiles_per_row = tiles_image->w / 32;
-    data->test_tilemap.tex = SDL_CreateTextureFromSurface(game->renderer, tiles_image);
-    free_image(tiles_image);
-
-    data->map_collision.tiles = TEST_TILEMAP;
-    data->map_collision.width  = 50;
-    data->map_collision.height = 25;
+        // TODO NEXT PLZ ASSET CACHE!
+    data->map = &MAP_TEST2;
+    for (int i = 0; i < data->map->number_of_tilemaps; i++) {
+        Tilemap* tilemap = &data->map->tilemaps[i];
+        if (tilemap->tex == NULL)
+            tilemap->tex = load_texture(game->renderer, tilemap->tex_asset);
+    }
     BENCH_END(loading_tiles)
 
     // TODO oh god testing audio
@@ -132,8 +127,8 @@ void scene_test_update(void* vs, Game* game) {
         // tilemap dimensions twice (w,h,w,h)
         vec4i tilemap_dim;
         tilemap_dim.simd = _mm_set_epi32(
-            s->map_collision.height, s->map_collision.width,
-            s->map_collision.height, s->map_collision.width
+            s->map->tile_collision.height, s->map->tile_collision.width,
+            s->map->tile_collision.height, s->map->tile_collision.width
         );
 
         vec4 guy_new_x_position;
@@ -146,20 +141,20 @@ void scene_test_update(void* vs, Game* game) {
         // == LEFT SENSORS ==
         SensedTile t;
         sense_tile(&guy_new_x_position, &tilemap_dim, &s->guy.left_sensors, &t);
-        TileCollision l_collision_1 = process_sensor(&s->guy, &s->map_collision, &t, LEFT_SENSOR, SENSOR_1, X);
-        TileCollision l_collision_2 = process_sensor(&s->guy, &s->map_collision, &t, LEFT_SENSOR, SENSOR_2, X);
+        TileCollision l_collision_1 = process_sensor(&s->guy, &s->map->tile_collision, &t, LEFT_SENSOR, SENSOR_1, X);
+        TileCollision l_collision_2 = process_sensor(&s->guy, &s->map->tile_collision, &t, LEFT_SENSOR, SENSOR_2, X);
         bool left_hit = l_collision_1.hit || l_collision_2.hit;
 
         // == RIGHT SENSORS ==
         sense_tile(&guy_new_x_position, &tilemap_dim, &s->guy.right_sensors, &t);
-        TileCollision r_collision_1 = process_sensor(&s->guy, &s->map_collision, &t, RIGHT_SENSOR, SENSOR_1, X);
-        TileCollision r_collision_2 = process_sensor(&s->guy, &s->map_collision, &t, RIGHT_SENSOR, SENSOR_2, X);
+        TileCollision r_collision_1 = process_sensor(&s->guy, &s->map->tile_collision, &t, RIGHT_SENSOR, SENSOR_1, X);
+        TileCollision r_collision_2 = process_sensor(&s->guy, &s->map->tile_collision, &t, RIGHT_SENSOR, SENSOR_2, X);
         bool right_hit = r_collision_1.hit || r_collision_2.hit;
 
         // == TOP SENSORS ==
         sense_tile(&guy_new_y_position, &tilemap_dim, &s->guy.top_sensors, &t);
-        TileCollision t_collision_1 = process_sensor(&s->guy, &s->map_collision, &t, TOP_SENSOR, SENSOR_1, Y);
-        TileCollision t_collision_2 = process_sensor(&s->guy, &s->map_collision, &t, TOP_SENSOR, SENSOR_2, Y);
+        TileCollision t_collision_1 = process_sensor(&s->guy, &s->map->tile_collision, &t, TOP_SENSOR, SENSOR_1, Y);
+        TileCollision t_collision_2 = process_sensor(&s->guy, &s->map->tile_collision, &t, TOP_SENSOR, SENSOR_2, Y);
         bool top_hit = t_collision_1.hit || t_collision_2.hit;
 
         if (left_hit)
@@ -173,8 +168,8 @@ void scene_test_update(void* vs, Game* game) {
 
         // == BOTTOM SENSORS ==
         sense_tile(&s->guy.position, &tilemap_dim, &s->guy.bottom_sensors, &t);
-        TileCollision b_collision_1 = process_bottom_sensor(&s->guy, &s->map_collision, &t, SENSOR_1);
-        TileCollision b_collision_2 = process_bottom_sensor(&s->guy, &s->map_collision, &t, SENSOR_2);
+        TileCollision b_collision_1 = process_bottom_sensor(&s->guy, &s->map->tile_collision, &t, SENSOR_1);
+        TileCollision b_collision_2 = process_bottom_sensor(&s->guy, &s->map->tile_collision, &t, SENSOR_2);
 
         s->guy.grounded = b_collision_1.hit || b_collision_2.hit;
         if (s->guy.grounded)
@@ -257,8 +252,8 @@ void scene_test_render(void* vs, Game* game) {
 #endif
     */
 
-    // Draw tiles!
-    draw_tilemap(game, &s->test_tilemap);
+    // Draw WHOLE MAP
+    draw_map(game, s->map);
 
     // DRAW GUY
     SDL_Rect src = { s->animation_frame * 90, 0, 90, 90 };
@@ -325,7 +320,13 @@ void scene_test_render(void* vs, Game* game) {
 
 void scene_test_cleanup(void* vdata, Game* game) {
     TestScene* data = (TestScene*)vdata;
-    SDL_DestroyTexture(data->test_tilemap.tex);
+    for (int i = 0; i < data->map->number_of_tilemaps; i++) {
+        Tilemap* tilemap = &data->map->tilemaps[i];
+        if (tilemap->tex != NULL) {
+            SDL_DestroyTexture(tilemap->tex);
+            tilemap->tex = NULL;
+        }
+    }
     SDL_DestroyTexture(data->guy.textures[0]);
     SDL_DestroyTexture(data->guy.textures[1]);
     SDL_DestroyTexture(data->guy.textures[2]);

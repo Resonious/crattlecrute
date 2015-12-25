@@ -1,3 +1,6 @@
+#ifndef SOUND_H
+#define SOUND_H
+
 #include "types.h"
 #define AUDIO_ONESHOT_CHANNELS 25
 #define AUDIO_LOOPED_CHANNELS 10
@@ -18,3 +21,5 @@ typedef struct {
 void initialize_sound();
 AudioWave* open_and_play_music();
 AudioWave decode_ogg(int asset);
+
+#endif // SOUND_H
