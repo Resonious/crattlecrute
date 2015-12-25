@@ -370,7 +370,7 @@ maps.each do |map|
       # tex_asset, texture
       header.write("    ASSET_#{ident(sublayer.tileset.filename)}, NULL,\n")
       # tiles_per_row, width, height
-      header.write("    #{(map.tiles_wide / 32).to_i}, #{map.tiles_wide}, #{map.tiles_high},\n")
+      header.write("    #{sublayer.tileset.tiles_per_row}, #{map.tiles_wide}, #{map.tiles_high},\n")
       # tiles
       header.write("    #{data_ident}\n")
       header.write("};\n")
@@ -380,7 +380,13 @@ maps.each do |map|
   header.write("\n")
   header.write("const static Map MAP_#{map_ident} = {\n")
   # CollisionMap
-  header.write("    { #{map.tiles_wide}, #{map.tiles_high}, MAP_#{map_ident}_COLLISION },\n")
+  collision_file = collision_layer.sublayers.keys.first.filename
+    .gsub(/^.*[\/\\]assets[\/\\]/, '').gsub(/\.collision\.png/, '')
+
+  header.write("    {\n")
+  header.write("        COLLISION_#{ident(collision_file)},\n")
+  header.write("        #{map.tiles_wide}, #{map.tiles_high}, MAP_#{map_ident}_COLLISION\n")
+  header.write("    },\n")
   # number_of_tilemaps
   header.write("    #{non_collision_layers.size},\n")
   # Tilemaps

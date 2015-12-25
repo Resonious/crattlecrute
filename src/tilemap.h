@@ -27,7 +27,9 @@ typedef struct {
 } Tilemap;
 
 typedef struct {
-    // dimensions
+    // Collision heights
+    TileHeights* heights;
+    // Dimensions
     int width, height;
     // Array of tile indices width * height long
     int* tiles;

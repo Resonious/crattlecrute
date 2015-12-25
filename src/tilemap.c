@@ -73,7 +73,8 @@ TileCollision process_bottom_sensor_one_tile_down(Character* guy, CollisionMap* 
         int* heights = NULL;
         TileIndex tile_index = tile_at(tilemap, &t->tilespace, sensor);
         if (!(tile_index.flags & NOT_A_TILE)) {
-            heights = COLLISION_TERRAIN_TESTGROUND2[tile_index.index].top2down;
+            // TODO TODO RIGHT HERE NOOB!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            heights = tilemap->heights[tile_index.index].top2down;
             int x_within_tile = t->position_within_tile.x[sensor+X];
             int height = heights[(tile_index.flags & TILE_FLIP_X) ? 32 - x_within_tile : x_within_tile];
             if (height < 0)
@@ -103,7 +104,7 @@ TileCollision process_bottom_sensor(Character* guy, CollisionMap* tilemap, Sense
                 return result;
         }
 
-        int* heights = COLLISION_TERRAIN_TESTGROUND2[tile_index.index].top2down;
+        int* heights = tilemap->heights[tile_index.index].top2down;
         int x_within_tile = t->position_within_tile.x[sensor+X];
         bool tile_x_flipped = tile_index.flags & TILE_FLIP_X;
 
@@ -122,7 +123,7 @@ TileCollision process_bottom_sensor(Character* guy, CollisionMap* tilemap, Sense
 
                 tile_index = tile_at(tilemap, &t->tilespace, sensor);
                 if (!(tile_index.flags & NOT_A_TILE)) {
-                    heights = COLLISION_TERRAIN_TESTGROUND2[tile_index.index].top2down;
+                    heights = tilemap->heights[tile_index.index].top2down;
 
                     int new_height = heights[tile_x_flipped ? 32 - x_within_tile : x_within_tile];
                     if (new_height >= 0)
@@ -186,21 +187,21 @@ TileCollision process_sensor(Character* guy, CollisionMap* tilemap, SensedTile* 
         TileIndex tile_index = tile_at(tilemap, &t->tilespace, sensor);
 
         if (!(tile_index.flags & NOT_A_TILE)) {
-            int* heights = tile_height_for_sensor(COLLISION_TERRAIN_TESTGROUND2, &tile_index, sensor_dir);
+            int* heights = tile_height_for_sensor(tilemap->heights, &tile_index, sensor_dir);
 #ifdef _DEBUG
             // Make sure tile_height_for_sensor is working correctly.
             if (sensor_dir == LEFT_SENSOR)
                 if (tile_index.flags & TILE_FLIP_X)
-                    SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND2[tile_index.index].right2left);
+                    SDL_assert(heights == tilemap->heights[tile_index.index].right2left);
                 else
-                    SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND2[tile_index.index].left2right);
+                    SDL_assert(heights == tilemap->heights[tile_index.index].left2right);
             else if (sensor_dir == RIGHT_SENSOR)
                 if (tile_index.flags & TILE_FLIP_X)
-                    SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND2[tile_index.index].left2right);
+                    SDL_assert(heights == tilemap->heights[tile_index.index].left2right);
                 else
-                    SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND2[tile_index.index].right2left);
+                    SDL_assert(heights == tilemap->heights[tile_index.index].right2left);
             else if (sensor_dir == TOP_SENSOR)
-                SDL_assert(heights == COLLISION_TERRAIN_TESTGROUND2[tile_index.index].bottom2up);
+                SDL_assert(heights == tilemap->heights[tile_index.index].bottom2up);
             else
                 SDL_assert(false);
 
@@ -252,7 +253,7 @@ static SDL_Rect tile_src_rect(TileIndex* tile_index, Tilemap* map) {
 
 // NOTE dest.y is in GAME coordinates (0 bottom), src.y is in IMAGE coordinates (0 top)
 static void draw_tile(Game* game, Tilemap* tilemap, TileIndex* tile_index, SDL_Rect* src, SDL_Rect* dest) {
-    if (tile_index->flags | NOT_A_TILE) return;
+    if (tile_index->flags & NOT_A_TILE) return;
 
     int old_dest_y = dest->y;
     dest->y = game->window_height - dest->y - 32;
