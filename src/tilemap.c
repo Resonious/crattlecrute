@@ -76,7 +76,7 @@ TileCollision process_bottom_sensor_one_tile_down(Character* guy, CollisionMap* 
             // TODO TODO RIGHT HERE NOOB!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             heights = tilemap->heights[tile_index.index].top2down;
             int x_within_tile = t->position_within_tile.x[sensor+X];
-            int height = heights[(tile_index.flags & TILE_FLIP_X) ? 32 - x_within_tile : x_within_tile];
+            int height = heights[(tile_index.flags & TILE_FLIP_X) ? 31 - x_within_tile : x_within_tile];
             if (height < 0)
                 return result;
 
@@ -108,7 +108,7 @@ TileCollision process_bottom_sensor(Character* guy, CollisionMap* tilemap, Sense
         int x_within_tile = t->position_within_tile.x[sensor+X];
         bool tile_x_flipped = tile_index.flags & TILE_FLIP_X;
 
-        int height = heights[tile_x_flipped ? 32 - x_within_tile : x_within_tile];
+        int height = heights[tile_x_flipped ? 31 - x_within_tile : x_within_tile];
 
         // This would also mean we're in the air
         if (height == -1 && guy->grounded)
@@ -125,7 +125,8 @@ TileCollision process_bottom_sensor(Character* guy, CollisionMap* tilemap, Sense
                 if (!(tile_index.flags & NOT_A_TILE)) {
                     heights = tilemap->heights[tile_index.index].top2down;
 
-                    int new_height = heights[tile_x_flipped ? 32 - x_within_tile : x_within_tile];
+                    tile_x_flipped = tile_index.flags & TILE_FLIP_X;
+                    int new_height = heights[tile_x_flipped ? 31 - x_within_tile : x_within_tile];
                     if (new_height >= 0)
                         height = new_height;
                     else
@@ -153,6 +154,8 @@ TileCollision dont_call_me(CollisionMap* tilemap, SensedTile* t, Character* guy,
 #ifdef _DEBUG
     SDL_assert(false);
 #endif
+    TileCollision r;
+    return r;
 }
 TileCollision left_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
@@ -210,9 +213,10 @@ TileCollision process_sensor(Character* guy, CollisionMap* tilemap, SensedTile* 
             else if (dim == Y) SDL_assert(!dim == X);
 #endif
             int within_tile = t->position_within_tile.x[sensor + !dim];
+            SDL_assert(within_tile < 32);
             int height;
             if (sensor_dir == TOP_SENSOR)
-                height = heights[(tile_index.flags & TILE_FLIP_X) ? 32 - within_tile : within_tile];
+                height = heights[(tile_index.flags & TILE_FLIP_X) ? 31 - within_tile : within_tile];
             else
                 height = heights[within_tile];
 
@@ -333,6 +337,8 @@ void draw_tilemap(Game* game, Tilemap* tilemap) {
             for (int j = 0; j < tile_count; j++) {
                 draw_tile(game, tilemap, &repeated_index, &src, &dest.rect);
                 increment_tilespace(&dest, width_in_pixels, 32);
+                // NOTE this could be optimized by not repeatedly calling increment_tilespace
+                // on repeated -1's.
             }
 
             i += 1;
