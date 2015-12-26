@@ -182,12 +182,13 @@ int main(int argc, char** argv) {
 
             game.controls.this_frame[C_SPACE] = keys[SDL_SCANCODE_SPACE];
             game.controls.this_frame[C_F1] = keys[SDL_SCANCODE_F1];
+            game.controls.this_frame[C_DEBUG_ADV] = keys[SDL_SCANCODE_LEFTBRACKET];
         }
 
 #if _DEBUG
         if (just_pressed(&game.controls, C_PAUSE))
             debug_pause = !debug_pause;
-        if (!debug_pause || just_pressed(&game.controls, C_SPACE))
+        if (!debug_pause || just_pressed(&game.controls, C_DEBUG_ADV))
 #endif
         game.current_scene->update(game.current_scene_data, &game);
 
