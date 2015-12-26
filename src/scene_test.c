@@ -182,6 +182,12 @@ void scene_test_update(void* vs, Game* game) {
                 b_collision_2.new_position - b_collision_1.new_position,
                 s->guy.bottom_sensors.x[S2X] - s->guy.bottom_sensors.x[S1X]
             ) / M_PI * 180;
+
+            const float ground_angle_cap = 30;
+            if (s->guy.ground_angle > ground_angle_cap)
+                s->guy.ground_angle = ground_angle_cap;
+            else if (s->guy.ground_angle < -ground_angle_cap)
+                s->guy.ground_angle = -ground_angle_cap;
         }
         else if (b_collision_1.hit)
             s->guy.position.x[Y] = b_collision_1.new_position;

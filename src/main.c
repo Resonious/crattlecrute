@@ -156,8 +156,7 @@ int main(int argc, char** argv) {
         game.tick_count += last_frame_ticks;
 
         memcpy(game.controls.last_frame, game.controls.this_frame, sizeof(game.controls.last_frame));
-        // NOTE all controls should be re-set every frame, so this technically shouldn't be necessary.
-        // memset(game.controls.this_frame, 0, sizeof(game.controls.this_frame));
+        memset(game.controls.this_frame, 0, sizeof(game.controls.this_frame));
 
         while (SDL_PollEvent(&event)) {
             switch (event.type) {

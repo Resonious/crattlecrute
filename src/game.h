@@ -9,6 +9,7 @@ enum Control {
     C_W, C_S, C_A, C_D,
     C_PAUSE,
     C_F1, C_SPACE,
+    C_DEBUG_ADV,
     NUM_CONTROLS
 };
 
