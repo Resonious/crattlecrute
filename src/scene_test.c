@@ -39,6 +39,8 @@ void scene_test_initialize(void* vdata, Game* game) {
     default_character(&data->guy);
     data->guy.position.simd = _mm_set1_ps(45.0f + 32.0f * 5.0f);
     data->guy.position.x[Y] = 120.0f;
+    data->guy.position.x[2] = 0.0f;
+    data->guy.position.x[3] = 0.0f;
     data->animation_frame = 0;
     data->flip = SDL_FLIP_NONE;
     data->flip = false;
@@ -205,6 +207,19 @@ void scene_test_update(void* vs, Game* game) {
         game->audio.oneshot_waves[0] = &s->test_sound;
     }
 
+    // Follow player with camera
+    // game->camera.simd = _mm_mul_ps(s->guy.position.simd, _mm_set_ps(0, 0, 1, 1));
+    // Actually, move the camera lol
+    const float cam_speed = s->guy.ground_speed_max * 0.8f;
+    if (game->controls.this_frame[C_W])
+        game->camera.x[Y] += cam_speed;
+    if (game->controls.this_frame[C_S])
+        game->camera.x[Y] -= cam_speed;
+    if (game->controls.this_frame[C_D])
+        game->camera.x[X] += cam_speed;
+    if (game->controls.this_frame[C_A])
+        game->camera.x[X] -= cam_speed;
+
     // This should happen after all entities are done interacting (riiight at the end of the frame)
     s->guy.old_position = s->guy.position;
 
@@ -258,8 +273,8 @@ void scene_test_render(void* vs, Game* game) {
     // DRAW GUY
     SDL_Rect src = { s->animation_frame * 90, 0, 90, 90 };
     SDL_Rect dest = {
-        s->guy.position.x[X] - s->guy.center_x,
-        game->window_height - s->guy.position.x[Y] - s->guy.center_y,
+        s->guy.position.x[X] - s->guy.center_x - game->camera.x[X],
+        game->window_height - s->guy.position.x[Y] - s->guy.center_y + game->camera.x[Y],
 
         90, 90
     };

@@ -37,6 +37,7 @@ typedef struct {
     // Remember to #include "scene.h" if you're gonna use this.
     struct Scene* current_scene;
     void* current_scene_data;
+    vec4 camera;
 } Game;
 
 // Switch to a new scene (COMING SOON: fade to scene!?)
@@ -95,5 +96,7 @@ typedef struct {
 } Character;
 
 void default_character(Character* target);
+
+void draw();
 
 #endif

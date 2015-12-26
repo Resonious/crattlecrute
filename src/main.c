@@ -116,6 +116,7 @@ int main(int argc, char** argv) {
 
     game.current_scene = &SCENES[SCENE_TEST];
     game.current_scene_data = malloc(SCENE_DATA_SIZE);
+    game.camera.simd = _mm_set1_ps(0.0f);
 
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
     open_assets_file();

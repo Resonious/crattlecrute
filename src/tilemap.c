@@ -252,16 +252,17 @@ static SDL_Rect tile_src_rect(TileIndex* tile_index, Tilemap* map) {
 }
 
 // NOTE dest.y is in GAME coordinates (0 bottom), src.y is in IMAGE coordinates (0 top)
+// This also offsets by game->camera
 static void draw_tile(Game* game, Tilemap* tilemap, TileIndex* tile_index, SDL_Rect* src, SDL_Rect* dest) {
     if (tile_index->flags & NOT_A_TILE) return;
 
-    int old_dest_y = dest->y;
-    dest->y = game->window_height - dest->y - 32;
+    vec4i new_dest;
+    SDL_memcpy(&new_dest, dest, sizeof(SDL_Rect));
+    new_dest.simd = _mm_sub_epi32(new_dest.simd, _mm_cvtps_epi32(game->camera.simd));
+    new_dest.rect.y = game->window_height - new_dest.rect.y - 32;
 
     SDL_RendererFlip flip = (tile_index->flags & TILE_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_RenderCopyEx(game->renderer, tilemap->tex, src, dest, 0, NULL, flip);
-
-    dest->y = old_dest_y;
+    SDL_RenderCopyEx(game->renderer, tilemap->tex, src, &new_dest, 0, NULL, flip);
 }
 
 

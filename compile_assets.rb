@@ -212,7 +212,10 @@ all_files.each do |file|
           global_index = (num & 0x00FFFFFF)
           flags = (num & 0xFF000000) >> 24
 
-          raise "DON'T Y-FLIP!!!! #{filename}" if (flags & (1 << 6)) != 0
+          if (flags & (1 << 6)) != 0
+            puts "WARNING: #{filename} layer #{layer.name} tile #{i} is y-flipped - ignoring this flip."
+            flags &= ~(1 << 6)
+          end
 
           tileset = tilesets.find do |tileset|
             global_index - tileset.firstgid >= 0
@@ -225,11 +228,13 @@ all_files.each do |file|
 
         # Flip the sublayer data upside-down (for 0=bottom)
         layer.sublayers.values.each do |sublayer|
+          new_data = sublayer.data.clone
           (0...tiles_wide).each do |x|
             (0...tiles_high).each do |y|
-              sublayer.data[y * tiles_wide + x] = sublayer.data[(tiles_high - y - 1) * tiles_wide + x]
+              new_data[y * tiles_wide + x] = sublayer.data[(tiles_high - y - 1) * tiles_wide + x]
             end
           end
+          sublayer.data = new_data
         end
 
         # Compress sublayer data if necessary
@@ -377,6 +382,11 @@ maps.each do |map|
     end
   end
 
+  number_of_tilemaps = 0
+  non_collision_layers.each do |layer|
+    number_of_tilemaps += layer.sublayers.size
+  end
+
   header.write("\n")
   header.write("const static Map MAP_#{map_ident} = {\n")
   # CollisionMap
@@ -388,7 +398,7 @@ maps.each do |map|
   header.write("        #{map.tiles_wide}, #{map.tiles_high}, MAP_#{map_ident}_COLLISION\n")
   header.write("    },\n")
   # number_of_tilemaps
-  header.write("    #{non_collision_layers.size},\n")
+  header.write("    #{number_of_tilemaps},\n")
   # Tilemaps
   header.write("    &#{first_tilemap_ident}\n")
   header.write("};\n\n")
