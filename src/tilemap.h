@@ -61,7 +61,8 @@ typedef struct {
 } TileCollision;
 
 TileIndex tile_from_int(int raw_tile_index);
-TileCollision process_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor, const int dim);
+TileCollision process_side_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor);
+TileCollision process_top_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
 TileCollision process_bottom_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
 TileCollision process_bottom_sensor_one_tile_down(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
 void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/SensedTile* result);

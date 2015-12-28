@@ -114,7 +114,7 @@ TileCollision process_bottom_sensor(Character* guy, CollisionMap* tilemap, Sense
         if (height == -1 && guy->grounded)
             return process_bottom_sensor_one_tile_down(guy, tilemap, t, sensor);
         // Try next tile up
-        else if (height == 32) {
+        else if (height == 31) {
             int new_tilespace_y = t->tilespace.x[sensor+Y] + 1;
             // Make sure "one tile up" is in fact a valid tile index..
             if (new_tilespace_y >= 0 && new_tilespace_y < tilemap->height) {
@@ -184,7 +184,63 @@ const static TileCollision(*placement_functions[])(CollisionMap* tilemap, Sensed
     left_sensor_placement
 };
 
-TileCollision process_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor, const int dim) {
+TileCollision process_top_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
+    if (t->indices_are_valid.x[sensor + X] && t->indices_are_valid.x[sensor + Y]) {
+
+        TileIndex tile_index = tile_at(tilemap, &t->tilespace, sensor);
+
+        if (!(tile_index.flags & NOT_A_TILE)) {
+            int* heights = tile_height_for_sensor(tilemap->heights, &tile_index, TOP_SENSOR);
+#ifdef _DEBUG
+            SDL_assert(heights == tilemap->heights[tile_index.index].bottom2up);
+#endif
+            int x_within_tile = t->position_within_tile.x[sensor + X];
+            SDL_assert(x_within_tile < 32);
+            int height;
+            height = heights[(tile_index.flags & TILE_FLIP_X) ? 31 - x_within_tile : x_within_tile];
+
+            // Move over one tile if the tile we hit's height is the bottom
+            if (height == 0) {
+                int new_tilespace_y = t->tilespace.x[sensor + Y];
+                new_tilespace_y -= 1;
+
+                // Don't overflow tilemap
+                if (new_tilespace_y >= 0) {
+                    t->tilespace.x[sensor + Y] = new_tilespace_y;
+                    t->tilepos.x[sensor + Y] -= 32;
+
+                    tile_index = tile_at(tilemap, &t->tilespace, sensor);
+                    // Don't bump to next tile if next tile is not a tile
+                    if (!(tile_index.flags & NOT_A_TILE)) {
+                        heights = tile_height_for_sensor(tilemap->heights, &tile_index, TOP_SENSOR);
+
+                        int new_height;
+                        new_height = heights[(tile_index.flags & TILE_FLIP_X) ? 31 - x_within_tile : x_within_tile];
+
+                        if (new_height >= 0)
+                            height = new_height;
+                        else
+                            t->tilepos.x[sensor + Y] += 32;
+                    }
+                    else
+                        t->tilepos.x[sensor + Y] += 32;
+                }
+            }
+
+            if (height >= 0) {
+                return placement_functions[TOP_SENSOR](tilemap, t, guy, height, sensor);
+            }
+        }
+    }
+
+    TileCollision result;
+    result.hit = false;
+    result.new_position = guy->position.x[Y];
+
+    return result;
+}
+
+TileCollision process_side_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor) {
     if (t->indices_are_valid.x[sensor + X] && t->indices_are_valid.x[sensor + Y]) {
 
         TileIndex tile_index = tile_at(tilemap, &t->tilespace, sensor);
@@ -192,6 +248,7 @@ TileCollision process_sensor(Character* guy, CollisionMap* tilemap, SensedTile* 
         if (!(tile_index.flags & NOT_A_TILE)) {
             int* heights = tile_height_for_sensor(tilemap->heights, &tile_index, sensor_dir);
 #ifdef _DEBUG
+            SDL_assert(sensor_dir != TOP_SENSOR);
             // Make sure tile_height_for_sensor is working correctly.
             if (sensor_dir == LEFT_SENSOR)
                 if (tile_index.flags & TILE_FLIP_X)
@@ -203,22 +260,42 @@ TileCollision process_sensor(Character* guy, CollisionMap* tilemap, SensedTile* 
                     SDL_assert(heights == tilemap->heights[tile_index.index].left2right);
                 else
                     SDL_assert(heights == tilemap->heights[tile_index.index].right2left);
-            else if (sensor_dir == TOP_SENSOR)
-                SDL_assert(heights == tilemap->heights[tile_index.index].bottom2up);
             else
                 SDL_assert(false);
-
-            // Sanity
-            if      (dim == X) SDL_assert(!dim == Y);
-            else if (dim == Y) SDL_assert(!dim == X);
 #endif
-            int within_tile = t->position_within_tile.x[sensor + !dim];
-            SDL_assert(within_tile < 32);
+            int y_within_tile = t->position_within_tile.x[sensor + Y];
+            SDL_assert(y_within_tile < 32);
             int height;
-            if (sensor_dir == TOP_SENSOR)
-                height = heights[(tile_index.flags & TILE_FLIP_X) ? 31 - within_tile : within_tile];
-            else
-                height = heights[within_tile];
+            height = heights[y_within_tile];
+
+            // Move over one tile if we're max height
+            if (height == 31) {
+                const int tilepos_offset_amount = sensor_dir == LEFT_SENSOR ? 32 : -32;
+
+                int new_tilespace_dim = t->tilespace.x[sensor + X];
+                new_tilespace_dim += (sensor_dir == LEFT_SENSOR ? 1 : -1);
+
+                // Don't overflow tilemap
+                if (new_tilespace_dim < tilemap->width) {
+                    t->tilespace.x[sensor + X] = new_tilespace_dim;
+                    t->tilepos.x[sensor + X] += tilepos_offset_amount;
+
+                    tile_index = tile_at(tilemap, &t->tilespace, sensor);
+                    // Don't bump to next tile if next tile is not a tile
+                    if (!(tile_index.flags & NOT_A_TILE)) {
+                        heights = tile_height_for_sensor(tilemap->heights, &tile_index, sensor_dir);
+
+                        int new_height = heights[y_within_tile];
+
+                        if (new_height >= 0)
+                            height = new_height;
+                        else
+                            t->tilepos.x[sensor + X] -= tilepos_offset_amount;
+                    }
+                    else
+                        t->tilepos.x[sensor + X] -= tilepos_offset_amount;
+                }
+            }
 
             if (height >= 0) {
                 return placement_functions[sensor_dir](tilemap, t, guy, height, sensor);
@@ -228,7 +305,7 @@ TileCollision process_sensor(Character* guy, CollisionMap* tilemap, SensedTile* 
 
     TileCollision result;
     result.hit = false;
-    result.new_position = guy->position.x[dim];
+    result.new_position = guy->position.x[X];
 
     return result;
 }
@@ -379,24 +456,41 @@ void collide_character(Character* guy, CollisionMap* tile_collision) {
     guy_new_y_position.x[X] = guy->old_position.x[X];
     guy_new_y_position.x[Y] = guy->position.x[Y];
 
-    // == LEFT SENSORS ==
     SensedTile t;
-    sense_tile(&guy_new_x_position, &tilemap_dim, &guy->left_sensors, &t);
-    TileCollision l_collision_1 = process_sensor(guy, tile_collision, &t, LEFT_SENSOR, SENSOR_1, X);
-    TileCollision l_collision_2 = process_sensor(guy, tile_collision, &t, LEFT_SENSOR, SENSOR_2, X);
-    bool left_hit = l_collision_1.hit || l_collision_2.hit;
+    bool left_hit, right_hit, top_hit;
+    // NOTE don't access these if the corrosponding *_hit == false
+    TileCollision l_collision_1, l_collision_2,
+                  r_collision_1, r_collision_2,
+                  t_collision_1, t_collision_2;
+    // == LEFT SENSORS ==
+    if (guy_new_x_position.x[X] < guy->old_position.x[X]) {
+        sense_tile(&guy_new_x_position, &tilemap_dim, &guy->left_sensors, &t);
+        l_collision_1 = process_side_sensor(guy, tile_collision, &t, LEFT_SENSOR, SENSOR_1);
+        l_collision_2 = process_side_sensor(guy, tile_collision, &t, LEFT_SENSOR, SENSOR_2);
+        left_hit = l_collision_1.hit || l_collision_2.hit;
+    }
+    else
+        left_hit = false;
 
     // == RIGHT SENSORS ==
-    sense_tile(&guy_new_x_position, &tilemap_dim, &guy->right_sensors, &t);
-    TileCollision r_collision_1 = process_sensor(guy, tile_collision, &t, RIGHT_SENSOR, SENSOR_1, X);
-    TileCollision r_collision_2 = process_sensor(guy, tile_collision, &t, RIGHT_SENSOR, SENSOR_2, X);
-    bool right_hit = r_collision_1.hit || r_collision_2.hit;
+    if (guy_new_x_position.x[X] > guy->old_position.x[X]) {
+        sense_tile(&guy_new_x_position, &tilemap_dim, &guy->right_sensors, &t);
+        r_collision_1 = process_side_sensor(guy, tile_collision, &t, RIGHT_SENSOR, SENSOR_1);
+        r_collision_2 = process_side_sensor(guy, tile_collision, &t, RIGHT_SENSOR, SENSOR_2);
+        right_hit = r_collision_1.hit || r_collision_2.hit;
+    }
+    else
+        right_hit = false;
 
     // == TOP SENSORS ==
-    sense_tile(&guy_new_y_position, &tilemap_dim, &guy->top_sensors, &t);
-    TileCollision t_collision_1 = process_sensor(guy, tile_collision, &t, TOP_SENSOR, SENSOR_1, Y);
-    TileCollision t_collision_2 = process_sensor(guy, tile_collision, &t, TOP_SENSOR, SENSOR_2, Y);
-    bool top_hit = t_collision_1.hit || t_collision_2.hit;
+    if (guy_new_y_position.x[Y] > guy->old_position.x[Y]) {
+        sense_tile(&guy_new_y_position, &tilemap_dim, &guy->top_sensors, &t);
+        t_collision_1 = process_top_sensor(guy, tile_collision, &t, SENSOR_1);
+        t_collision_2 = process_top_sensor(guy, tile_collision, &t, SENSOR_2);
+        top_hit = t_collision_1.hit || t_collision_2.hit;
+    }
+    else
+        top_hit = false;
 
     if (left_hit)
         guy->position.x[X] = fmaxf(l_collision_1.new_position, l_collision_2.new_position);
