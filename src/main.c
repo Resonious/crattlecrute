@@ -62,6 +62,7 @@ void default_character(Character* target) {
     target->height = 90;
     target->center_x = 45;
     target->center_y = 45;
+    target->dy = 0;
     target->ground_speed = 0.0f;
     target->ground_speed_max = 6.0f;
     target->ground_acceleration = 1.15f;
@@ -83,12 +84,12 @@ void default_character(Character* target) {
     target->left_sensors.x[S1X] = 30 - 45;
     target->left_sensors.x[S1Y] = 71 - 45;
     target->left_sensors.x[S2X] = 31 - 45;
-    target->left_sensors.x[S2Y] = 30 - 45;
+    target->left_sensors.x[S2Y] = 17 - 45;
 
     target->right_sensors.x[S1X] = 59 - 45;
     target->right_sensors.x[S1Y] = 71 - 45;
     target->right_sensors.x[S2X] = 59 - 45;
-    target->right_sensors.x[S2Y] = 33 - 45;
+    target->right_sensors.x[S2Y] = 17 - 45;
 
     /*
     data->animation_frame = 0;

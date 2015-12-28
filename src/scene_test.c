@@ -67,7 +67,7 @@ void scene_test_initialize(void* vdata, Game* game) {
 void scene_test_update(void* vs, Game* game) {
     TestScene* s = (TestScene*)vs;
     // Test movement (for controls' sake)
-    s->dy -= s->gravity; // times 1 frame
+    s->guy.dy -= s->gravity; // times 1 frame
     // Get accelerations from controls
     if (game->controls.this_frame[C_LEFT]) {
         s->guy.ground_speed -= s->guy.ground_acceleration;
@@ -80,7 +80,7 @@ void scene_test_update(void* vs, Game* game) {
     // JUMP
     if (just_pressed(&game->controls, C_UP)) {
         s->guy.grounded = false;
-        s->dy += s->jump_acceleration;
+        s->guy.dy += s->jump_acceleration;
     }
     // TEST ANGLE
     /*
@@ -110,93 +110,29 @@ void scene_test_update(void* vs, Game* game) {
         s->guy.ground_speed = s->guy.ground_speed_max;
     else if (s->guy.ground_speed < -s->guy.ground_speed_max)
         s->guy.ground_speed = -s->guy.ground_speed_max;
-    if (s->dy < -s->terminal_velocity)
-        s->dy = -s->terminal_velocity;
+    if (s->guy.dy < -s->terminal_velocity)
+        s->guy.dy = -s->terminal_velocity;
 
     // Actually move the dude (ground_speed is just x for now)
-    __m128 movement = {s->guy.ground_speed, s->dy, 0.0f, 0.0f};
+    __m128 movement = {s->guy.ground_speed, s->guy.dy, 0.0f, 0.0f};
     s->guy.position.simd = _mm_add_ps(s->guy.position.simd, movement);
 
     // Temporary ground @ 0px
     if (s->guy.position.x[1] < 0) {
         s->guy.position.x[1] = 0;
-        s->dy = 0;
+        s->guy.dy = 0;
     }
 
-    // ==== COLLISION BEGINS! ====
-    {
-        // === These are needed for all sensor operations ===
-        // tilemap dimensions twice (w,h,w,h)
-        vec4i tilemap_dim;
-        tilemap_dim.simd = _mm_set_epi32(
-            s->map->tile_collision.height, s->map->tile_collision.width,
-            s->map->tile_collision.height, s->map->tile_collision.width
-        );
-
-        vec4 guy_new_x_position;
-        guy_new_x_position.x[X] = s->guy.position.x[X];
-        guy_new_x_position.x[Y] = s->guy.old_position.x[Y];
-        vec4 guy_new_y_position;
-        guy_new_y_position.x[X] = s->guy.old_position.x[X];
-        guy_new_y_position.x[Y] = s->guy.position.x[Y];
-
-        // == LEFT SENSORS ==
-        SensedTile t;
-        sense_tile(&guy_new_x_position, &tilemap_dim, &s->guy.left_sensors, &t);
-        TileCollision l_collision_1 = process_sensor(&s->guy, &s->map->tile_collision, &t, LEFT_SENSOR, SENSOR_1, X);
-        TileCollision l_collision_2 = process_sensor(&s->guy, &s->map->tile_collision, &t, LEFT_SENSOR, SENSOR_2, X);
-        bool left_hit = l_collision_1.hit || l_collision_2.hit;
-
-        // == RIGHT SENSORS ==
-        sense_tile(&guy_new_x_position, &tilemap_dim, &s->guy.right_sensors, &t);
-        TileCollision r_collision_1 = process_sensor(&s->guy, &s->map->tile_collision, &t, RIGHT_SENSOR, SENSOR_1, X);
-        TileCollision r_collision_2 = process_sensor(&s->guy, &s->map->tile_collision, &t, RIGHT_SENSOR, SENSOR_2, X);
-        bool right_hit = r_collision_1.hit || r_collision_2.hit;
-
-        // == TOP SENSORS ==
-        sense_tile(&guy_new_y_position, &tilemap_dim, &s->guy.top_sensors, &t);
-        TileCollision t_collision_1 = process_sensor(&s->guy, &s->map->tile_collision, &t, TOP_SENSOR, SENSOR_1, Y);
-        TileCollision t_collision_2 = process_sensor(&s->guy, &s->map->tile_collision, &t, TOP_SENSOR, SENSOR_2, Y);
-        bool top_hit = t_collision_1.hit || t_collision_2.hit;
-
-        if (left_hit)
-            s->guy.position.x[X] = fmaxf(l_collision_1.new_position, l_collision_2.new_position);
-        if (right_hit)
-            s->guy.position.x[X] = fminf(r_collision_1.new_position, r_collision_2.new_position);
-        if (top_hit) {
-            s->guy.position.x[Y] = fminf(t_collision_1.new_position, t_collision_2.new_position);
-            s->dy = 0;
-        }
-
-        // == BOTTOM SENSORS ==
-        sense_tile(&s->guy.position, &tilemap_dim, &s->guy.bottom_sensors, &t);
-        TileCollision b_collision_1 = process_bottom_sensor(&s->guy, &s->map->tile_collision, &t, SENSOR_1);
-        TileCollision b_collision_2 = process_bottom_sensor(&s->guy, &s->map->tile_collision, &t, SENSOR_2);
-
-        s->guy.grounded = b_collision_1.hit || b_collision_2.hit;
-        if (s->guy.grounded)
-            s->dy = 0;
-        if (b_collision_1.hit && b_collision_2.hit) {
-            s->guy.position.x[Y] = fmaxf(b_collision_1.new_position, b_collision_2.new_position);
-            s->guy.ground_angle = atan2f(
-                b_collision_2.new_position - b_collision_1.new_position,
-                s->guy.bottom_sensors.x[S2X] - s->guy.bottom_sensors.x[S1X]
-            ) / M_PI * 180;
-
-            const float ground_angle_cap = 30;
-            if (s->guy.ground_angle > ground_angle_cap)
-                s->guy.ground_angle = ground_angle_cap;
-            else if (s->guy.ground_angle < -ground_angle_cap)
-                s->guy.ground_angle = -ground_angle_cap;
-        }
-        else if (b_collision_1.hit)
-            s->guy.position.x[Y] = b_collision_1.new_position;
-        else if (b_collision_2.hit)
-            s->guy.position.x[Y] = b_collision_2.new_position;
-        else
-            s->guy.grounded = false;
-    }
-    // === END OF COLLISION ===
+    // COLLISION!
+    /* THIS is 2 passes done kinda crudely. It doesn't help me fix this fucking bug so I'm not using it.
+    vec4 half_displacement;
+    half_displacement.simd = _mm_div_ps(_mm_sub_ps(s->guy.position.simd, s->guy.old_position.simd), _mm_set1_ps(2.0f));
+    s->guy.position.simd = _mm_add_ps(s->guy.old_position.simd, half_displacement.simd);
+    collide_character(&s->guy, &s->map->tile_collision);
+    s->guy.position.simd = _mm_add_ps(s->guy.position.simd, half_displacement.simd);
+    collide_character(&s->guy, &s->map->tile_collision);
+    */
+    collide_character(&s->guy, &s->map->tile_collision);
 
     // Animate here so that animation freezes along with freeze frame
     if (s->animate) {

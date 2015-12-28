@@ -80,7 +80,7 @@ all_files.each do |file|
           (0...32).each do |y|
             pixel = pixel_at[x, y]
             if (pixel & 0x000000FF) != 0
-              collision.top2down << 32 - y
+              collision.top2down << 31 - y
               found = true and break # out of this y-scan to find the next y
             end
           end
@@ -93,7 +93,7 @@ all_files.each do |file|
           (0...32).reverse_each do |y|
             pixel = pixel_at[x, y]
             if (pixel & 0x000000FF) != 0
-              collision.bottom2up << 32 - y
+              collision.bottom2up << 31 - y
               found = true and break # out of this y-scan to find the next y
             end
           end
@@ -106,7 +106,7 @@ all_files.each do |file|
           (0...32).each do |x|
             pixel = pixel_at[x, y]
             if (pixel & 0x000000FF) != 0
-              collision.left2right << 32 - x
+              collision.left2right << 31 - x
               found = true and break # out of this x-scan to find the next x
             end
           end

@@ -66,6 +66,7 @@ TileCollision process_bottom_sensor(Character* guy, CollisionMap* tilemap, Sense
 TileCollision process_bottom_sensor_one_tile_down(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
 void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/SensedTile* result);
 void draw_tilemap(Game* game, Tilemap* tilemap);
+void collide_character(Character* guy, CollisionMap* tile_collision);
 
 typedef struct {
     CollisionMap tile_collision;

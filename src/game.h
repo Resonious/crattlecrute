@@ -84,6 +84,7 @@ typedef struct {
     // (x[0], x[1])  (x[2], x[3])
     vec4i right_sensors;
 
+    float dy;
     float ground_speed;
     float ground_speed_max;
     float ground_acceleration;
