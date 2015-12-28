@@ -160,13 +160,13 @@ TileCollision dont_call_me(CollisionMap* tilemap, SensedTile* t, Character* guy,
 TileCollision left_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + height + 1 - guy->left_sensors.x[sensor+X]);
-    result.hit = result.new_position > guy->position.x[X];
+    result.hit = result.new_position > guy->position.x[X] && result.new_position < guy->old_position.x[X];
     return result;
 }
 TileCollision right_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + 32 - height - 1 - guy->right_sensors.x[sensor+X]);
-    result.hit = result.new_position < guy->position.x[X];
+    result.hit = result.new_position < guy->position.x[X] && result.new_position >= guy->old_position.x[X];
     return result;
 }
 TileCollision top_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
@@ -455,6 +455,8 @@ void collide_character(Character* guy, CollisionMap* tile_collision) {
     vec4 guy_new_y_position;
     guy_new_y_position.x[X] = guy->old_position.x[X];
     guy_new_y_position.x[Y] = guy->position.x[Y];
+    // vec4 displacement;
+    // displacement.simd = _mm_sub_ps(guy->position.simd, guy->old_position.simd);
 
     SensedTile t;
     bool left_hit, right_hit, top_hit;
