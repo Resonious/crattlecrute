@@ -160,19 +160,19 @@ TileCollision dont_call_me(CollisionMap* tilemap, SensedTile* t, Character* guy,
 TileCollision left_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + height + 1 - guy->left_sensors.x[sensor+X]);
-    result.hit = result.new_position > guy->position.x[X] && result.new_position < guy->old_position.x[X];
+    result.hit = result.new_position >= guy->position.x[X] && result.new_position < guy->old_position.x[X];
     return result;
 }
 TileCollision right_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
-    result.new_position = (float)(t->tilepos.x[sensor+X] + 32 - height - 1 - guy->right_sensors.x[sensor+X]);
+    result.new_position = (float)(t->tilepos.x[sensor+X] + 31 - height - 1 - guy->right_sensors.x[sensor+X]);
     result.hit = result.new_position < guy->position.x[X] && result.new_position >= guy->old_position.x[X];
     return result;
 }
 TileCollision top_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+Y] + height - 1 - guy->top_sensors.x[sensor+Y]);
-    result.hit = result.new_position < guy->position.x[Y];
+    result.hit = result.new_position < guy->position.x[Y] && result.new_position >= guy->old_position.x[Y];
     return result;
 }
 
