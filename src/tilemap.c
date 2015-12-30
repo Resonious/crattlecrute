@@ -73,7 +73,6 @@ TileCollision process_bottom_sensor_one_tile_down(Character* guy, CollisionMap* 
         int* heights = NULL;
         TileIndex tile_index = tile_at(tilemap, &t->tilespace, sensor);
         if (!(tile_index.flags & NOT_A_TILE)) {
-            // TODO TODO RIGHT HERE NOOB!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             heights = tilemap->heights[tile_index.index].top2down;
             int x_within_tile = t->position_within_tile.x[sensor+X];
             int height = heights[(tile_index.flags & TILE_FLIP_X) ? 31 - x_within_tile : x_within_tile];
@@ -110,11 +109,12 @@ TileCollision process_bottom_sensor(Character* guy, CollisionMap* tilemap, Sense
 
         int height = heights[tile_x_flipped ? 31 - x_within_tile : x_within_tile];
 
-        // This would also mean we're in the air
+        // This would also mean we're in the air ("we" being the sensor; not the character)
         if (height == -1 && guy->grounded)
             return process_bottom_sensor_one_tile_down(guy, tilemap, t, sensor);
+
         // Try next tile up
-        else if (height == 31) {
+        if (height == 31) {
             int new_tilespace_y = t->tilespace.x[sensor+Y] + 1;
             // Make sure "one tile up" is in fact a valid tile index..
             if (new_tilespace_y >= 0 && new_tilespace_y < tilemap->height) {
@@ -127,8 +127,16 @@ TileCollision process_bottom_sensor(Character* guy, CollisionMap* tilemap, Sense
 
                     tile_x_flipped = tile_index.flags & TILE_FLIP_X;
                     int new_height = heights[tile_x_flipped ? 31 - x_within_tile : x_within_tile];
-                    if (new_height >= 0)
+                    if (new_height >= 0) {
                         height = new_height;
+
+                        // Checking 2 tiles up for bottom sensor is absurd.
+                        if (height == 31) {
+                            result.hit = true;
+                            result.new_position = guy->position.x[Y];
+                            return result;
+                        }
+                    }
                     else
                         t->tilepos.x[sensor+Y] -= 32;
                 }
@@ -440,6 +448,37 @@ void draw_map(Game* game, Map* map) {
     }
 }
 
+static void do_bottom_sensors(Character* guy, CollisionMap* tile_collision, vec4i* tilemap_dim) {
+    SensedTile t;
+    // == BOTTOM SENSORS ==
+    sense_tile(&guy->position, tilemap_dim, &guy->bottom_sensors, &t);
+    TileCollision b_collision_1 = process_bottom_sensor(guy, tile_collision, &t, SENSOR_1);
+    TileCollision b_collision_2 = process_bottom_sensor(guy, tile_collision, &t, SENSOR_2);
+
+    guy->grounded = b_collision_1.hit || b_collision_2.hit;
+    if (guy->grounded)
+        guy->dy = 0;
+    if (b_collision_1.hit && b_collision_2.hit) {
+        guy->position.x[Y] = fmaxf(b_collision_1.new_position, b_collision_2.new_position);
+        guy->ground_angle = atan2f(
+            b_collision_2.new_position - b_collision_1.new_position,
+            guy->bottom_sensors.x[S2X] - guy->bottom_sensors.x[S1X]
+        ) / M_PI * 180;
+
+        const float ground_angle_cap = 30;
+        if (guy->ground_angle > ground_angle_cap)
+            guy->ground_angle = ground_angle_cap;
+        else if (guy->ground_angle < -ground_angle_cap)
+            guy->ground_angle = -ground_angle_cap;
+    }
+    else if (b_collision_1.hit)
+        guy->position.x[Y] = b_collision_1.new_position;
+    else if (b_collision_2.hit)
+        guy->position.x[Y] = b_collision_2.new_position;
+    else
+        guy->grounded = false;
+}
+
 void collide_character(Character* guy, CollisionMap* tile_collision) {
     // === These are needed for all sensor operations ===
     // tilemap dimensions twice (w,h,w,h)
@@ -449,9 +488,13 @@ void collide_character(Character* guy, CollisionMap* tile_collision) {
         tile_collision->height, tile_collision->width
     );
 
+    bool guy_was_grounded = guy->grounded;
+    if (guy_was_grounded)
+        do_bottom_sensors(guy, tile_collision, &tilemap_dim);
+
     vec4 guy_new_x_position;
     guy_new_x_position.x[X] = guy->position.x[X];
-    guy_new_x_position.x[Y] = guy->old_position.x[Y];
+    guy_new_x_position.x[Y] = guy->grounded ? guy->position.x[Y] : guy->old_position.x[Y];
     vec4 guy_new_y_position;
     guy_new_y_position.x[X] = guy->old_position.x[X];
     guy_new_y_position.x[Y] = guy->position.x[Y];
@@ -503,31 +546,6 @@ void collide_character(Character* guy, CollisionMap* tile_collision) {
         guy->dy = 0;
     }
 
-    // == BOTTOM SENSORS ==
-    sense_tile(&guy->position, &tilemap_dim, &guy->bottom_sensors, &t);
-    TileCollision b_collision_1 = process_bottom_sensor(guy, tile_collision, &t, SENSOR_1);
-    TileCollision b_collision_2 = process_bottom_sensor(guy, tile_collision, &t, SENSOR_2);
-
-    guy->grounded = b_collision_1.hit || b_collision_2.hit;
-    if (guy->grounded)
-        guy->dy = 0;
-    if (b_collision_1.hit && b_collision_2.hit) {
-        guy->position.x[Y] = fmaxf(b_collision_1.new_position, b_collision_2.new_position);
-        guy->ground_angle = atan2f(
-            b_collision_2.new_position - b_collision_1.new_position,
-            guy->bottom_sensors.x[S2X] - guy->bottom_sensors.x[S1X]
-        ) / M_PI * 180;
-
-        const float ground_angle_cap = 30;
-        if (guy->ground_angle > ground_angle_cap)
-            guy->ground_angle = ground_angle_cap;
-        else if (guy->ground_angle < -ground_angle_cap)
-            guy->ground_angle = -ground_angle_cap;
-    }
-    else if (b_collision_1.hit)
-        guy->position.x[Y] = b_collision_1.new_position;
-    else if (b_collision_2.hit)
-        guy->position.x[Y] = b_collision_2.new_position;
-    else
-        guy->grounded = false;
+    if (!guy_was_grounded)
+        do_bottom_sensors(guy, tile_collision, &tilemap_dim);
 }
