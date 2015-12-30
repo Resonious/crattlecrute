@@ -139,7 +139,7 @@ TileCollision process_bottom_sensor(Character* guy, CollisionMap* tilemap, Sense
 
         if (height >= 0) {
             int y_placement = t->tilepos.x[sensor+Y] + height - guy->bottom_sensors.x[sensor+Y];
-            if (y_placement > guy->position.x[Y] || guy->grounded) {
+            if ((y_placement >= guy->position.x[Y] && y_placement <= guy->old_position.x[Y]) || guy->grounded) {
                 result.hit = true;
                 result.new_position = (float)y_placement;
             }
@@ -160,12 +160,12 @@ TileCollision dont_call_me(CollisionMap* tilemap, SensedTile* t, Character* guy,
 TileCollision left_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + height + 1 - guy->left_sensors.x[sensor+X]);
-    result.hit = result.new_position >= guy->position.x[X] && result.new_position < guy->old_position.x[X];
+    result.hit = result.new_position > guy->position.x[X] && result.new_position <= guy->old_position.x[X];
     return result;
 }
 TileCollision right_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
-    result.new_position = (float)(t->tilepos.x[sensor+X] + 31 - height - 1 - guy->right_sensors.x[sensor+X]);
+    result.new_position = (float)(t->tilepos.x[sensor+X] + 31 - height - guy->right_sensors.x[sensor+X]);
     result.hit = result.new_position < guy->position.x[X] && result.new_position >= guy->old_position.x[X];
     return result;
 }
@@ -465,7 +465,7 @@ void collide_character(Character* guy, CollisionMap* tile_collision) {
                   r_collision_1, r_collision_2,
                   t_collision_1, t_collision_2;
     // == LEFT SENSORS ==
-    if (guy_new_x_position.x[X] < guy->old_position.x[X]) {
+    if (guy->position.x[X] <= guy->old_position.x[X]) {
         sense_tile(&guy_new_x_position, &tilemap_dim, &guy->left_sensors, &t);
         l_collision_1 = process_side_sensor(guy, tile_collision, &t, LEFT_SENSOR, SENSOR_1);
         l_collision_2 = process_side_sensor(guy, tile_collision, &t, LEFT_SENSOR, SENSOR_2);
@@ -475,7 +475,7 @@ void collide_character(Character* guy, CollisionMap* tile_collision) {
         left_hit = false;
 
     // == RIGHT SENSORS ==
-    if (guy_new_x_position.x[X] > guy->old_position.x[X]) {
+    if (guy->position.x[X] >= guy->old_position.x[X]) {
         sense_tile(&guy_new_x_position, &tilemap_dim, &guy->right_sensors, &t);
         r_collision_1 = process_side_sensor(guy, tile_collision, &t, RIGHT_SENSOR, SENSOR_1);
         r_collision_2 = process_side_sensor(guy, tile_collision, &t, RIGHT_SENSOR, SENSOR_2);
@@ -485,7 +485,7 @@ void collide_character(Character* guy, CollisionMap* tile_collision) {
         right_hit = false;
 
     // == TOP SENSORS ==
-    if (guy_new_y_position.x[Y] > guy->old_position.x[Y]) {
+    if (guy->position.x[Y] >= guy->old_position.x[Y]) {
         sense_tile(&guy_new_y_position, &tilemap_dim, &guy->top_sensors, &t);
         t_collision_1 = process_top_sensor(guy, tile_collision, &t, SENSOR_1);
         t_collision_2 = process_top_sensor(guy, tile_collision, &t, SENSOR_2);

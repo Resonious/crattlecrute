@@ -38,7 +38,7 @@ void scene_test_initialize(void* vdata, Game* game) {
 
     default_character(&data->guy);
     data->guy.position.simd = _mm_set1_ps(45.0f + 32.0f * 5.0f);
-    data->guy.position.x[Y] = 120.0f;
+    data->guy.position.x[Y] = 140.0f;
     data->guy.position.x[2] = 0.0f;
     data->guy.position.x[3] = 0.0f;
     data->animation_frame = 0;
@@ -48,7 +48,7 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->jump_acceleration = 20.0f;
 
     BENCH_START(loading_tiles)
-        // TODO NEXT PLZ ASSET CACHE!
+    // TODO NEXT PLZ ASSET CACHE!
     data->map = &MAP_TEST2;
     for (int i = 0; i < data->map->number_of_tilemaps; i++) {
         Tilemap* tilemap = &data->map->tilemaps[i];
@@ -66,7 +66,7 @@ void scene_test_initialize(void* vdata, Game* game) {
 
 void scene_test_update(void* vs, Game* game) {
     TestScene* s = (TestScene*)vs;
-    // Test movement (for controls' sake)
+    // Test movement (actually workin' on this now)
     s->guy.dy -= s->gravity; // times 1 frame
     // Get accelerations from controls
     if (game->controls.this_frame[C_LEFT]) {
@@ -80,16 +80,9 @@ void scene_test_update(void* vs, Game* game) {
     // JUMP
     if (just_pressed(&game->controls, C_UP)) {
         s->guy.grounded = false;
-        s->guy.dy += s->jump_acceleration;
+        s->guy.dy = s->jump_acceleration;
     }
-    // TEST ANGLE
-    /*
-    if (game->controls.this_frame[C_SPACE]) {
-        s->guy.ground_angle += 2;
-        if (s->guy.ground_angle >= 360)
-            s->guy.ground_angle -= 360;
-    }
-    */
+
     // TODO having ground_deceleration > ground_acceleration will have a weird effect here.
     if (!game->controls.this_frame[C_LEFT] && !game->controls.this_frame[C_RIGHT]) {
         if (s->guy.ground_speed > 0) {

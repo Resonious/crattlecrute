@@ -65,8 +65,8 @@ void default_character(Character* target) {
     target->dy = 0;
     target->ground_speed = 0.0f;
     target->ground_speed_max = 6.0f;
-    target->ground_acceleration = 1.15f;
-    target->ground_deceleration = 1.1f;
+    target->ground_acceleration = 0.8f;
+    target->ground_deceleration = 0.5f;
     target->ground_angle = 0.0f;
     target->position.simd = _mm_set1_ps(0.0f);
     target->grounded = false;
