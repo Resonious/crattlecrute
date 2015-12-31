@@ -180,7 +180,7 @@ TileCollision right_sensor_placement(CollisionMap* tilemap, SensedTile* t, Chara
 TileCollision top_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+Y] + height - 1 - guy->top_sensors.x[sensor+Y]);
-    result.hit = result.new_position < guy->position.x[Y] && result.new_position >= guy->old_position.x[Y];
+    result.hit = result.new_position < guy->position.x[Y];// && result.new_position >= guy->old_position.x[Y];
     return result;
 }
 

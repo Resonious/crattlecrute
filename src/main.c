@@ -18,6 +18,22 @@ Uint64 ticks_per_second;
     bool debug_pause = false;
 #endif
 
+#define SET_CONTROL(to) \
+                case SDL_SCANCODE_UP:     this_frame[C_UP]    = to; break; \
+                case SDL_SCANCODE_DOWN:   this_frame[C_DOWN]  = to; break; \
+                case SDL_SCANCODE_LEFT:   this_frame[C_LEFT]  = to; break; \
+                case SDL_SCANCODE_RIGHT:  this_frame[C_RIGHT] = to; break; \
+\
+                case SDL_SCANCODE_W: this_frame[C_W] = to; break; \
+                case SDL_SCANCODE_S: this_frame[C_S] = to; break; \
+                case SDL_SCANCODE_A: this_frame[C_A] = to; break; \
+                case SDL_SCANCODE_D: this_frame[C_D] = to; break; \
+\
+                case SDL_SCANCODE_P:           this_frame[C_PAUSE]     = to; break; \
+                case SDL_SCANCODE_SPACE:       this_frame[C_SPACE]     = to; break; \
+                case SDL_SCANCODE_F1:          this_frame[C_F1]        = to; break; \
+                case SDL_SCANCODE_LEFTBRACKET: this_frame[C_DEBUG_ADV] = to; break;
+
 void switch_scene(Game* game, int to_scene) {
     assert(to_scene >= 0);
     assert(to_scene < sizeof(SCENES) / sizeof(Scene));
@@ -148,41 +164,37 @@ int main(int argc, char** argv) {
     const Uint64 ticks_per_frame = ticks_per_second / 60;
     Uint64 frame_start, frame_end;
     Uint64 last_frame_ticks = 0;
+    // For getting FPS
+    float frame_count_this_second;
+    float fps;
+    float tick_second_counter;
 
     game.current_scene->initialize(game.current_scene_data, &game);
 
     while (running) {
         frame_start = SDL_GetPerformanceCounter();
         game.frame_count += 1;
+        frame_count_this_second += 1;
         game.tick_count += last_frame_ticks;
+        tick_second_counter += last_frame_ticks;
 
         memcpy(game.controls.last_frame, game.controls.this_frame, sizeof(game.controls.last_frame));
-        memset(game.controls.this_frame, 0, sizeof(game.controls.this_frame));
 
         while (SDL_PollEvent(&event)) {
+            bool* this_frame = &game.controls.this_frame;
+
             switch (event.type) {
             case SDL_QUIT:
                 running = false;
                 break;
+
+            case SDL_KEYDOWN:
+                switch (event.key.keysym.scancode) { SET_CONTROL(true) }
+                break;
+            case SDL_KEYUP:
+                switch (event.key.keysym.scancode) { SET_CONTROL(false) }
+                break;
             }
-        }
-
-        {
-            game.controls.this_frame[C_UP]    = keys[SDL_SCANCODE_UP];
-            game.controls.this_frame[C_DOWN]  = keys[SDL_SCANCODE_DOWN];
-            game.controls.this_frame[C_LEFT]  = keys[SDL_SCANCODE_LEFT];
-            game.controls.this_frame[C_RIGHT] = keys[SDL_SCANCODE_RIGHT];
-
-            game.controls.this_frame[C_W] = keys[SDL_SCANCODE_W];
-            game.controls.this_frame[C_S] = keys[SDL_SCANCODE_S];
-            game.controls.this_frame[C_A] = keys[SDL_SCANCODE_A];
-            game.controls.this_frame[C_D] = keys[SDL_SCANCODE_D];
-
-            game.controls.this_frame[C_PAUSE] = keys[SDL_SCANCODE_P];
-
-            game.controls.this_frame[C_SPACE] = keys[SDL_SCANCODE_SPACE];
-            game.controls.this_frame[C_F1] = keys[SDL_SCANCODE_F1];
-            game.controls.this_frame[C_DEBUG_ADV] = keys[SDL_SCANCODE_LEFTBRACKET];
         }
 
 #if _DEBUG
@@ -202,7 +214,8 @@ int main(int argc, char** argv) {
         }
 
         set_text_color(&game, 255, 255, 20);
-        float fps = (float)game.frame_count / ((float)game.tick_count / (float)ticks_per_second);
+        if (tick_second_counter / (float)ticks_per_second >= 1.0f)
+            fps = frame_count_this_second / (tick_second_counter / (float)ticks_per_second);
         draw_text_ex_f(&game, game.window_width - 150, game.window_height - 20, -1, 0.7f, "FPS: %.2f", fps);
 #endif
         SDL_RenderPresent(game.renderer);
