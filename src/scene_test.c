@@ -60,7 +60,7 @@ void scene_test_initialize(void* vdata, Game* game) {
     // TODO oh god testing audio
     BENCH_START(loading_sound)
     data->wave = open_and_play_music(&game->audio);
-    data->test_sound = decode_ogg(ASSET_SOUNDS_EXPLOSION_OGG);
+    data->test_sound = decode_ogg(ASSET_SOUNDS_JUMP_OGG);
     BENCH_END(loading_sound)
 }
 
@@ -78,10 +78,28 @@ void scene_test_update(void* vs, Game* game) {
         s->flip = SDL_FLIP_NONE;
     }
     // JUMP
-    if (just_pressed(&game->controls, C_UP)) {
-        s->guy.grounded = false;
-        s->guy.dy = s->jump_acceleration;
+    if (s->guy.grounded) {
+        if (s->guy.jumped)
+            s->guy.jumped = false;
+        if (just_pressed(&game->controls, C_UP)) {
+            s->guy.grounded = false;
+            s->guy.jumped = true;
+            s->guy.dy = s->jump_acceleration;
+
+            // Test jump sound effect
+            if (just_pressed(&game->controls, C_UP)) {
+                s->test_sound.samples_pos = 0;
+                game->audio.oneshot_waves[0] = &s->test_sound;
+            }
+        }
     }
+    else if (just_released(&game->controls, C_UP) && s->guy.jumped) {
+        const float jump_cancel_dy = 10.0f;
+        if (s->guy.dy > jump_cancel_dy)
+            s->guy.dy = jump_cancel_dy;
+        s->guy.jumped = false;
+    }
+
 
     // TODO having ground_deceleration > ground_acceleration will have a weird effect here.
     if (!game->controls.this_frame[C_LEFT] && !game->controls.this_frame[C_RIGHT]) {
@@ -107,7 +125,7 @@ void scene_test_update(void* vs, Game* game) {
         s->guy.dy = -s->terminal_velocity;
 
     // Actually move the dude (ground_speed is just x for now)
-    __m128 movement = {s->guy.ground_speed, s->guy.dy, 0.0f, 0.0f};
+    __m128 movement = {s->guy.ground_speed + s->guy.slide_speed, s->guy.dy, 0.0f, 0.0f};
     s->guy.position.simd = _mm_add_ps(s->guy.position.simd, movement);
 
     // Temporary ground @ 0px
@@ -126,6 +144,7 @@ void scene_test_update(void* vs, Game* game) {
     collide_character(&s->guy, &s->map->tile_collision);
     */
     collide_character(&s->guy, &s->map->tile_collision);
+    slide_character(s->gravity, &s->guy);
 
     // Animate here so that animation freezes along with freeze frame
     if (s->animate) {
@@ -135,12 +154,6 @@ void scene_test_update(void* vs, Game* game) {
             s->animation_frame = 1;
     }
     else s->animation_frame = 0;
-
-    // Test sound effect
-    if (just_pressed(&game->controls, C_UP)) {
-        s->test_sound.samples_pos = 0;
-        game->audio.oneshot_waves[0] = &s->test_sound;
-    }
 
     // Follow player with camera
     // game->camera.simd = _mm_mul_ps(s->guy.position.simd, _mm_set_ps(0, 0, 1, 1));
@@ -260,6 +273,15 @@ void scene_test_render(void* vs, Game* game) {
         SDL_RenderFillRect(game->renderer, &offset);
         offset.x = dest.x + s->guy.right_sensors.x[S2X];
         offset.y = dest.y + s->guy.center_y - s->guy.right_sensors.x[S2Y];
+        SDL_RenderFillRect(game->renderer, &offset);
+
+        // MIDDLE
+        SDL_SetRenderDrawColor(game->renderer, 0, 255, 255, 255);
+        offset.x = dest.x + s->guy.middle_sensors.x[S1X];
+        offset.y = dest.y + s->guy.center_y - s->guy.middle_sensors.x[S1Y];
+        SDL_RenderFillRect(game->renderer, &offset);
+        offset.x = dest.x + s->guy.middle_sensors.x[S2X];
+        offset.y = dest.y + s->guy.center_y - s->guy.middle_sensors.x[S2Y];
         SDL_RenderFillRect(game->renderer, &offset);
 
 

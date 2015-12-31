@@ -168,13 +168,13 @@ TileCollision dont_call_me(CollisionMap* tilemap, SensedTile* t, Character* guy,
 TileCollision left_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + height + 1 - guy->left_sensors.x[sensor+X]);
-    result.hit = result.new_position > guy->position.x[X] && result.new_position <= guy->old_position.x[X];
+    result.hit = result.new_position > guy->position.x[X] && (!guy->grounded || result.new_position <= guy->old_position.x[X]);
     return result;
 }
 TileCollision right_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + 31 - height - guy->right_sensors.x[sensor+X]);
-    result.hit = result.new_position < guy->position.x[X] && result.new_position >= guy->old_position.x[X];
+    result.hit = result.new_position < guy->position.x[X] && (!guy->grounded || result.new_position >= guy->old_position.x[X]);
     return result;
 }
 TileCollision top_sensor_placement(CollisionMap* tilemap, SensedTile* t, Character* guy, int height, const int sensor) {
@@ -475,8 +475,20 @@ static void do_bottom_sensors(Character* guy, CollisionMap* tile_collision, vec4
         guy->position.x[Y] = b_collision_1.new_position;
     else if (b_collision_2.hit)
         guy->position.x[Y] = b_collision_2.new_position;
-    else
+    else {
         guy->grounded = false;
+        const float angular_adjustment_speed = 2.2f;
+        if (guy->ground_angle > 0) {
+            guy->ground_angle -= angular_adjustment_speed;
+            if (guy->ground_angle < 0)
+                guy->ground_angle = 0.0f;
+        }
+        else if (guy->ground_angle < 0) {
+            guy->ground_angle += angular_adjustment_speed;
+            if (guy->ground_angle > 0)
+                guy->ground_angle = 0.0f;
+        }
+    }
 }
 
 void collide_character(Character* guy, CollisionMap* tile_collision) {
@@ -501,18 +513,23 @@ void collide_character(Character* guy, CollisionMap* tile_collision) {
     // vec4 displacement;
     // displacement.simd = _mm_sub_ps(guy->position.simd, guy->old_position.simd);
 
-    SensedTile t;
+    SensedTile t, m_t;
     bool left_hit, right_hit, top_hit;
     // NOTE don't access these if the corrosponding *_hit == false
-    TileCollision l_collision_1, l_collision_2,
-                  r_collision_1, r_collision_2,
+    TileCollision l_collision_1, l_collision_2, l_collision_3,
+                  r_collision_1, r_collision_2, r_collision_3,
                   t_collision_1, t_collision_2;
+
+    // == MIDDLE SENSORS ==
+    sense_tile(&guy_new_x_position, &tilemap_dim, &guy->middle_sensors, &m_t);
+
     // == LEFT SENSORS ==
     if (guy->position.x[X] <= guy->old_position.x[X]) {
         sense_tile(&guy_new_x_position, &tilemap_dim, &guy->left_sensors, &t);
-        l_collision_1 = process_side_sensor(guy, tile_collision, &t, LEFT_SENSOR, SENSOR_1);
-        l_collision_2 = process_side_sensor(guy, tile_collision, &t, LEFT_SENSOR, SENSOR_2);
-        left_hit = l_collision_1.hit || l_collision_2.hit;
+        l_collision_1 = process_side_sensor(guy, tile_collision, &t,   LEFT_SENSOR, SENSOR_1);
+        l_collision_2 = process_side_sensor(guy, tile_collision, &t,   LEFT_SENSOR, SENSOR_2);
+        l_collision_3 = process_side_sensor(guy, tile_collision, &m_t, LEFT_SENSOR, SENSOR_1);
+        left_hit = l_collision_1.hit || l_collision_2.hit || l_collision_3.hit;
     }
     else
         left_hit = false;
@@ -520,9 +537,10 @@ void collide_character(Character* guy, CollisionMap* tile_collision) {
     // == RIGHT SENSORS ==
     if (guy->position.x[X] >= guy->old_position.x[X]) {
         sense_tile(&guy_new_x_position, &tilemap_dim, &guy->right_sensors, &t);
-        r_collision_1 = process_side_sensor(guy, tile_collision, &t, RIGHT_SENSOR, SENSOR_1);
-        r_collision_2 = process_side_sensor(guy, tile_collision, &t, RIGHT_SENSOR, SENSOR_2);
-        right_hit = r_collision_1.hit || r_collision_2.hit;
+        r_collision_1 = process_side_sensor(guy, tile_collision, &t,   RIGHT_SENSOR, SENSOR_1);
+        r_collision_2 = process_side_sensor(guy, tile_collision, &t,   RIGHT_SENSOR, SENSOR_2);
+        r_collision_3 = process_side_sensor(guy, tile_collision, &m_t, RIGHT_SENSOR, SENSOR_2);
+        right_hit = r_collision_1.hit || r_collision_2.hit || r_collision_3.hit;
     }
     else
         right_hit = false;
@@ -538,9 +556,9 @@ void collide_character(Character* guy, CollisionMap* tile_collision) {
         top_hit = false;
 
     if (left_hit)
-        guy->position.x[X] = fmaxf(l_collision_1.new_position, l_collision_2.new_position);
+        guy->position.x[X] = fmaxf(l_collision_3.new_position, fmaxf(l_collision_1.new_position, l_collision_2.new_position));
     if (right_hit)
-        guy->position.x[X] = fminf(r_collision_1.new_position, r_collision_2.new_position);
+        guy->position.x[X] = fminf(r_collision_3.new_position, fminf(r_collision_1.new_position, r_collision_2.new_position));
     if (top_hit) {
         guy->position.x[Y] = fminf(t_collision_1.new_position, t_collision_2.new_position);
         guy->dy = 0;
@@ -548,4 +566,31 @@ void collide_character(Character* guy, CollisionMap* tile_collision) {
 
     if (!guy_was_grounded)
         do_bottom_sensors(guy, tile_collision, &tilemap_dim);
+}
+
+void slide_character(float gravity, Character* guy) {
+    if (guy->grounded) {
+        if (fabsf(guy->ground_angle) > 5.0f) {
+            // guy->slide_speed -= gravity / tanf(guy->ground_angle * (M_PI / 180.0f));
+            const float sin_ground_angle = sinf(guy->ground_angle * (M_PI / 180.0f));
+            // float slide_accel = gravity * 0.1f * sin_ground_angle;
+            float slide_accel = 0.1f * gravity / tanf((90.0f - guy->ground_angle) * (M_PI / 180.0f));
+
+            // if we slide into another slope of opposite direction, accelerate the slide faster
+            // towards our new target direction.
+            if (SIGN_OF(slide_accel) == SIGN_OF(guy->slide_speed))
+                slide_accel *= 2.0f;
+
+            guy->slide_speed -= slide_accel;
+
+            // Cap slide speed based on angle.
+            const float slide_speed_max = guy->ground_speed_max * fabsf(sin_ground_angle);
+            if (guy->slide_speed > slide_speed_max)
+                guy->slide_speed = slide_speed_max;
+            else if (guy->slide_speed < -slide_speed_max)
+                guy->slide_speed = -slide_speed_max;
+        }
+        else
+            guy->slide_speed = 0;
+    }
 }

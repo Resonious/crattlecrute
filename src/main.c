@@ -84,8 +84,10 @@ void default_character(Character* target) {
     target->ground_acceleration = 0.8f;
     target->ground_deceleration = 0.5f;
     target->ground_angle = 0.0f;
+    target->slide_speed = 0.0f;
     target->position.simd = _mm_set1_ps(0.0f);
     target->grounded = false;
+    target->jumped = false;
 
     target->top_sensors.x[S1X] = 31 - 45;
     target->top_sensors.x[S1Y] = 72 - 45;
@@ -106,6 +108,11 @@ void default_character(Character* target) {
     target->right_sensors.x[S1Y] = 71 - 45;
     target->right_sensors.x[S2X] = 59 - 45;
     target->right_sensors.x[S2Y] = 17 - 45;
+
+    target->middle_sensors.x[S1X] = target->left_sensors.x[S1X];
+    target->middle_sensors.x[S1Y] = (target->left_sensors.x[S1Y] + target->left_sensors.x[S2Y]) / 2.0f;
+    target->middle_sensors.x[S2X] = target->right_sensors.x[S1X];
+    target->middle_sensors.x[S2Y] = (target->right_sensors.x[S1Y] + target->right_sensors.x[S2Y]) / 2.0f;
 
     /*
     data->animation_frame = 0;
@@ -166,7 +173,7 @@ int main(int argc, char** argv) {
     Uint64 last_frame_ticks = 0;
     // For getting FPS
     float frame_count_this_second;
-    float fps;
+    float fps = 60.0f;
     float tick_second_counter;
 
     game.current_scene->initialize(game.current_scene_data, &game);
@@ -238,8 +245,13 @@ int main(int argc, char** argv) {
             last_frame_ticks += f - i;
         }
 #if _DEBUG
-        if (last_frame_ticks > 2 * ticks_per_frame) {
-            printf("Bro.. You lagging?");
+        {
+            Uint64 i = SDL_GetPerformanceCounter();
+            if (last_frame_ticks > 2 * ticks_per_frame) {
+                printf("Frame %i took longer than 16ms", game.frame_count);
+            }
+            Uint64 f = SDL_GetPerformanceCounter();
+            last_frame_ticks += f - 1;
         }
 #endif
     }

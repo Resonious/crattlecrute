@@ -43,4 +43,7 @@ static __m128i _mm_mul_epi32_x4(__m128i a, __m128i b)
     __m128i tmp2 = _mm_mul_epu32( _mm_srli_si128(a,4), _mm_srli_si128(b,4)); /* mul 3,1 */
     return _mm_unpacklo_epi32(_mm_shuffle_epi32(tmp1, _MM_SHUFFLE (0,0,2,0)), _mm_shuffle_epi32(tmp2, _MM_SHUFFLE (0,0,2,0))); /* shuffle results to [63..0] and pack */
 }
-#endif
+
+#define SIGN_OF(x) ((0 < x) - (x < 0))
+
+#endif // TYPES_H

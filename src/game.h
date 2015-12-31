@@ -21,6 +21,9 @@ typedef struct {
 static bool just_pressed(Controls* controls, enum Control key) {
     return controls->this_frame[key] && !controls->last_frame[key];
 }
+static bool just_released(Controls* controls, enum Control key) {
+    return controls->last_frame[key] && !controls->this_frame[key];
+}
 
 // Number of bytes long scene datas are expected to be.
 #define SCENE_DATA_SIZE 4096
@@ -83,15 +86,19 @@ typedef struct {
     vec4i left_sensors;
     // (x[0], x[1])  (x[2], x[3])
     vec4i right_sensors;
+    // (x[0], x[1])  (x[2], x[3])
+    vec4i middle_sensors;
 
     float dy;
     float ground_speed;
     float ground_speed_max;
     float ground_acceleration;
     float ground_deceleration;
+    float slide_speed;
     // In degrees
     float ground_angle;
     bool grounded;
+    bool jumped;
     SDL_Texture* textures[3];
     int width, height;
     int center_x, center_y;
