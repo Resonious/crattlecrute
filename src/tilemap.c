@@ -573,8 +573,7 @@ void slide_character(float gravity, Character* guy) {
         if (fabsf(guy->ground_angle) > 5.0f) {
             // guy->slide_speed -= gravity / tanf(guy->ground_angle * (M_PI / 180.0f));
             const float sin_ground_angle = sinf(guy->ground_angle * (M_PI / 180.0f));
-            // float slide_accel = gravity * 0.1f * sin_ground_angle;
-            float slide_accel = 0.1f * gravity / tanf((90.0f - guy->ground_angle) * (M_PI / 180.0f));
+            float slide_accel = gravity * 0.1f * sin_ground_angle;
 
             // if we slide into another slope of opposite direction, accelerate the slide faster
             // towards our new target direction.
