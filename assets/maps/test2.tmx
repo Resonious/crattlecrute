@@ -5,6 +5,11 @@
  </tileset>
  <tileset firstgid="16" name="grassland" tilewidth="32" tileheight="32" tilecount="15">
   <image source="../terrain/testground3.png" width="160" height="96"/>
+  <tile id="0">
+   <properties>
+    <property name="testprop" value="not bad"/>
+   </properties>
+  </tile>
  </tileset>
  <tileset firstgid="31" name="plain" tilewidth="32" tileheight="32" tilecount="15">
   <image source="../terrain/plain.png" width="160" height="96"/>

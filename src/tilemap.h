@@ -35,7 +35,7 @@ typedef struct {
     int* tiles;
 } CollisionMap;
 
-// ENDIAN dependent?
+// ==== TILE INDEX FLAGS (ENDIAN dependent?) ====
 #define TILE_FLIP_X ((byte)(1 << 7))
 #define TILE_FLIP_Y ((byte)(1 << 6))
 #define NOT_A_TILE  ((byte)(1 << 0))
