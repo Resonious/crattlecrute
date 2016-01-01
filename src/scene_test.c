@@ -49,7 +49,9 @@ void scene_test_initialize(void* vdata, Game* game) {
 
     BENCH_START(loading_tiles)
     // TODO NEXT PLZ ASSET CACHE!
-    data->map = &MAP_TEST2;
+    // data->map = &MAP_TEST2;
+    data->map = malloc(2048);
+    load_map(ASSET_MAPS_TEST2_CM, data->map);
     for (int i = 0; i < data->map->number_of_tilemaps; i++) {
         Tilemap* tilemap = &data->map->tilemaps[i];
         if (tilemap->tex == NULL)

@@ -593,3 +593,53 @@ void slide_character(float gravity, Character* guy) {
             guy->slide_speed = 0;
     }
 }
+
+#define READ(type, dest) \
+    type dest; \
+    SDL_memcpy(&dest, file.bytes + pos, sizeof(type)); \
+    pos += sizeof(type)
+
+// Here we're assuming map is just some empty chunk of memory (with enough size lol...)
+void load_map(const int asset, Map* map) {
+    AssetFile file = load_asset(asset);
+    SDL_assert(file.bytes[0] == 'C');
+    SDL_assert(file.bytes[1] == 'M');
+    SDL_assert(file.bytes[2] == '0');
+    int pos = 3;
+
+    READ(Uint32, tiles_wide);
+    READ(Uint32, tiles_high);
+    READ(Uint8, tilemap_count);
+
+    map->tile_collision.width  = (int)tiles_wide;
+    map->tile_collision.height = (int)tiles_high;
+    map->tile_collision.heights = COLLISION_TERRAIN_STANDARD;
+    map->number_of_tilemaps = (int)tilemap_count;
+    // We're gonna just put tilemap structs sequentially after the map struct
+    map->tilemaps = (map + sizeof(Map));
+
+    for (Uint8 i = 0; i < tilemap_count; i++) {
+        char* texture_asset_ident = file.bytes + pos;
+        for (char* c = texture_asset_ident; *c != 0; c++)
+            pos += 1;
+        // This leaves us at the terminating 0
+        pos += 1;
+
+        READ(Uint16, tiles_per_row);
+        READ(Uint32, data_size);
+
+        map->tilemaps[i].width  = (int)tiles_wide;
+        map->tilemaps[i].height = (int)tiles_high;
+        map->tilemaps[i].tex_asset = asset_from_ident(texture_asset_ident);
+        map->tilemaps[i].tex = NULL;
+        map->tilemaps[i].tiles_per_row = (int)tiles_per_row;
+        // Assuming embedded assets
+        map->tilemaps[i].tiles = file.bytes + pos;
+
+        pos += data_size * sizeof(int);
+    }
+
+    READ(Uint32, collision_tiles_size);
+    SDL_assert(collision_tiles_size == tiles_high * tiles_wide);
+    map->tile_collision.tiles = file.bytes + pos;
+}

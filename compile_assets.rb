@@ -3,15 +3,28 @@ require 'chunky_png'
 require 'nokogiri'
 require_relative 'tilemap_compressor'
 
-Tileset = Struct.new(:firstgid, :name, :tilewidth, :tileheight, :tilecount, :filename, :tiles_per_row)
-Layer = Struct.new(:name, :width, :height, :raw_data, :sublayers) do
-  def collision?; name == 'collision'; end
-end
-Sublayer = Struct.new(:tileset, :data, :compressed_data)
-
 assets_base_dir = File.dirname File.expand_path __FILE__
 
 FileUtils.mkdir_p "#{assets_base_dir}/build"
+
+# First compile all .tmx files in asset-dev to compressed form
+puts "finding .tmx files in #{assets_base_dir}/asset-dev/maps"
+Dir.glob("#{assets_base_dir}/asset-dev/maps/*.tmx").reject(&File.method(:directory?)).each do |map_tmx_file|
+  out_file = map_tmx_file
+    .gsub('asset-dev', 'assets')
+    .gsub('.tmx', '.cm')
+  puts "COMPILING #{map_tmx_file} TO #{out_file}"
+
+  begin
+    FileUtils.mkdir_p(File.dirname(out_file))
+    write_cm(read_tmx(map_tmx_file), out_file)
+  rescue StandardError => e
+    puts "===================================="
+    puts "ERROR COMPILING TILEMAP #{map_tmx_file}\n#{e}"
+    puts "===================================="
+  end
+end
+
 
 # Open files for the .h and the assets themselves.
 assets = File.new("#{assets_base_dir}/build/crattlecrute.assets", 'wb')
@@ -41,10 +54,6 @@ header.write(
   "    long long offset, size;\n"\
   "} ASSETS[#{all_files.size * 2}] = {\n"
 )
-
-def ident(file)
-  file.gsub(/\.{2}\//, '').gsub(/[\.\s\?!\/\\-]/, '_').upcase
-end
 
 current_offset = 0
 # Write the start of the header and the assets.
@@ -131,25 +140,7 @@ all_files.each do |file|
     end
     all_collision_data[file] = collision_data
 
-    # Don't generate an asset entry for this, since it's not going to be in the assets file
-    to_remove << file
-    next
-
-  # Handle tmx files separately
-  elsif /^.+\.tmx$/ =~ file
-    begin
-
-      # ============= Done! The rest of the work is writing to the header file =============
-      maps << read_tmx(file)
-      puts 'MAP: ' + (file.gsub /^.*[\/\\]assets[\/\\]/, '')
-
-    rescue StandardError => e
-      puts "-----------------------------------"
-      puts "SKIPPING #{file} -- #{e.message}"
-      puts e.backtrace.first
-      puts "-----------------------------------"
-    end
-
+    # Don't generate an asset entry for this, since it's not going to be used in raw form in the game
     to_remove << file
     next
   end
@@ -187,97 +178,20 @@ all_collision_data.each do |file, heights|
   header.write("};\n\n")
 end
 
-# NOTE that at this point, `all_files` does not actually contain ALL files..
+# NOTE that at this point, `all_files` does not actually contain ALL files.. (collision heightmaps are rejected for example)
 all_files.each_with_index do |file, index|
   header.write("#define ASSET_#{ident(file)} #{index}\n")
 end
 header.write("#define NUMBER_OF_ASSETS #{all_files.size}\n\n")
 
-# Tilemap time!!!
-def write_int_array(header, arr)
-  arr.each_with_index do |num, i|
-    header.write("#{num},")
-    if (i+1) % 20 == 0
-      header.write("\n    ")
-    elsif i < arr.size - 1
-      header.write(" ")
-    end
-  end
-  header.write("\n")
+header.write("// Not the most efficient way to get an int from a string\n")
+header.write("static int asset_from_ident(const char* ident) {\n")
+all_files.each_with_index do |file, index|
+  header.write(%<    if (strcmp(ident, "#{ident(file)}") == 0)\n>)
+  header.write(%<        return #{index};\n>)
 end
-
-header.write("// NOTE DUDE okay we totally assume that these globals are stored sequentially...\n")
-maps.each do |map|
-  # map.name, map.filename, map.layers, map.tiles_high, map.tiles_wide
-
-  map_ident = ident(map.name)
-  first_tilemap_ident = nil
-
-  collision_layer = map.layers.find(&:collision?)
-  non_collision_layers = map.layers.reject(&:collision?)
-
-  # Write collision map first
-  header.write("const static int MAP_#{map_ident}_COLLISION[] = {\n    ")
-  write_int_array header, collision_layer.sublayers.values.first.data
-  header.write("};\n")
-
-  # Write non-collision arrays
-  non_collision_layers.each do |layer|
-    layer_ident = ident(layer.name)
-
-    layer.sublayers.values.each do |sublayer|
-      sublayer_ident = ident(sublayer.tileset.name)
-
-      data_ident = "MAP_#{map_ident}_#{layer_ident}_#{sublayer_ident}_DATA"
-      header.write("const static int #{data_ident}[] = {\n    ")
-      write_int_array header, sublayer.compressed_data
-      header.write("};\n")
-    end
-  end
-  header.write("\n")
-  # Write non-collision TileMaps
-  non_collision_layers.each do |layer|
-    layer_ident = ident(layer.name)
-
-    layer.sublayers.values.each do |sublayer|
-      sublayer_ident = ident(sublayer.tileset.name)
-
-      data_ident    = "MAP_#{map_ident}_#{layer_ident}_#{sublayer_ident}_DATA"
-      tilemap_ident = "MAP_#{map_ident}_#{layer_ident}_#{sublayer_ident}_TILEMAP"
-      first_tilemap_ident ||= tilemap_ident
-
-      header.write("static Tilemap #{tilemap_ident} = {\n")
-      # tex_asset, texture
-      header.write("    ASSET_#{ident(sublayer.tileset.filename)}, NULL,\n")
-      # tiles_per_row, width, height
-      header.write("    #{sublayer.tileset.tiles_per_row}, #{map.tiles_wide}, #{map.tiles_high},\n")
-      # tiles
-      header.write("    #{data_ident}\n")
-      header.write("};\n")
-    end
-  end
-
-  number_of_tilemaps = 0
-  non_collision_layers.each do |layer|
-    number_of_tilemaps += layer.sublayers.size
-  end
-
-  header.write("\n")
-  header.write("const static Map MAP_#{map_ident} = {\n")
-  # CollisionMap
-  collision_file = collision_layer.sublayers.keys.first.filename
-    .gsub(/^.*[\/\\]assets[\/\\]/, '').gsub(/\.collision\.png/, '')
-
-  header.write("    {\n")
-  header.write("        COLLISION_#{ident(collision_file)},\n")
-  header.write("        #{map.tiles_wide}, #{map.tiles_high}, MAP_#{map_ident}_COLLISION\n")
-  header.write("    },\n")
-  # number_of_tilemaps
-  header.write("    #{number_of_tilemaps},\n")
-  # Tilemaps
-  header.write("    &#{first_tilemap_ident}\n")
-  header.write("};\n\n")
-end
+header.write("    return -1;\n")
+header.write("}\n")
 
 header.write("#endif // ASSETS_H\n")
 

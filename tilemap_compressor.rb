@@ -1,6 +1,16 @@
 TileRepetition = Struct.new(:first_index, :count, :tile_index)
 TileAlternation = Struct.new(:first_index, :count)
 
+Tileset = Struct.new(:firstgid, :name, :tilewidth, :tileheight, :tilecount, :filename, :tiles_per_row)
+Layer = Struct.new(:name, :width, :height, :raw_data, :sublayers) do
+  def collision?; name == 'collision'; end
+end
+Sublayer = Struct.new(:tileset, :data, :compressed_data)
+
+def ident(file)
+  file.gsub(/\.{2}\//, '').gsub(/[\.\s\?!\/\\-]/, '_').upcase
+end
+
 def compress_tilemap_data(tilemap_data)
   current_tile_index    = nil
   last_tile_index       = tilemap_data[0]
@@ -142,7 +152,7 @@ def read_tmx(file)
 
   if map.attributes['orientation'].value != 'orthogonal'
     raise "The tilemap #{filename} isn't orthogonal"
-  elsif map.attributes['tilewidth'].value =! '32' || map.attributes['tileheight'].value != '32'
+  elsif map.attributes['tilewidth'].value != '32' || map.attributes['tileheight'].value != '32'
     raise "The tilemap #{filename} doesn't use 32x32 tiles"
   end
 
@@ -201,7 +211,7 @@ def read_tmx(file)
       flags = (num & 0xFF000000) >> 24
 
       if (flags & (1 << 6)) != 0
-        puts "WARNING: #{filename} layer #{layer.name} tile #{i} is y-flipped - ignoring this flip."
+        puts "WARNING: #{filename} layer \"#{layer.name}\" tile #{i} is y-flipped - ignoring this flip."
         flags &= ~(1 << 6)
       end
 
@@ -254,4 +264,76 @@ def read_tmx(file)
 
   Struct.new(:layers, :tiles_high, :tiles_wide, :name, :filename)
         .new( layers,  tiles_high,  tiles_wide, map_name, filename)
+end
+
+def write_cm(map, file_dest)
+  collision_layer = map.layers.find(&:collision?)
+  non_collision_layers = map.layers.reject(&:collision?)
+
+  file = File.new(file_dest, 'wb')
+
+  number_of_sublayers = 0
+  non_collision_layers.each do |layer|
+    number_of_sublayers += layer.sublayers.size
+  end
+
+  raise "no collision layer!!" if collision_layer.nil?
+  collision_sublayer = collision_layer.sublayers.values.first
+
+  file.write('CM0') # Magic (and version number I guess lol)
+  file.write(
+    # Tilemap width and height (both Uint32)
+    [map.tiles_wide, map.tiles_high].pack('LL')
+  )
+
+  # Number of sublayers (tilemaps): Uint8
+  file.write([number_of_sublayers].pack('C'))
+
+  non_collision_layers.each do |layer|
+    layer.sublayers.values.each do |sublayer|
+      # === Sublayer header ===
+      sublayer_header_assetname = ident(sublayer.tileset.filename).bytes
+      sublayer_header_assetname << 0 # terminating zero
+      file.write(
+        # c string with terminating zero
+        sublayer_header_assetname.pack(
+          'C' * sublayer_header_assetname.size
+        )
+      )
+
+      sublayer_header_data = [
+        sublayer.tileset.tiles_per_row,
+        sublayer.compressed_data.size
+      ]
+      file.write(
+        # tiles per row (Uint16),
+        # number of 32bit signed integers in tilemap data (Uint32)
+        sublayer_header_data.pack(
+          'SL'
+        )
+      )
+
+      # === Sublayer data ===
+      file.write(
+        # compressed tilemap data (int32[])
+        sublayer.compressed_data.pack(
+          'l' * sublayer.compressed_data.size
+        )
+      )
+    end
+  end
+
+  # === Collision data ===
+  # number of 32bit signed integers in collision data (Uint32)
+  file.write(
+    [collision_sublayer.data.size].pack('L')
+  )
+  file.write(
+    collision_sublayer.data.pack(
+      'l' * collision_sublayer.data.size
+    )
+  )
+
+ensure
+  file.close rescue false
 end

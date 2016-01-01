@@ -76,6 +76,7 @@ typedef struct {
     Tilemap* tilemaps;
 } Map;
 
+void load_map(const int asset, /*out*/Map* map);
 void draw_map(Game* game, Map* map);
 
 #endif // TILEMAP_H
