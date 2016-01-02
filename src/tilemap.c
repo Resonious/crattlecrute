@@ -45,11 +45,7 @@ void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/Sens
 
     // absolute sensor position
     vec4i sense; // = guy_pos + guy.left_sensor
-    // sense.simd = _mm_add_epi32(guy_pos.simd, sensors->simd);
-    sense.x[0] = guy_pos.x[0] + sensors->x[0];
-    sense.x[1] = guy_pos.x[1] + sensors->x[1];
-    sense.x[2] = guy_pos.x[2] + sensors->x[2];
-    sense.x[3] = guy_pos.x[3] + sensors->x[3];
+    sense.simd = _mm_add_epi32(guy_pos.simd, sensors->simd);
     // x/y index into tilemap // = (int)((float)sense / 32.0f)
     result->tilespace.simd = _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(sense.simd), _mm_set_ps1(32.0f)));
     // bottom left corner of the tile // = tilespace * 32
