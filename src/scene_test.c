@@ -37,8 +37,8 @@ void scene_test_initialize(void* vdata, Game* game) {
     BENCH_END(loading_crattle)
 
     default_character(&data->guy);
-    data->guy.position.simd = _mm_set1_ps(45.0f + 32.0f * 5.0f);
-    data->guy.position.x[Y] = 140.0f;
+    data->guy.position.x[X] = 150.0f;
+    data->guy.position.x[Y] = 170.0f;
     data->guy.position.x[2] = 0.0f;
     data->guy.position.x[3] = 0.0f;
     data->animation_frame = 0;
@@ -126,7 +126,7 @@ void scene_test_update(void* vs, Game* game) {
     if (s->guy.dy < -s->terminal_velocity)
         s->guy.dy = -s->terminal_velocity;
 
-    // Actually move the dude (ground_speed is just x for now)
+    // Actually move the dude
     __m128 movement = {s->guy.ground_speed + s->guy.slide_speed, s->guy.dy, 0.0f, 0.0f};
     s->guy.position.simd = _mm_add_ps(s->guy.position.simd, movement);
 
@@ -137,7 +137,7 @@ void scene_test_update(void* vs, Game* game) {
     }
 
     // COLLISION!
-    /* THIS is 2 passes done kinda crudely. It doesn't help me fix this fucking bug so I'm not using it.
+    /*
     vec4 half_displacement;
     half_displacement.simd = _mm_div_ps(_mm_sub_ps(s->guy.position.simd, s->guy.old_position.simd), _mm_set1_ps(2.0f));
     s->guy.position.simd = _mm_add_ps(s->guy.old_position.simd, half_displacement.simd);

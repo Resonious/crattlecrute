@@ -85,7 +85,10 @@ void default_character(Character* target) {
     target->ground_deceleration = 0.5f;
     target->ground_angle = 0.0f;
     target->slide_speed = 0.0f;
-    target->position.simd = _mm_set1_ps(0.0f);
+    target->position.x[0] = 0.0f;
+    target->position.x[1] = 0.0f;
+    target->position.x[2] = 0.0f;
+    target->position.x[3] = 0.0f;
     target->grounded = false;
     target->jumped = false;
 
@@ -139,7 +142,11 @@ int main(int argc, char** argv) {
 #endif
 
     game.current_scene = &SCENES[SCENE_TEST];
+#ifdef X86
+    game.current_scene_data = _aligned_malloc(SCENE_DATA_SIZE, 16);
+#else
     game.current_scene_data = malloc(SCENE_DATA_SIZE);
+#endif
     game.camera.simd = _mm_set1_ps(0.0f);
 
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
@@ -219,7 +226,8 @@ int main(int argc, char** argv) {
             set_text_color(&game, 50, 50, 255);
             draw_text_ex(&game, 32, game.window_height - 32, "FREEZE-FRAME!", 1, 0.7f);
         }
-
+#endif
+#if DRAW_FPS
         set_text_color(&game, 255, 255, 20);
         if (tick_second_counter / (double)ticks_per_second >= 1.0) {
             fps = frame_count_this_second / (tick_second_counter / (double)ticks_per_second);

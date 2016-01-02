@@ -29,11 +29,11 @@ extern Uint64 ticks_per_second;
 
 typedef union vec4 {
     __m128 simd;
-    float x[4];
+    float __declspec(align(16)) x[4];
 } vec4;
 typedef union vec4i {
     __m128i simd;
-    int x[4];
+    int __declspec(align(16)) x[4];
     SDL_Rect rect;
 } vec4i;
 
