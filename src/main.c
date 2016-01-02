@@ -172,9 +172,9 @@ int main(int argc, char** argv) {
     Uint64 frame_start, frame_end;
     Uint64 last_frame_ticks = 0;
     // For getting FPS
-    float frame_count_this_second;
-    float fps = 60.0f;
-    float tick_second_counter;
+    double frame_count_this_second = 0;
+    double fps = 60.0;
+    double tick_second_counter = 0;
 
     game.current_scene->initialize(game.current_scene_data, &game);
 
@@ -221,8 +221,11 @@ int main(int argc, char** argv) {
         }
 
         set_text_color(&game, 255, 255, 20);
-        if (tick_second_counter / (float)ticks_per_second >= 1.0f)
-            fps = frame_count_this_second / (tick_second_counter / (float)ticks_per_second);
+        if (tick_second_counter / (double)ticks_per_second >= 1.0) {
+            fps = frame_count_this_second / (tick_second_counter / (double)ticks_per_second);
+            frame_count_this_second = 0;
+            tick_second_counter = 0;
+        }
         draw_text_ex_f(&game, game.window_width - 150, game.window_height - 20, -1, 0.7f, "FPS: %.2f", fps);
 #endif
         SDL_RenderPresent(game.renderer);
@@ -251,7 +254,7 @@ int main(int argc, char** argv) {
                 printf("Frame %i took longer than 16ms", game.frame_count);
             }
             Uint64 f = SDL_GetPerformanceCounter();
-            last_frame_ticks += f - 1;
+            last_frame_ticks += f - i;
         }
 #endif
     }

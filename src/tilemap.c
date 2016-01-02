@@ -641,5 +641,6 @@ void load_map(const int asset, Map* map) {
 
     READ(Uint32, collision_tiles_size);
     SDL_assert(collision_tiles_size == tiles_high * tiles_wide);
+    // Again, assuming embedded assets
     map->tile_collision.tiles = file.bytes + pos;
 }

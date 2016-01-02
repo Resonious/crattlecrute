@@ -28,7 +28,7 @@ void scene_test_initialize(void* vdata, Game* game) {
     TestScene* data = (TestScene*)vdata;
     // Testing physics!!!!
     data->gravity = 1.15f; // In pixels per frame per frame
-    data->terminal_velocity = 14.3f;
+    data->terminal_velocity = 16.3f;
 
     BENCH_START(loading_crattle)
     data->guy.textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
