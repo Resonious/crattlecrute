@@ -23,7 +23,6 @@ typedef struct {
     Map* map;
 } TestScene;
 
-
 void scene_test_initialize(void* vdata, Game* game) {
     TestScene* data = (TestScene*)vdata;
     // Testing physics!!!!
@@ -51,7 +50,7 @@ void scene_test_initialize(void* vdata, Game* game) {
     // TODO NEXT PLZ ASSET CACHE!
     // data->map = &MAP_TEST2;
     data->map = malloc(2048);
-    load_map(ASSET_MAPS_TEST2_CM, data->map);
+    load_map(ASSET_MAPS_TEST3_CM, data->map);
     for (int i = 0; i < data->map->number_of_tilemaps; i++) {
         Tilemap* tilemap = &data->map->tilemaps[i];
         if (tilemap->tex == NULL)
@@ -158,8 +157,21 @@ void scene_test_update(void* vs, Game* game) {
     else s->animation_frame = 0;
 
     // Follow player with camera
-    // game->camera.simd = _mm_mul_ps(s->guy.position.simd, _mm_set_ps(0, 0, 1, 1));
-    // Actually, move the camera lol
+    game->camera_target.x[X] = s->guy.position.x[X] - game->window_width / 2.0f;
+    if (s->guy.grounded) {
+        game->camera_target.x[Y] = s->guy.position.x[Y] - game->window_height * 0.35f;
+        game->follow_cam_y = false;
+    }
+    else {
+        if (s->guy.position.x[Y] - game->camera_target.x[Y] < 1.5f)
+            game->follow_cam_y = true;
+        if (game->follow_cam_y)
+            game->camera_target.x[Y] = s->guy.position.x[Y] - game->window_height * 0.5f;
+    }
+    // move cam position towards cam target
+    game->camera.simd = _mm_add_ps(game->camera.simd, _mm_mul_ps(_mm_sub_ps(game->camera_target.simd, game->camera.simd), _mm_set_ps(0, 0, 0.2f, 0.2f)));
+
+    /* Camera movement via WASD
     const float cam_speed = s->guy.ground_speed_max * 0.8f;
     if (game->controls.this_frame[C_W])
         game->camera.x[Y] += cam_speed;
@@ -169,6 +181,7 @@ void scene_test_update(void* vs, Game* game) {
         game->camera.x[X] += cam_speed;
     if (game->controls.this_frame[C_A])
         game->camera.x[X] -= cam_speed;
+    */
 
     // This should happen after all entities are done interacting (riiight at the end of the frame)
     s->guy.old_position = s->guy.position;

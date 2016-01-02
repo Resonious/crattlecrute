@@ -148,6 +148,8 @@ int main(int argc, char** argv) {
     game.current_scene_data = malloc(SCENE_DATA_SIZE);
 #endif
     game.camera.simd = _mm_set1_ps(0.0f);
+    game.camera_target.simd = _mm_set1_ps(0.0f);
+    game.follow_cam_y = false;
 
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
     open_assets_file();
@@ -259,7 +261,7 @@ int main(int argc, char** argv) {
         {
             Uint64 i = SDL_GetPerformanceCounter();
             if (last_frame_ticks > 2 * ticks_per_frame) {
-                printf("Frame %i took longer than 16ms", game.frame_count);
+                printf("Frame %i took longer than 16ms\n", game.frame_count);
             }
             Uint64 f = SDL_GetPerformanceCounter();
             last_frame_ticks += f - i;

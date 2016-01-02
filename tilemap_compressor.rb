@@ -8,7 +8,7 @@ end
 Sublayer = Struct.new(:tileset, :data, :compressed_data)
 
 def ident(file)
-  file.gsub(/\.{2}\//, '').gsub(/[\.\s\?!\/\\-]/, '_').upcase
+  file.gsub(/\.\.\//, '').gsub(/[\.\s\?!\/\\-]/, '_').upcase
 end
 
 def compress_tilemap_data(tilemap_data)
@@ -168,7 +168,7 @@ def read_tmx(file)
       attrs['tilewidth'].value.to_i,
       attrs['tileheight'].value.to_i,
       attrs['tilecount'].value.to_i,
-      image.attributes['source'].value,
+      image.attributes['source'].value.gsub('assets/', ''),
       image.attributes['width'].value.to_i / 32
     )
   end
