@@ -91,6 +91,7 @@ void default_character(Character* target) {
     target->position.x[3] = 0.0f;
     target->grounded = false;
     target->jumped = false;
+    target->jump_acceleration = 20.0f;
 
     target->top_sensors.x[S1X] = 31 - 45;
     target->top_sensors.x[S1Y] = 72 - 45;
@@ -116,14 +117,6 @@ void default_character(Character* target) {
     target->middle_sensors.x[S1Y] = (target->left_sensors.x[S1Y] + target->left_sensors.x[S2Y]) / 2.0f;
     target->middle_sensors.x[S2X] = target->right_sensors.x[S1X];
     target->middle_sensors.x[S2Y] = (target->right_sensors.x[S1Y] + target->right_sensors.x[S2Y]) / 2.0f;
-
-    /*
-    data->animation_frame = 0;
-    data->flip = SDL_FLIP_NONE;
-    data->flip = false;
-    data->dy = 0; // pixels per second
-    data->jump_acceleration = 20.0f;
-    */
 }
 
 int main(int argc, char** argv) {
@@ -134,6 +127,9 @@ int main(int argc, char** argv) {
     memset(&game, 0, sizeof(Game));
     game.window_width = 640.0f;
     game.window_height = 480.0f;
+    for (int i = 0; i < NUMBER_OF_ASSETS; i++) {
+        game.asset_cache.assets[i].id = ASSET_NOT_LOADED;
+    }
 
 #ifdef _DEBUG
     // All scene ids should equal their index
@@ -184,8 +180,8 @@ int main(int argc, char** argv) {
     double frame_count_this_second = 0;
     double fps = 60.0;
     double tick_second_counter = 0;
-    bool* keys_up = malloc(NUM_CONTROLS * sizeof(bool));
-    bool* keys_down = malloc(NUM_CONTROLS * sizeof(bool));
+    bool keys_up[NUM_CONTROLS];
+    bool keys_down[NUM_CONTROLS];
 
     game.current_scene->initialize(game.current_scene_data, &game);
 
@@ -198,8 +194,8 @@ int main(int argc, char** argv) {
 
         memcpy(game.controls.last_frame, game.controls.this_frame, sizeof(game.controls.last_frame));
 
-        memset(keys_up, 0, NUM_CONTROLS * sizeof(bool));
-        memset(keys_down, 0, NUM_CONTROLS * sizeof(bool));
+        memset(keys_up, 0, sizeof(keys_up));
+        memset(keys_down, 0, sizeof(keys_down));
 
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
@@ -215,7 +211,7 @@ int main(int argc, char** argv) {
                 break;
             }
         }
-        // TEMPORARY
+        // UNSURE IF NECESSARY (KEY STICK BUG STILL HAPPENS)
         for (int i = 0; i < NUM_CONTROLS; i++) {
             if (keys_up[i])
                 game.controls.this_frame[i] = false;

@@ -1,4 +1,5 @@
 #include "assets.h"
+#include "game.h"
 #include <stdio.h>
 #include <errno.h>
 #include <malloc.h>
@@ -191,4 +192,69 @@ SDL_Texture* load_texture_with_color_change(SDL_Renderer* renderer, int asset, U
 void free_image(SDL_Surface* image) {
     stbi_image_free(image->pixels);
     SDL_FreeSurface(image);
+}
+
+// ===== ASSET CACHE =====
+
+void free_cached_asset(struct Game* game, int asset) {
+    CachedAsset* cached_asset = &game->asset_cache.assets[asset];
+    if (cached_asset->id == ASSET_NOT_LOADED) return;
+    cached_asset->free(cached_asset->data);
+}
+
+SDL_Texture* cached_texture(Game* game, int asset) {
+    CachedAsset* cached_asset = &game->asset_cache.assets[asset];
+    if (cached_asset->id == ASSET_NOT_LOADED) {
+        cached_asset->id = asset;
+        cached_asset->texture = load_texture(game->renderer, asset);
+        cached_asset->free = SDL_DestroyTexture;
+    }
+    else {
+        SDL_assert(cached_asset->id == asset);
+    }
+
+    return cached_asset->texture;
+}
+
+AudioWave* cached_sound(Game* game, int asset) {
+    CachedAsset* cached_asset = &game->asset_cache.assets[asset];
+    if (cached_asset->id == ASSET_NOT_LOADED) {
+        cached_asset->id = asset;
+        cached_asset->sound = malloc(sizeof(AudioWave));
+        *cached_asset->sound = decode_ogg(asset);
+        cached_asset->free = free_malloced_audio_wave;
+    }
+    else {
+        SDL_assert(cached_asset->id == asset);
+    }
+
+    return cached_asset->sound;
+}
+
+#define READ(type, dest) \
+    type dest; \
+    SDL_memcpy(&dest, file.bytes + pos, sizeof(type)); \
+    pos += sizeof(type)
+
+Map* cached_map(Game* game, int asset) {
+    CachedAsset* cached_asset = &game->asset_cache.assets[asset];
+    if (cached_asset->id == ASSET_NOT_LOADED) {
+        cached_asset->id = asset;
+        CmFileHeader file_header = read_cm_file_header(asset);
+        size_t bytes_needed_for_map = sizeof(Map) + (size_t)file_header.tilemap_count * sizeof(Tilemap);
+        cached_asset->map = malloc(bytes_needed_for_map);
+        load_map(asset, cached_asset->map);
+
+        for (int i = 0; i < cached_asset->map->number_of_tilemaps; i++) {
+            Tilemap* tilemap = &cached_asset->map->tilemaps[i];
+            if (tilemap->tex == NULL)
+                tilemap->tex = cached_texture(game, tilemap->tex_asset);
+        }
+
+        cached_asset->free = free;
+    }
+    else
+        SDL_assert(cached_asset->id == asset);
+
+    return cached_asset->map;
 }

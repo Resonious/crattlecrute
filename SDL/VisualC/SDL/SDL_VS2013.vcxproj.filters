@@ -300,6 +300,9 @@
     <ClInclude Include="..\..\..\src\coords.h">
       <Filter>game</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\cache.h">
+      <Filter>game</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\..\src\main\windows\version.rc" />

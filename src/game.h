@@ -3,6 +3,7 @@
 #include "SDL.h"
 #include "types.h"
 #include "sound.h"
+#include "cache.h"
 
 enum Control {
     C_UP, C_DOWN, C_LEFT, C_RIGHT,
@@ -29,9 +30,10 @@ static bool just_released(Controls* controls, enum Control key) {
 #define SCENE_DATA_SIZE (1024 * 5)
 
 struct Scene;
-typedef struct {
+typedef struct Game {
     SDL_Window* window;
     SDL_Renderer* renderer;
+    AssetCache asset_cache;
     AudioQueue audio;
     Controls controls;
     float window_width, window_height;
@@ -101,6 +103,7 @@ typedef struct {
     float ground_angle;
     bool grounded;
     bool jumped;
+    float jump_acceleration;
     SDL_Texture* textures[3];
     int width, height;
     int center_x, center_y;

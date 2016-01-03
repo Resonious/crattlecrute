@@ -1,4 +1,5 @@
 #include "tilemap.h"
+#include "game.h"
 #include "assets.h"
 #include "coords.h"
 #ifdef _DEBUG
@@ -603,6 +604,24 @@ void slide_character(float gravity, Character* guy) {
     SDL_memcpy(&dest, file.bytes + pos, sizeof(type)); \
     pos += sizeof(type)
 
+CmFileHeader read_cm_file_header(const int asset) {
+    CmFileHeader header;
+    AssetFile file = load_asset(asset);
+    header.magic[0] = file.bytes[0];
+    header.magic[1] = file.bytes[1];
+    header.magic[2] = file.bytes[2];
+    int pos = 3;
+
+    SDL_memcpy(&header.tiles_wide, file.bytes + pos, sizeof(Uint32));
+    pos += sizeof(Uint32);
+    SDL_memcpy(&header.tiles_high, file.bytes + pos, sizeof(Uint32));
+    pos += sizeof(Uint32);
+    SDL_memcpy(&header.tilemap_count, file.bytes + pos, sizeof(Uint8));
+    pos += sizeof(Uint8);
+
+    return header;
+}
+
 // Here we're assuming map is just some empty chunk of memory with enough size lol...
 void load_map(const int asset, /*out*/ Map* map) {
     AssetFile file = load_asset(asset);
@@ -630,7 +649,7 @@ void load_map(const int asset, /*out*/ Map* map) {
         pos += 1;
 
         READ(Uint16, tiles_per_row);
-        READ(Uint32, data_size);
+        READ(Uint32, data_size_in_bytes);
 
         map->tilemaps[i].width  = (int)tiles_wide;
         map->tilemaps[i].height = (int)tiles_high;
@@ -640,7 +659,7 @@ void load_map(const int asset, /*out*/ Map* map) {
         // Assuming embedded assets
         map->tilemaps[i].tiles = file.bytes + pos;
 
-        pos += data_size * sizeof(int);
+        pos += data_size_in_bytes * sizeof(int);
     }
 
     READ(Uint32, collision_tiles_size);

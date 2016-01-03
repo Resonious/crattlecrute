@@ -133,3 +133,9 @@ AudioWave* open_and_play_music(AudioQueue* queue) {
 
     return wave;
 }
+
+void free_malloced_audio_wave(void* audio_wave_v) {
+    AudioWave* audio_wave = (AudioWave*)audio_wave_v;
+    free(audio_wave->samples);
+    free(audio_wave);
+}

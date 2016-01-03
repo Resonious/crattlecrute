@@ -2,7 +2,7 @@
 #define TILEMAP_H
 
 #include "SDL.h"
-#include "game.h"
+#include "types.h"
 #define TILE_HEIGHT_FOR_SENSOR(heights, tile_index, sensor_dir) \
   ((int*)(&heights[tile_index.index]) + (sensor_dir * 32))
 
@@ -60,15 +60,18 @@ typedef struct {
     float new_position;
 } TileCollision;
 
+struct Game;
+struct Character;
+
 TileIndex tile_from_int(int raw_tile_index);
-TileCollision process_side_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor);
-TileCollision process_top_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
-TileCollision process_bottom_sensor(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
-TileCollision process_bottom_sensor_one_tile_down(Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
+TileCollision process_side_sensor(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor);
+TileCollision process_top_sensor(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
+TileCollision process_bottom_sensor(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
+TileCollision process_bottom_sensor_one_tile_down(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
 void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/SensedTile* result);
-void draw_tilemap(Game* game, Tilemap* tilemap);
-void collide_character(Character* guy, CollisionMap* tile_collision);
-void slide_character(float gravity, Character* guy);
+void draw_tilemap(struct Game* game, Tilemap* tilemap);
+void collide_character(struct Character* guy, CollisionMap* tile_collision);
+void slide_character(float gravity, struct Character* guy);
 
 typedef struct {
     CollisionMap tile_collision;
@@ -76,7 +79,15 @@ typedef struct {
     Tilemap* tilemaps;
 } Map;
 
+typedef struct {
+    char magic[3];
+    Uint32 tiles_wide;
+    Uint32 tiles_high;
+    Uint8 tilemap_count;
+} CmFileHeader;
+
+CmFileHeader read_cm_file_header(const int asset);
 void load_map(const int asset, /*out*/Map* map);
-void draw_map(Game* game, Map* map);
+void draw_map(struct Game* game, Map* map);
 
 #endif // TILEMAP_H

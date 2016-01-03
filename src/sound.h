@@ -6,9 +6,9 @@
 #define AUDIO_LOOPED_CHANNELS 10
 
 typedef struct {
-    byte* samples; // This is what gets mixed onto the stream.
     int samples_size;
     int samples_pos;
+    byte* samples; // This is what gets mixed onto the stream.
 } AudioWave;
 
 // TODO we probably at some point want some lock on this guy in case we try
@@ -21,5 +21,7 @@ typedef struct {
 void initialize_sound();
 AudioWave* open_and_play_music();
 AudioWave decode_ogg(int asset);
+// Used for free function for cached audio wave assets.
+void free_malloced_audio_wave(void* audio_wave);
 
 #endif // SOUND_H

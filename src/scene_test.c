@@ -14,13 +14,12 @@ typedef struct {
     float drag;
     float terminal_velocity;
     Character guy;
-    AudioWave* wave;
-    AudioWave test_sound;
+    Character guy2;
+    AudioWave* music;
+    AudioWave* test_sound;
     int animation_frame;
     SDL_RendererFlip flip;
     bool animate;
-    float dy;
-    float jump_acceleration;
     Map* map;
 } TestScene;
 
@@ -31,40 +30,42 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->drag = 0.025f; // Again p/s^2
     data->terminal_velocity = 16.3f;
 
-    BENCH_START(loading_crattle)
-    data->guy.textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
-    data->guy.textures[1] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BODY_PNG);
-    data->guy.textures[2] = load_texture(game->renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
-    BENCH_END(loading_crattle)
+    BENCH_START(loading_crattle1)
+    data->guy.textures[0] = cached_texture(game, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
+    data->guy.textures[1] = cached_texture(game, ASSET_CRATTLECRUTE_BODY_PNG);
+    data->guy.textures[2] = cached_texture(game, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
 
     default_character(&data->guy);
     data->guy.position.x[X] = 150.0f;
     data->guy.position.x[Y] = 170.0f;
     data->guy.position.x[2] = 0.0f;
     data->guy.position.x[3] = 0.0f;
+
+    // ================= TODO TODO TODO =============
+    // TODO whoa whoa whoa I did not realize that animation was not handled by attributes of guy.
+    // Let's figures this out, then asset cache, THEN multi guy.
     data->animation_frame = 0;
     data->flip = SDL_FLIP_NONE;
     data->flip = false;
-    data->dy = 0; // pixels per second
-    data->jump_acceleration = 20.0f;
+    BENCH_END(loading_crattle1);
+
+    /*
+    BENCH_START(loading_crattle2)
+    data->guy.textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
+    data->guy.textures[1] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BODY_PNG);
+    data->guy.textures[2] = load_texture(game->renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
+    BENCH_END(loading_crattle2)
+    */
 
     BENCH_START(loading_tiles)
-    // TODO NEXT PLZ ASSET CACHE!
-    // data->map = &MAP_TEST2;
-    data->map = malloc(2048);
-    load_map(ASSET_MAPS_TEST3_CM, data->map);
-    for (int i = 0; i < data->map->number_of_tilemaps; i++) {
-        Tilemap* tilemap = &data->map->tilemaps[i];
-        if (tilemap->tex == NULL)
-            tilemap->tex = load_texture(game->renderer, tilemap->tex_asset);
-    }
-    BENCH_END(loading_tiles)
+    data->map = cached_map(game, ASSET_MAPS_TEST3_CM);
+    BENCH_END(loading_tiles);
 
-    // TODO oh god testing audio
-    BENCH_START(loading_sound)
-    data->wave = open_and_play_music(&game->audio);
-    data->test_sound = decode_ogg(ASSET_SOUNDS_JUMP_OGG);
-    BENCH_END(loading_sound)
+    BENCH_START(loading_sound);
+    data->music = cached_sound(game, ASSET_MUSIC_ARENA_OGG);
+    game->audio.looped_waves[0] = data->music;
+    data->test_sound = cached_sound(game, ASSET_SOUNDS_JUMP_OGG);
+    BENCH_END(loading_sound);
 }
 
 void scene_test_update(void* vs, Game* game) {
@@ -90,12 +91,12 @@ void scene_test_update(void* vs, Game* game) {
         if (just_pressed(&game->controls, C_UP)) {
             s->guy.grounded = false;
             s->guy.jumped = true;
-            s->guy.dy = s->jump_acceleration;
+            s->guy.dy = s->guy.jump_acceleration;
 
             // Test jump sound effect
             if (just_pressed(&game->controls, C_UP)) {
-                s->test_sound.samples_pos = 0;
-                game->audio.oneshot_waves[0] = &s->test_sound;
+                s->test_sound->samples_pos = 0;
+                game->audio.oneshot_waves[0] = s->test_sound;
             }
         }
     }
@@ -310,12 +311,6 @@ void scene_test_cleanup(void* vdata, Game* game) {
             tilemap->tex = NULL;
         }
     }
-    SDL_DestroyTexture(data->guy.textures[0]);
-    SDL_DestroyTexture(data->guy.textures[1]);
-    SDL_DestroyTexture(data->guy.textures[2]);
     game->audio.oneshot_waves[0] = NULL;
-    game->audio.looped_waves[0] = NULL; // This is from open_and_play_music, which sucks and should be removed asap.
-    free(data->wave->samples);
-    free(data->wave);
-    free(data->test_sound.samples); // This one is local to this function so only the samples are malloced.
+    game->audio.looped_waves[0] = NULL;
 }
