@@ -18,7 +18,7 @@ Uint64 ticks_per_second;
     bool debug_pause = false;
 #endif
 
-#define SET_CONTROL(to) \
+#define SET_CONTROL(this_frame, to) \
                 case SDL_SCANCODE_UP:     this_frame[C_UP]    = to; break; \
                 case SDL_SCANCODE_DOWN:   this_frame[C_DOWN]  = to; break; \
                 case SDL_SCANCODE_LEFT:   this_frame[C_LEFT]  = to; break; \
@@ -184,6 +184,8 @@ int main(int argc, char** argv) {
     double frame_count_this_second = 0;
     double fps = 60.0;
     double tick_second_counter = 0;
+    bool* keys_up = malloc(NUM_CONTROLS * sizeof(bool));
+    bool* keys_down = malloc(NUM_CONTROLS * sizeof(bool));
 
     game.current_scene->initialize(game.current_scene_data, &game);
 
@@ -196,20 +198,32 @@ int main(int argc, char** argv) {
 
         memcpy(game.controls.last_frame, game.controls.this_frame, sizeof(game.controls.last_frame));
 
-        while (SDL_PollEvent(&event)) {
-            bool* this_frame = &game.controls.this_frame;
+        memset(keys_up, 0, NUM_CONTROLS * sizeof(bool));
+        memset(keys_down, 0, NUM_CONTROLS * sizeof(bool));
 
+        while (SDL_PollEvent(&event)) {
             switch (event.type) {
             case SDL_QUIT:
                 running = false;
                 break;
 
             case SDL_KEYDOWN:
-                switch (event.key.keysym.scancode) { SET_CONTROL(true) }
+                switch (event.key.keysym.scancode) { SET_CONTROL(keys_down, true) }
                 break;
             case SDL_KEYUP:
-                switch (event.key.keysym.scancode) { SET_CONTROL(false) }
+                switch (event.key.keysym.scancode) { SET_CONTROL(keys_up, true) }
                 break;
+            }
+        }
+        // TEMPORARY
+        for (int i = 0; i < NUM_CONTROLS; i++) {
+            if (keys_up[i])
+                game.controls.this_frame[i] = false;
+            else if (keys_down[i])
+                game.controls.this_frame[i] = true;
+
+            if (keys_up[i] && keys_down[i]) {
+                printf("KEY %i IS DOWN AND UP!!!!\n", i);
             }
         }
 

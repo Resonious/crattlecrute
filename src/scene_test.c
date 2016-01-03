@@ -11,6 +11,7 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 
 typedef struct {
     float gravity;
+    float drag;
     float terminal_velocity;
     Character guy;
     AudioWave* wave;
@@ -27,6 +28,7 @@ void scene_test_initialize(void* vdata, Game* game) {
     TestScene* data = (TestScene*)vdata;
     // Testing physics!!!!
     data->gravity = 1.15f; // In pixels per frame per frame
+    data->drag = 0.025f; // Again p/s^2
     data->terminal_velocity = 16.3f;
 
     BENCH_START(loading_crattle)
@@ -69,6 +71,9 @@ void scene_test_update(void* vs, Game* game) {
     TestScene* s = (TestScene*)vs;
     // Test movement (actually workin' on this now)
     s->guy.dy -= s->gravity; // times 1 frame
+    if (!s->guy.grounded)
+        MOVE_TOWARDS(s->guy.slide_speed, 0, s->drag);
+
     // Get accelerations from controls
     if (game->controls.this_frame[C_LEFT]) {
         s->guy.ground_speed -= s->guy.ground_acceleration;
@@ -104,16 +109,7 @@ void scene_test_update(void* vs, Game* game) {
 
     // TODO having ground_deceleration > ground_acceleration will have a weird effect here.
     if (!game->controls.this_frame[C_LEFT] && !game->controls.this_frame[C_RIGHT]) {
-        if (s->guy.ground_speed > 0) {
-            s->guy.ground_speed -= s->guy.ground_deceleration;
-            if (s->guy.ground_speed < 0)
-                s->guy.ground_speed = 0;
-        }
-        else if (s->guy.ground_speed < 0) {
-            s->guy.ground_speed += s->guy.ground_deceleration;
-            if (s->guy.ground_speed > 0)
-                s->guy.ground_speed = 0;
-        }
+        MOVE_TOWARDS(s->guy.ground_speed, 0, s->guy.ground_deceleration);
     }
     s->animate = game->controls.this_frame[C_LEFT] || game->controls.this_frame[C_RIGHT];
 
@@ -169,7 +165,7 @@ void scene_test_update(void* vs, Game* game) {
             game->camera_target.x[Y] = s->guy.position.x[Y] - game->window_height * 0.5f;
     }
     // move cam position towards cam target
-    game->camera.simd = _mm_add_ps(game->camera.simd, _mm_mul_ps(_mm_sub_ps(game->camera_target.simd, game->camera.simd), _mm_set_ps(0, 0, 0.2f, 0.2f)));
+    game->camera.simd = _mm_add_ps(game->camera.simd, _mm_mul_ps(_mm_sub_ps(game->camera_target.simd, game->camera.simd), _mm_set_ps(0, 0, 0.1f, 0.1f)));
 
     /* Camera movement via WASD
     const float cam_speed = s->guy.ground_speed_max * 0.8f;

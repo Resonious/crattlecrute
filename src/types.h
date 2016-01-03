@@ -45,5 +45,16 @@ static __m128i _mm_mul_epi32_x4(__m128i a, __m128i b)
 }
 
 #define SIGN_OF(x) ((0 < x) - (x < 0))
+#define MOVE_TOWARDS(thing, target, by) \
+    if (thing > target) { \
+        thing -= by; \
+        if (thing < target) \
+            thing = target; \
+    } \
+    else if (thing < target) { \
+        thing += by; \
+        if (thing > target) \
+            thing = target; \
+    }
 
 #endif // TYPES_H

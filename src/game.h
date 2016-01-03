@@ -26,7 +26,7 @@ static bool just_released(Controls* controls, enum Control key) {
 }
 
 // Number of bytes long scene datas are expected to be.
-#define SCENE_DATA_SIZE 4096
+#define SCENE_DATA_SIZE (1024 * 5)
 
 struct Scene;
 typedef struct {

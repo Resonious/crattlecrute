@@ -563,6 +563,10 @@ void collide_character(Character* guy, CollisionMap* tile_collision) {
         guy->position.x[Y] = fminf(t_collision_1.new_position, t_collision_2.new_position);
         guy->dy = 0;
     }
+    if ((left_hit && l_collision_1.hit && l_collision_2.hit && l_collision_3.hit) || (right_hit && r_collision_1.hit && r_collision_2.hit && r_collision_3.hit)) {
+        guy->ground_speed = 0;
+        guy->slide_speed = 0;
+    }
 
     if (!guy_was_grounded)
         do_bottom_sensors(guy, tile_collision, &tilemap_dim);
@@ -599,8 +603,8 @@ void slide_character(float gravity, Character* guy) {
     SDL_memcpy(&dest, file.bytes + pos, sizeof(type)); \
     pos += sizeof(type)
 
-// Here we're assuming map is just some empty chunk of memory (with enough size lol...)
-void load_map(const int asset, Map* map) {
+// Here we're assuming map is just some empty chunk of memory with enough size lol...
+void load_map(const int asset, /*out*/ Map* map) {
     AssetFile file = load_asset(asset);
     SDL_assert(file.bytes[0] == 'C');
     SDL_assert(file.bytes[1] == 'M');
