@@ -3,6 +3,7 @@
 #include "character.h"
 #include "assets.h"
 #include "coords.h"
+#include <stdlib.h>
 
 #ifdef _DEBUG
 extern bool debug_pause;
@@ -11,6 +12,7 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 #endif
 
 typedef struct {
+    Controls dummy_controls;
     float gravity;
     float drag;
     Character guy;
@@ -25,6 +27,8 @@ void scene_test_initialize(void* vdata, Game* game) {
     // Testing physics!!!!
     data->gravity = 1.15f; // In pixels per frame per frame
     data->drag = 0.025f; // Again p/s^2
+
+    SDL_memset(&data->dummy_controls, 0, sizeof(Controls));
 
     BENCH_START(loading_crattle1)
     data->guy.textures[0] = cached_texture(game, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
@@ -61,19 +65,48 @@ void scene_test_initialize(void* vdata, Game* game) {
 
     data->test_sound = cached_sound(game, ASSET_SOUNDS_JUMP_OGG);
     data->guy.jump_sound = data->test_sound;
-    data->guy2.jump_sound = cached_sound(game, ASSET_SOUNDS_WARNING_OGG);
+    data->guy2.jump_sound = data->test_sound;
     BENCH_END(loading_sound);
 }
+
+#define PERCENT_CHANCE(percent) (rand() < RAND_MAX / (100 / percent))
 
 void scene_test_update(void* vs, Game* game) {
     TestScene* s = (TestScene*)vs;
 
+    controls_pre_update(&s->dummy_controls);
+    // Stupid AI
+    if (game->frame_count % 10 == 0) {
+        bool* c = s->dummy_controls.this_frame;
+        if (PERCENT_CHANCE(50)) {
+            int dir = PERCENT_CHANCE(65) ? C_RIGHT : C_LEFT;
+            int other_dir = dir == C_RIGHT ? C_LEFT : C_RIGHT;
+
+            c[dir] = !c[dir];
+            if (c[dir] && c[other_dir]) {
+                c[PERCENT_CHANCE(50) ? dir : other_dir] = false;
+            }
+        }
+
+        if (s->guy2.left_hit && c[C_LEFT]) {
+            c[C_LEFT] = false;
+            c[C_RIGHT] = true;
+        }
+        else if (s->guy2.right_hit && c[C_RIGHT]) {
+            c[C_RIGHT] = false;
+            c[C_LEFT] = true;
+        }
+
+        c[C_UP] = s->guy2.jumped || PERCENT_CHANCE(20);
+    }
+
+    // Update characters
     apply_character_physics(game, &s->guy, &game->controls, s->gravity, s->drag);
     collide_character(&s->guy, &s->map->tile_collision);
     slide_character(s->gravity, &s->guy);
     update_character_animation(&s->guy);
 
-    apply_character_physics(game, &s->guy2, NULL, s->gravity, s->drag);
+    apply_character_physics(game, &s->guy2, &s->dummy_controls, s->gravity, s->drag);
     collide_character(&s->guy2, &s->map->tile_collision);
     slide_character(s->gravity, &s->guy2);
     update_character_animation(&s->guy2);
@@ -92,21 +125,18 @@ void scene_test_update(void* vs, Game* game) {
     }
     // move cam position towards cam target
     game->camera.simd = _mm_add_ps(game->camera.simd, _mm_mul_ps(_mm_sub_ps(game->camera_target.simd, game->camera.simd), _mm_set_ps(0, 0, 0.1f, 0.1f)));
-
-    /* Camera movement via WASD
-    const float cam_speed = s->guy.ground_speed_max * 0.8f;
-    if (game->controls.this_frame[C_W])
-        game->camera.x[Y] += cam_speed;
-    if (game->controls.this_frame[C_S])
-        game->camera.x[Y] -= cam_speed;
-    if (game->controls.this_frame[C_D])
-        game->camera.x[X] += cam_speed;
-    if (game->controls.this_frame[C_A])
-        game->camera.x[X] -= cam_speed;
-    */
+    // Snap to cam target after awhile to stop a certain amount of jerkiness.
+    const float cam_alpha = 0.01f;
+    vec4 cam_dist_from_target;
+    cam_dist_from_target.simd = _mm_sub_ps(game->camera_target.simd, game->camera.simd);
+    if (fabsf(cam_dist_from_target.x[X]) < cam_alpha)
+        game->camera.x[X] = game->camera_target.x[X];
+    if (fabsf(cam_dist_from_target.x[Y]) < cam_alpha)
+        game->camera.x[Y] = game->camera_target.x[Y];
 
     // This should happen after all entities are done interacting (riiight at the end of the frame)
-    s->guy.old_position = s->guy.position;
+    character_post_update(&s->guy);
+    character_post_update(&s->guy2);
 
     // Swap to offset viewer on F1 press
     if (just_pressed(&game->controls, C_F1))
@@ -155,76 +185,16 @@ void scene_test_render(void* vs, Game* game) {
     // Draw WHOLE MAP
     draw_map(game, s->map);
 
-    // DRAW GUY
-    SDL_Rect src = { s->guy.animation_frame * 90, 0, 90, 90 };
-    SDL_Rect dest = {
-        s->guy.position.x[X] - s->guy.center_x - game->camera.x[X],
-        game->window_height - s->guy.position.x[Y] - s->guy.center_y + game->camera.x[Y],
+    // Draw guys
+    {
+        draw_character(game, &s->guy);
 
-        90, 90
-    };
-    // Chearfully assume that center_y is right after center_x and aligned the same as SDL_Point...
-    SDL_Point* center = (SDL_Point*)&s->guy.center_x;
-    for (int i = 0; i < 3; i++)
-        SDL_RenderCopyEx(game->renderer, s->guy.textures[i], &src, &dest, 360 - s->guy.ground_angle, center, s->guy.flip);
-
-    // Draw sensors
-#ifdef _DEBUG
-    if (debug_pause) {
-        dest.x += s->guy.center_x;
-        SDL_Rect offset = { 0, 0, 1, 1 };
-        Uint8 r, g, b, a;
-        SDL_GetRenderDrawColor(game->renderer, &r, &b, &g, &a);
-
-        // TOP
-        SDL_SetRenderDrawColor(game->renderer, 255, 0, 255, 255);
-        offset.x = dest.x + s->guy.top_sensors.x[S1X];
-        offset.y = dest.y + s->guy.center_y - s->guy.top_sensors.x[S1Y];
-        SDL_RenderFillRect(game->renderer, &offset);
-        offset.x = dest.x + s->guy.top_sensors.x[S2X];
-        offset.y = dest.y + s->guy.center_y - s->guy.top_sensors.x[S2Y];
-        SDL_RenderFillRect(game->renderer, &offset);
-
-        // BOTTOM
-        SDL_SetRenderDrawColor(game->renderer, 255, 0, 255, 255);
-        offset.x = dest.x + s->guy.bottom_sensors.x[S1X];
-        offset.y = dest.y + s->guy.center_y - s->guy.bottom_sensors.x[S1Y];
-        SDL_RenderFillRect(game->renderer, &offset);
-        offset.x = dest.x + s->guy.bottom_sensors.x[S2X];
-        offset.y = dest.y + s->guy.center_y - s->guy.bottom_sensors.x[S2Y];
-        SDL_RenderFillRect(game->renderer, &offset);
-
-        // LEFT
-        SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
-        offset.x = dest.x + s->guy.left_sensors.x[S1X];
-        offset.y = dest.y + s->guy.center_y - s->guy.left_sensors.x[S1Y];
-        SDL_RenderFillRect(game->renderer, &offset);
-        offset.x = dest.x + s->guy.left_sensors.x[S2X];
-        offset.y = dest.y + s->guy.center_y - s->guy.left_sensors.x[S2Y];
-        SDL_RenderFillRect(game->renderer, &offset);
-
-        // RIGHT
-        SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
-        offset.x = dest.x + s->guy.right_sensors.x[S1X];
-        offset.y = dest.y + s->guy.center_y - s->guy.right_sensors.x[S1Y];
-        SDL_RenderFillRect(game->renderer, &offset);
-        offset.x = dest.x + s->guy.right_sensors.x[S2X];
-        offset.y = dest.y + s->guy.center_y - s->guy.right_sensors.x[S2Y];
-        SDL_RenderFillRect(game->renderer, &offset);
-
-        // MIDDLE
-        SDL_SetRenderDrawColor(game->renderer, 0, 255, 255, 255);
-        offset.x = dest.x + s->guy.middle_sensors.x[S1X];
-        offset.y = dest.y + s->guy.center_y - s->guy.middle_sensors.x[S1Y];
-        SDL_RenderFillRect(game->renderer, &offset);
-        offset.x = dest.x + s->guy.middle_sensors.x[S2X];
-        offset.y = dest.y + s->guy.center_y - s->guy.middle_sensors.x[S2Y];
-        SDL_RenderFillRect(game->renderer, &offset);
-
-
-        SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
+        Uint8 r, g, b;
+        SDL_GetTextureColorMod(s->guy2.textures[1], &r, &g, &b);
+        SDL_SetTextureColorMod(s->guy2.textures[1], 255, 255, 1);
+        draw_character(game, &s->guy2);
+        SDL_SetTextureColorMod(s->guy2.textures[1], r, g, b);
     }
-#endif
 }
 
 void scene_test_cleanup(void* vdata, Game* game) {

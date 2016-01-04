@@ -572,6 +572,9 @@ void collide_character(Character* guy, CollisionMap* tile_collision) {
 
     if (!guy_was_grounded)
         do_bottom_sensors(guy, tile_collision, &tilemap_dim);
+
+    guy->left_hit = left_hit;
+    guy->right_hit = right_hit;
 }
 
 void slide_character(float gravity, Character* guy) {

@@ -37,6 +37,7 @@ typedef struct {
     float ground_angle;
     bool grounded;
     bool jumped;
+    bool left_hit, right_hit;
     float jump_acceleration;
     SDL_Texture* textures[3];
     int width, height;
@@ -48,8 +49,13 @@ typedef struct {
     AudioWave* jump_sound;
 } Character;
 
+// === Routine character functions === //
 void default_character(Character* target);
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag);
 void update_character_animation(Character* guy);
+void character_post_update(Character* guy);
+
+// === Rendering character functions === //
+void draw_character(struct Game* game, Character* guy);
 
 #endif // CHARACTER_H

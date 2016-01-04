@@ -4,6 +4,10 @@
 
 #define TERMINAL_VELOCITY 17.0f
 
+#ifdef _DEBUG
+extern bool debug_pause;
+#endif
+
 void apply_character_physics(Game* game, Character* guy, Controls* controls, float gravity, float drag) {
     guy->dy -= gravity; // times 1 frame
     if (!guy->grounded)
@@ -81,6 +85,83 @@ void update_character_animation(Character* guy) {
     else guy->animation_frame = 0;
 }
 
+void character_post_update(Character* guy) {
+    guy->old_position = guy->position;
+}
+
+void draw_character(Game* game, Character* guy) {
+    // DRAW GUY
+    SDL_Rect src = { guy->animation_frame * 90, 0, 90, 90 };
+    SDL_Rect dest = {
+        guy->position.x[X] - guy->center_x - game->camera.x[X],
+        game->window_height - guy->position.x[Y] - guy->center_y + game->camera.x[Y],
+
+        90, 90
+    };
+    // Chearfully assume that center_y is right after center_x and aligned the same as SDL_Point...
+    SDL_Point* center = (SDL_Point*)&guy->center_x;
+    for (int i = 0; i < 3; i++)
+        SDL_RenderCopyEx(game->renderer, guy->textures[i], &src, &dest, 360 - guy->ground_angle, center, guy->flip);
+
+    // Draw sensors
+#ifdef _DEBUG
+    if (debug_pause) {
+        dest.x += guy->center_x;
+        SDL_Rect offset = { 0, 0, 1, 1 };
+        Uint8 r, g, b, a;
+        SDL_GetRenderDrawColor(game->renderer, &r, &b, &g, &a);
+
+        // TOP
+        SDL_SetRenderDrawColor(game->renderer, 255, 0, 255, 255);
+        offset.x = dest.x + guy->top_sensors.x[S1X];
+        offset.y = dest.y + guy->center_y - guy->top_sensors.x[S1Y];
+        SDL_RenderFillRect(game->renderer, &offset);
+        offset.x = dest.x + guy->top_sensors.x[S2X];
+        offset.y = dest.y + guy->center_y - guy->top_sensors.x[S2Y];
+        SDL_RenderFillRect(game->renderer, &offset);
+
+        // BOTTOM
+        SDL_SetRenderDrawColor(game->renderer, 255, 0, 255, 255);
+        offset.x = dest.x + guy->bottom_sensors.x[S1X];
+        offset.y = dest.y + guy->center_y - guy->bottom_sensors.x[S1Y];
+        SDL_RenderFillRect(game->renderer, &offset);
+        offset.x = dest.x + guy->bottom_sensors.x[S2X];
+        offset.y = dest.y + guy->center_y - guy->bottom_sensors.x[S2Y];
+        SDL_RenderFillRect(game->renderer, &offset);
+
+        // LEFT
+        SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
+        offset.x = dest.x + guy->left_sensors.x[S1X];
+        offset.y = dest.y + guy->center_y - guy->left_sensors.x[S1Y];
+        SDL_RenderFillRect(game->renderer, &offset);
+        offset.x = dest.x + guy->left_sensors.x[S2X];
+        offset.y = dest.y + guy->center_y - guy->left_sensors.x[S2Y];
+        SDL_RenderFillRect(game->renderer, &offset);
+
+        // RIGHT
+        SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
+        offset.x = dest.x + guy->right_sensors.x[S1X];
+        offset.y = dest.y + guy->center_y - guy->right_sensors.x[S1Y];
+        SDL_RenderFillRect(game->renderer, &offset);
+        offset.x = dest.x + guy->right_sensors.x[S2X];
+        offset.y = dest.y + guy->center_y - guy->right_sensors.x[S2Y];
+        SDL_RenderFillRect(game->renderer, &offset);
+
+        // MIDDLE
+        SDL_SetRenderDrawColor(game->renderer, 0, 255, 255, 255);
+        offset.x = dest.x + guy->middle_sensors.x[S1X];
+        offset.y = dest.y + guy->center_y - guy->middle_sensors.x[S1Y];
+        SDL_RenderFillRect(game->renderer, &offset);
+        offset.x = dest.x + guy->middle_sensors.x[S2X];
+        offset.y = dest.y + guy->center_y - guy->middle_sensors.x[S2Y];
+        SDL_RenderFillRect(game->renderer, &offset);
+
+
+        SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
+    }
+#endif
+}
+
 void default_character(Character* target) {
     target->animation_counter = 0;
     target->width  = 90;
@@ -104,6 +185,8 @@ void default_character(Character* target) {
     target->animation_frame = 0;
     target->flip = SDL_FLIP_NONE;
     target->jump_sound = NULL;
+    target->left_hit = false;
+    target->right_hit = false;
 
     target->top_sensors.x[S1X] = 31 - 45;
     target->top_sensors.x[S1Y] = 72 - 45;

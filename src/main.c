@@ -73,6 +73,9 @@ void draw_text(Game* game, int x, int y, char* text) {
     draw_text_ex(game, x, y, text, -1, 1.0f);
 }
 
+void controls_pre_update(Controls* controls) {
+    memcpy(controls->last_frame, controls->this_frame, sizeof(controls->last_frame));
+}
 
 int main(int argc, char** argv) {
     ticks_per_second = SDL_GetPerformanceFrequency();
@@ -147,7 +150,7 @@ int main(int argc, char** argv) {
         game.tick_count += last_frame_ticks;
         tick_second_counter += last_frame_ticks;
 
-        memcpy(game.controls.last_frame, game.controls.this_frame, sizeof(game.controls.last_frame));
+        controls_pre_update(&game.controls);
 
         memset(keys_up, 0, sizeof(keys_up));
         memset(keys_down, 0, sizeof(keys_down));

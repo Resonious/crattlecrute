@@ -25,6 +25,7 @@ static bool just_pressed(Controls* controls, enum Control key) {
 static bool just_released(Controls* controls, enum Control key) {
     return controls->last_frame[key] && !controls->this_frame[key];
 }
+void controls_pre_update(Controls* controls);
 
 // Number of bytes long scene datas are expected to be.
 #define SCENE_DATA_SIZE (1024 * 5)
