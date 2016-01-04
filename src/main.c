@@ -73,53 +73,6 @@ void draw_text(Game* game, int x, int y, char* text) {
     draw_text_ex(game, x, y, text, -1, 1.0f);
 }
 
-void default_character(Character* target) {
-    target->width  = 90;
-    target->height = 90;
-    target->center_x = 45;
-    target->center_y = 45;
-    target->dy = 0;
-    target->ground_speed = 0.0f;
-    target->ground_speed_max = 6.0f;
-    target->ground_acceleration = 0.8f;
-    target->ground_deceleration = 0.5f;
-    target->ground_angle = 0.0f;
-    target->slide_speed = 0.0f;
-    target->position.x[0] = 0.0f;
-    target->position.x[1] = 0.0f;
-    target->position.x[2] = 0.0f;
-    target->position.x[3] = 0.0f;
-    target->grounded = false;
-    target->jumped = false;
-    target->jump_acceleration = 20.0f;
-    target->animation_frame = 0;
-    target->flip = SDL_FLIP_NONE;
-
-    target->top_sensors.x[S1X] = 31 - 45;
-    target->top_sensors.x[S1Y] = 72 - 45;
-    target->top_sensors.x[S2X] = 58 - 45;
-    target->top_sensors.x[S2Y] = 72 - 45;
-
-    target->bottom_sensors.x[S1X] = 31 - 45;
-    target->bottom_sensors.x[S1Y] = 16 - 45;
-    target->bottom_sensors.x[S2X] = 58 - 45;
-    target->bottom_sensors.x[S2Y] = 16 - 45;
-
-    target->left_sensors.x[S1X] = 30 - 45;
-    target->left_sensors.x[S1Y] = 71 - 45;
-    target->left_sensors.x[S2X] = 31 - 45;
-    target->left_sensors.x[S2Y] = 17 - 45;
-
-    target->right_sensors.x[S1X] = 59 - 45;
-    target->right_sensors.x[S1Y] = 71 - 45;
-    target->right_sensors.x[S2X] = 59 - 45;
-    target->right_sensors.x[S2Y] = 17 - 45;
-
-    target->middle_sensors.x[S1X] = target->left_sensors.x[S1X];
-    target->middle_sensors.x[S1Y] = (target->left_sensors.x[S1Y] + target->left_sensors.x[S2Y]) / 2.0f;
-    target->middle_sensors.x[S2X] = target->right_sensors.x[S1X];
-    target->middle_sensors.x[S2Y] = (target->right_sensors.x[S1Y] + target->right_sensors.x[S2Y]) / 2.0f;
-}
 
 int main(int argc, char** argv) {
     ticks_per_second = SDL_GetPerformanceFrequency();

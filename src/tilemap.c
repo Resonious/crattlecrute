@@ -1,4 +1,5 @@
 #include "tilemap.h"
+#include "character.h"
 #include "game.h"
 #include "assets.h"
 #include "coords.h"

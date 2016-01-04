@@ -70,6 +70,14 @@ TileCollision process_bottom_sensor(struct Character* guy, CollisionMap* tilemap
 TileCollision process_bottom_sensor_one_tile_down(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
 void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/SensedTile* result);
 void draw_tilemap(struct Game* game, Tilemap* tilemap);
+    /* NOTE HERE IS THE 2-PASS COLLISION THAT I DON'T USE
+    vec4 half_displacement;
+    half_displacement.simd = _mm_div_ps(_mm_sub_ps(s->guy.position.simd, s->guy.old_position.simd), _mm_set1_ps(2.0f));
+    s->guy.position.simd = _mm_add_ps(s->guy.old_position.simd, half_displacement.simd);
+    collide_character(&s->guy, &s->map->tile_collision);
+    s->guy.position.simd = _mm_add_ps(s->guy.position.simd, half_displacement.simd);
+    collide_character(&s->guy, &s->map->tile_collision);
+    */
 void collide_character(struct Character* guy, CollisionMap* tile_collision);
 void slide_character(float gravity, struct Character* guy);
 

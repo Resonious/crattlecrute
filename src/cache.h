@@ -10,7 +10,6 @@ typedef struct {
     int id;
     void(*free)(void*);
     union {
-        SDL_Surface* surface;
         SDL_Texture* texture;
         AudioWave* sound;
         Map* map;

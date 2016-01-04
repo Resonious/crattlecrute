@@ -1,6 +1,7 @@
 #include "scene.h"
 #include "assets.h"
 #include "coords.h"
+#include "character.h"
 
 typedef struct {
     Character crattlecrute;
