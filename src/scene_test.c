@@ -303,13 +303,6 @@ void scene_test_render(void* vs, Game* game) {
 
 void scene_test_cleanup(void* vdata, Game* game) {
     TestScene* data = (TestScene*)vdata;
-    for (int i = 0; i < data->map->number_of_tilemaps; i++) {
-        Tilemap* tilemap = &data->map->tilemaps[i];
-        if (tilemap->tex != NULL) {
-            SDL_DestroyTexture(tilemap->tex);
-            tilemap->tex = NULL;
-        }
-    }
     game->audio.oneshot_waves[0] = NULL;
     game->audio.looped_waves[0] = NULL;
 }
