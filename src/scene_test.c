@@ -11,6 +11,9 @@ extern int b1_tilespace_x, b1_tilespace_y, l1_tilespace_x, l1_tilespace_y, r1_ti
 extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_tilespace_x, r2_tilespace_y;
 #endif
 
+// 5 seconds
+#define RECORDED_FRAME_COUNT 60 * 5
+
 typedef struct {
     Controls dummy_controls;
     float gravity;
@@ -20,6 +23,9 @@ typedef struct {
     AudioWave* music;
     AudioWave* test_sound;
     Map* map;
+    int recording_frame;
+    int playback_frame;
+    bool recorded_controls[RECORDED_FRAME_COUNT][NUM_CONTROLS];
 } TestScene;
 
 void scene_test_initialize(void* vdata, Game* game) {
@@ -29,6 +35,9 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->drag = 0.025f; // Again p/s^2
 
     SDL_memset(&data->dummy_controls, 0, sizeof(Controls));
+
+    data->recording_frame = -1;
+    data->playback_frame = -1;
 
     BENCH_START(loading_crattle1)
     data->guy.textures[0] = cached_texture(game, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
@@ -76,6 +85,7 @@ void scene_test_update(void* vs, Game* game) {
 
     controls_pre_update(&s->dummy_controls);
     // Stupid AI
+    /*
     if (game->frame_count % 10 == 0) {
         bool* c = s->dummy_controls.this_frame;
         if (PERCENT_CHANCE(50)) {
@@ -98,6 +108,16 @@ void scene_test_update(void* vs, Game* game) {
         }
 
         c[C_UP] = s->guy2.jumped || PERCENT_CHANCE(20);
+    }
+    */
+    // Have guy2 playback recorded controls
+    if (s->playback_frame >= 0) {
+        if (s->playback_frame >= RECORDED_FRAME_COUNT)
+            s->playback_frame = -1;
+        else {
+            SDL_memcpy(&s->dummy_controls.this_frame, s->recorded_controls[s->playback_frame], sizeof(s->dummy_controls.this_frame));
+            s->playback_frame += 1;
+        }
     }
 
     // Update characters
@@ -133,6 +153,37 @@ void scene_test_update(void* vs, Game* game) {
         game->camera.x[X] = game->camera_target.x[X];
     if (fabsf(cam_dist_from_target.x[Y]) < cam_alpha)
         game->camera.x[Y] = game->camera_target.x[Y];
+
+    // Record controls!
+    if (just_pressed(&game->controls, C_W)) {
+        s->recording_frame = -1;
+        s->playback_frame  = -1;
+    }
+    if (s->recording_frame >= 0) {
+        if (s->recording_frame >= RECORDED_FRAME_COUNT) {
+            // Set last frame to all zeros so the dummy stops (might not wanna do this for networking)
+            SDL_memset(s->recorded_controls[s->recording_frame - 1], 0, sizeof(game->controls));
+            // -60 so that we can display a message for 60 frames
+            // indicating that we are finished recording
+            s->recording_frame = -60;
+        }
+        else {
+            SDL_memcpy(s->recorded_controls[s->recording_frame], &game->controls, sizeof(game->controls));
+            s->recording_frame += 1;
+        }
+    }
+    else if (s->recording_frame < -1) {
+        s->recording_frame += 1;
+    }
+    else if (s->playback_frame == -1) {
+        if (just_pressed(&game->controls, C_A))
+            s->recording_frame = 0;
+        else if (just_pressed(&game->controls, C_S))
+            s->playback_frame = 0;
+        else if (just_pressed(&game->controls, C_D))
+            // TODO teleportation should be considered a special case if we decide to use multi-pass collision.
+            s->guy.position.simd = s->guy2.position.simd;
+    }
 
     // This should happen after all entities are done interacting (riiight at the end of the frame)
     character_post_update(&s->guy);
@@ -195,6 +246,26 @@ void scene_test_render(void* vs, Game* game) {
         draw_character(game, &s->guy2);
         SDL_SetTextureColorMod(s->guy2.textures[1], r, g, b);
     }
+
+    // Recording indicator
+    char* text = NULL;
+    int num = 0;
+    if (s->recording_frame >= 0) {
+        set_text_color(game, 255, 0, 0);
+        text = "Recording (%i)";
+        num = RECORDED_FRAME_COUNT - s->recording_frame;
+    }
+    else if (s->recording_frame < -1) {
+        set_text_color(game, 50, 255, 50);
+        text = "Done!";
+    }
+    else if (s->playback_frame >= 0) {
+        set_text_color(game, 100, 0, 255);
+        text = "Playback (%i)";
+        num = RECORDED_FRAME_COUNT - s->playback_frame;
+    }
+    if (text)
+        draw_text_f(game, game->window_width / 2 - 128, game->window_height - 35, text, num);
 }
 
 void scene_test_cleanup(void* vdata, Game* game) {
