@@ -17,7 +17,6 @@ typedef struct {
     Character guy2;
     AudioWave* music;
     AudioWave* test_sound;
-    int animation_frame;
     SDL_RendererFlip flip;
     bool animate;
     Map* map;
@@ -42,20 +41,20 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->guy.position.x[3] = 0.0f;
 
     // ================= TODO TODO TODO =============
-    // TODO whoa whoa whoa I did not realize that animation was not handled by attributes of guy.
-    // Let's figures this out, then asset cache, THEN multi guy.
-    data->animation_frame = 0;
     data->flip = SDL_FLIP_NONE;
     data->flip = false;
     BENCH_END(loading_crattle1);
 
-    /*
     BENCH_START(loading_crattle2)
-    data->guy.textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
-    data->guy.textures[1] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BODY_PNG);
-    data->guy.textures[2] = load_texture(game->renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
+    data->guy2.textures[0] = cached_texture(game, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
+    data->guy2.textures[1] = cached_texture(game, ASSET_CRATTLECRUTE_BODY_PNG);
+    data->guy2.textures[2] = cached_texture(game, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
+    default_character(&data->guy);
+    data->guy.position.x[X] = 250.0f;
+    data->guy.position.x[Y] = 170.0f;
+    data->guy.position.x[2] = 0.0f;
+    data->guy.position.x[3] = 0.0f;
     BENCH_END(loading_crattle2)
-    */
 
     BENCH_START(loading_tiles)
     data->map = cached_map(game, ASSET_MAPS_TEST3_CM);
@@ -147,11 +146,11 @@ void scene_test_update(void* vs, Game* game) {
     // Animate here so that animation freezes along with freeze frame
     if (s->animate) {
         if (game->frame_count % 5 == 0)
-            s->animation_frame += 1;
-        if (s->animation_frame >= 9)
-            s->animation_frame = 1;
+            s->guy.animation_frame += 1;
+        if (s->guy.animation_frame >= 9)
+            s->guy.animation_frame = 1;
     }
-    else s->animation_frame = 0;
+    else s->guy.animation_frame = 0;
 
     // Follow player with camera
     game->camera_target.x[X] = s->guy.position.x[X] - game->window_width / 2.0f;
@@ -231,7 +230,7 @@ void scene_test_render(void* vs, Game* game) {
     draw_map(game, s->map);
 
     // DRAW GUY
-    SDL_Rect src = { s->animation_frame * 90, 0, 90, 90 };
+    SDL_Rect src = { s->guy.animation_frame * 90, 0, 90, 90 };
     SDL_Rect dest = {
         s->guy.position.x[X] - s->guy.center_x - game->camera.x[X],
         game->window_height - s->guy.position.x[Y] - s->guy.center_y + game->camera.x[Y],

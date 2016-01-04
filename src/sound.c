@@ -106,7 +106,7 @@ AudioWave decode_ogg(int asset) {
     );
     wave.samples_size = num_samples * CHANNELS * sizeof(short);
 
-    assert(oggfile_frequency == FREQUENCY);
+    SDL_assert(oggfile_frequency == FREQUENCY);
     if (oggfile_channels == 1) {
         // If we only have one channel, we gotta make the output suitable
         // for our assumed stereo audio format.

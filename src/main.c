@@ -92,6 +92,8 @@ void default_character(Character* target) {
     target->grounded = false;
     target->jumped = false;
     target->jump_acceleration = 20.0f;
+    target->animation_frame = 0;
+    target->flip = SDL_FLIP_NONE;
 
     target->top_sensors.x[S1X] = 31 - 45;
     target->top_sensors.x[S1Y] = 72 - 45;

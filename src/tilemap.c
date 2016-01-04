@@ -639,7 +639,7 @@ void load_map(const int asset, /*out*/ Map* map) {
     map->tile_collision.heights = COLLISION_TERRAIN_STANDARD;
     map->number_of_tilemaps = (int)tilemap_count;
     // We're gonna just put tilemap structs sequentially after the map struct
-    map->tilemaps = (map + sizeof(Map));
+    map->tilemaps = (Tilemap*)(map + 1);
 
     for (Uint8 i = 0; i < tilemap_count; i++) {
         char* texture_asset_ident = file.bytes + pos;

@@ -107,6 +107,9 @@ typedef struct {
     SDL_Texture* textures[3];
     int width, height;
     int center_x, center_y;
+    // Animation shit
+    int animation_frame;
+    SDL_RendererFlip flip;
 } Character;
 
 void default_character(Character* target);
