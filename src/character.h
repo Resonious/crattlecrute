@@ -37,17 +37,21 @@ typedef struct Character {
     float ground_angle;
     bool grounded;
     bool jumped;
+    bool just_jumped;
     bool left_hit, right_hit;
     float jump_acceleration;
-    SDL_Texture* textures[3];
     int width, height;
     int center_x, center_y;
     // Animation shit
     enum { GUY_IDLE, GUY_WALKING } animation_state;
     int animation_frame;
     SDL_RendererFlip flip;
-    AudioWave* jump_sound;
 } Character;
+
+typedef struct CharacterView {
+    SDL_Texture* textures[3];
+    AudioWave* jump_sound;
+} CharacterView;
 
 // === Routine character functions === //
 void default_character(Character* target);
@@ -56,6 +60,6 @@ void update_character_animation(Character* guy);
 void character_post_update(Character* guy);
 
 // === Rendering character functions === //
-void draw_character(struct Game* game, Character* guy);
+void draw_character(struct Game* game, struct Character* guy, struct CharacterView* guy_view);
 
 #endif // CHARACTER_H

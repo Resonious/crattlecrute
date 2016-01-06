@@ -13,6 +13,7 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 
 // 5 seconds
 #define RECORDED_FRAME_COUNT 60 * 5
+#define EDITABLE_TEXT_BUFFER_SIZE 1024
 
 typedef struct {
     Controls dummy_controls;
@@ -20,16 +21,24 @@ typedef struct {
     float drag;
     Character guy;
     Character guy2;
+    CharacterView guy_view;
     AudioWave* music;
     AudioWave* test_sound;
     Map* map;
     int recording_frame;
     int playback_frame;
     bool recorded_controls[RECORDED_FRAME_COUNT][NUM_CONTROLS];
+
+    char editable_text[EDITABLE_TEXT_BUFFER_SIZE];
 } TestScene;
+
+SDL_Rect text_box_rect = { 200, 200, 400, 40 };
 
 void scene_test_initialize(void* vdata, Game* game) {
     TestScene* data = (TestScene*)vdata;
+    SDL_memset(data->editable_text, 0, sizeof(data->editable_text));
+    SDL_strlcat(data->editable_text, "hey", EDITABLE_TEXT_BUFFER_SIZE);
+
     // Testing physics!!!!
     data->gravity = 1.15f; // In pixels per frame per frame
     data->drag = 0.025f; // Again p/s^2
@@ -40,9 +49,9 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->playback_frame = -1;
 
     BENCH_START(loading_crattle1)
-    data->guy.textures[0] = cached_texture(game, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
-    data->guy.textures[1] = cached_texture(game, ASSET_CRATTLECRUTE_BODY_PNG);
-    data->guy.textures[2] = cached_texture(game, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
+    data->guy_view.textures[0] = cached_texture(game, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
+    data->guy_view.textures[1] = cached_texture(game, ASSET_CRATTLECRUTE_BODY_PNG);
+    data->guy_view.textures[2] = cached_texture(game, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
 
     default_character(&data->guy);
     data->guy.position.x[X] = 150.0f;
@@ -54,9 +63,6 @@ void scene_test_initialize(void* vdata, Game* game) {
     BENCH_END(loading_crattle1);
 
     BENCH_START(loading_crattle2)
-    data->guy2.textures[0] = cached_texture(game, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
-    data->guy2.textures[1] = cached_texture(game, ASSET_CRATTLECRUTE_BODY_PNG);
-    data->guy2.textures[2] = cached_texture(game, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
     default_character(&data->guy2);
     data->guy2.position.x[X] = 250.0f;
     data->guy2.position.x[Y] = 170.0f;
@@ -73,8 +79,7 @@ void scene_test_initialize(void* vdata, Game* game) {
     game->audio.looped_waves[0] = data->music;
 
     data->test_sound = cached_sound(game, ASSET_SOUNDS_JUMP_OGG);
-    data->guy.jump_sound = data->test_sound;
-    data->guy2.jump_sound = data->test_sound;
+    data->guy_view.jump_sound = data->test_sound;
     BENCH_END(loading_sound);
 }
 
@@ -154,7 +159,7 @@ void scene_test_update(void* vs, Game* game) {
     if (fabsf(cam_dist_from_target.x[Y]) < cam_alpha)
         game->camera.x[Y] = game->camera_target.x[Y];
 
-    // Record controls!
+    // Record controls! Unsure if this is the way to go for network
     if (just_pressed(&game->controls, C_W)) {
         s->recording_frame = -1;
         s->playback_frame  = -1;
@@ -190,8 +195,11 @@ void scene_test_update(void* vs, Game* game) {
     character_post_update(&s->guy2);
 
     // Swap to offset viewer on F1 press
+    // if (just_pressed(&game->controls, C_F1))
+        // switch_scene(game, SCENE_OFFSET_VIEWER);
+    // ACTUALLY, start editing text at this point!
     if (just_pressed(&game->controls, C_F1))
-        switch_scene(game, SCENE_OFFSET_VIEWER);
+        start_editing_text(game, s->editable_text, EDITABLE_TEXT_BUFFER_SIZE, &text_box_rect);
 }
 
 void scene_test_render(void* vs, Game* game) {
@@ -238,34 +246,50 @@ void scene_test_render(void* vs, Game* game) {
 
     // Draw guys
     {
-        draw_character(game, &s->guy);
+        draw_character(game, &s->guy, &s->guy_view);
 
         Uint8 r, g, b;
-        SDL_GetTextureColorMod(s->guy2.textures[1], &r, &g, &b);
-        SDL_SetTextureColorMod(s->guy2.textures[1], 255, 255, 1);
-        draw_character(game, &s->guy2);
-        SDL_SetTextureColorMod(s->guy2.textures[1], r, g, b);
+        SDL_GetTextureColorMod(s->guy_view.textures[1], &r, &g, &b);
+        SDL_SetTextureColorMod(s->guy_view.textures[1], 255, 255, 1);
+        draw_character(game, &s->guy2, &s->guy_view);
+        SDL_SetTextureColorMod(s->guy_view.textures[1], r, g, b);
     }
 
     // Recording indicator
-    char* text = NULL;
-    int num = 0;
-    if (s->recording_frame >= 0) {
-        set_text_color(game, 255, 0, 0);
-        text = "Recording (%i)";
-        num = RECORDED_FRAME_COUNT - s->recording_frame;
+    {
+        char* text = NULL;
+        int num = 0;
+        if (s->recording_frame >= 0) {
+            set_text_color(game, 255, 0, 0);
+            text = "Recording (%i)";
+            num = RECORDED_FRAME_COUNT - s->recording_frame;
+        }
+        else if (s->recording_frame < -1) {
+            set_text_color(game, 50, 255, 50);
+            text = "Done!";
+        }
+        else if (s->playback_frame >= 0) {
+            set_text_color(game, 100, 0, 255);
+            text = "Playback (%i)";
+            num = RECORDED_FRAME_COUNT - s->playback_frame;
+        }
+        if (text)
+            draw_text_f(game, game->window_width / 2 - 128, game->window_height - 35, text, num);
     }
-    else if (s->recording_frame < -1) {
-        set_text_color(game, 50, 255, 50);
-        text = "Done!";
+
+    // Draw editable text box!!
+    if (game->text_edit.text == s->editable_text) {
+        Uint8 r, g, b, a;
+        SDL_GetRenderDrawColor(game->renderer, &r, &g, &b, &a);
+        SDL_SetRenderDrawColor(game->renderer, 255, 255, 255, 255);
+        SDL_RenderFillRect(game->renderer, &text_box_rect);
+
+        set_text_color(game, 0, 0, 0);
+        SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
+        int caret = game->frame_count % 30 < (30 / 2) ? game->text_edit.cursor : -1;
+        draw_text_caret(game, text_box_rect.x + 4, (game->window_height - text_box_rect.y) - 4, s->editable_text, caret);
+        SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
     }
-    else if (s->playback_frame >= 0) {
-        set_text_color(game, 100, 0, 255);
-        text = "Playback (%i)";
-        num = RECORDED_FRAME_COUNT - s->playback_frame;
-    }
-    if (text)
-        draw_text_f(game, game->window_width / 2 - 128, game->window_height - 35, text, num);
 }
 
 void scene_test_cleanup(void* vdata, Game* game) {
