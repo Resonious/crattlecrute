@@ -9,7 +9,7 @@ struct Controls;
 
 #define GUY_JUMP_SOUND_CHANNEL 0
 
-typedef struct {
+typedef struct Character {
     // (x[0] left to right, x[1] down to up)
     vec4 position;
     // (x[0] left to right, x[1] down to up)

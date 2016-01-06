@@ -1,6 +1,6 @@
-#include "character.h"
 #include "coords.h"
 #include "game.h"
+#include "character.h"
 
 #define TERMINAL_VELOCITY 17.0f
 
@@ -8,7 +8,7 @@
 extern bool debug_pause;
 #endif
 
-void apply_character_physics(Game* game, Character* guy, Controls* controls, float gravity, float drag) {
+void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag) {
     guy->dy -= gravity; // times 1 frame
     if (!guy->grounded)
         MOVE_TOWARDS(guy->slide_speed, 0, drag);
@@ -89,7 +89,7 @@ void character_post_update(Character* guy) {
     guy->old_position = guy->position;
 }
 
-void draw_character(Game* game, Character* guy) {
+void draw_character(struct Game* game, Character* guy) {
     // DRAW GUY
     SDL_Rect src = { guy->animation_frame * 90, 0, 90, 90 };
     SDL_Rect dest = {

@@ -14,7 +14,7 @@ enum Control {
     NUM_CONTROLS
 };
 
-typedef struct {
+typedef struct Controls {
     bool last_frame[NUM_CONTROLS];
     bool this_frame[NUM_CONTROLS];
 } Controls;

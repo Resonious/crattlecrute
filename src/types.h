@@ -10,6 +10,11 @@
 #define false 0
 #define min(x,y) (x < y ? x : y)
 #define max(x,y) (x > y ? x : y)
+
+#ifndef INT_MAX
+#define INT_MAX 2147483647
+#endif
+
 #endif
 typedef unsigned char byte;
 
@@ -27,13 +32,19 @@ extern Uint64 ticks_per_second;
 #define BENCH_END(x)
 #endif
 
+#ifdef _WIN32
+#define ALIGN_16 __declspec(align(16))
+#else
+#define ALIGN_16
+#endif
+
 typedef union vec4 {
     __m128 simd;
-    float __declspec(align(16)) x[4];
+    float ALIGN_16 x[4];
 } vec4;
 typedef union vec4i {
     __m128i simd;
-    int __declspec(align(16)) x[4];
+    int ALIGN_16 x[4];
     SDL_Rect rect;
 } vec4i;
 

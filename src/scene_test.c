@@ -115,7 +115,7 @@ void scene_test_update(void* vs, Game* game) {
         if (s->playback_frame >= RECORDED_FRAME_COUNT)
             s->playback_frame = -1;
         else {
-            SDL_memcpy(&s->dummy_controls.this_frame, s->recorded_controls[s->playback_frame], sizeof(s->dummy_controls.this_frame));
+            SDL_memcpy(s->dummy_controls.this_frame, s->recorded_controls[s->playback_frame], sizeof(s->dummy_controls.this_frame));
             s->playback_frame += 1;
         }
     }
