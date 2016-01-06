@@ -140,6 +140,16 @@ void handle_key_during_text_edit(Game* game, int scancode) {
             game->text_edit.cursor -= 1;
         }
         break;
+    case SDL_SCANCODE_DELETE:
+        if (game->text_edit.cursor < strlen(game->text_edit.text)) {
+            char* current_spot = game->text_edit.text + game->text_edit.cursor;
+            int len_from_current_spot = strlen(current_spot);
+            int buf_size_from_current_spot = game->text_edit.text_buf_size - game->text_edit.cursor - 1;
+
+            memmove(current_spot, current_spot + 1, min(len_from_current_spot, buf_size_from_current_spot));
+            current_spot[len_from_current_spot - 1] = 0;
+        }
+      break;
     }
 }
 
