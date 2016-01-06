@@ -20,6 +20,7 @@ typedef struct {
     float drag;
     Character guy;
     Character guy2;
+    CharacterView guy_view;
     AudioWave* music;
     AudioWave* test_sound;
     Map* map;
@@ -40,9 +41,9 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->playback_frame = -1;
 
     BENCH_START(loading_crattle1)
-    data->guy.textures[0] = cached_texture(game, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
-    data->guy.textures[1] = cached_texture(game, ASSET_CRATTLECRUTE_BODY_PNG);
-    data->guy.textures[2] = cached_texture(game, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
+    data->guy_view.textures[0] = cached_texture(game, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
+    data->guy_view.textures[1] = cached_texture(game, ASSET_CRATTLECRUTE_BODY_PNG);
+    data->guy_view.textures[2] = cached_texture(game, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
 
     default_character(&data->guy);
     data->guy.position.x[X] = 150.0f;
@@ -54,9 +55,6 @@ void scene_test_initialize(void* vdata, Game* game) {
     BENCH_END(loading_crattle1);
 
     BENCH_START(loading_crattle2)
-    data->guy2.textures[0] = cached_texture(game, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
-    data->guy2.textures[1] = cached_texture(game, ASSET_CRATTLECRUTE_BODY_PNG);
-    data->guy2.textures[2] = cached_texture(game, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
     default_character(&data->guy2);
     data->guy2.position.x[X] = 250.0f;
     data->guy2.position.x[Y] = 170.0f;
@@ -73,8 +71,7 @@ void scene_test_initialize(void* vdata, Game* game) {
     game->audio.looped_waves[0] = data->music;
 
     data->test_sound = cached_sound(game, ASSET_SOUNDS_JUMP_OGG);
-    data->guy.jump_sound = data->test_sound;
-    data->guy2.jump_sound = data->test_sound;
+    data->guy_view.jump_sound = data->test_sound;
     BENCH_END(loading_sound);
 }
 
@@ -154,7 +151,7 @@ void scene_test_update(void* vs, Game* game) {
     if (fabsf(cam_dist_from_target.x[Y]) < cam_alpha)
         game->camera.x[Y] = game->camera_target.x[Y];
 
-    // Record controls!
+    // Record controls! Unsure if this is the way to go for network
     if (just_pressed(&game->controls, C_W)) {
         s->recording_frame = -1;
         s->playback_frame  = -1;
@@ -238,13 +235,13 @@ void scene_test_render(void* vs, Game* game) {
 
     // Draw guys
     {
-        draw_character(game, &s->guy);
+        draw_character(game, &s->guy, &s->guy_view);
 
         Uint8 r, g, b;
-        SDL_GetTextureColorMod(s->guy2.textures[1], &r, &g, &b);
-        SDL_SetTextureColorMod(s->guy2.textures[1], 255, 255, 1);
-        draw_character(game, &s->guy2);
-        SDL_SetTextureColorMod(s->guy2.textures[1], r, g, b);
+        SDL_GetTextureColorMod(s->guy_view.textures[1], &r, &g, &b);
+        SDL_SetTextureColorMod(s->guy_view.textures[1], 255, 255, 1);
+        draw_character(game, &s->guy2, &s->guy_view);
+        SDL_SetTextureColorMod(s->guy_view.textures[1], r, g, b);
     }
 
     // Recording indicator

@@ -5,6 +5,7 @@
 
 typedef struct {
     Character crattlecrute;
+    CharacterView crattleview;
     int scale;
     SDL_Texture* font_tex;
     int font_padding;
@@ -12,9 +13,9 @@ typedef struct {
 
 void scene_offset_viewer_initialize(void* vdata, Game* game) {
     OffsetViewer* data = (OffsetViewer*)vdata;
-    data->crattlecrute.textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
-    data->crattlecrute.textures[1] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BODY_PNG);
-    data->crattlecrute.textures[2] = load_texture(game->renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
+    data->crattleview.textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
+    data->crattleview.textures[1] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BODY_PNG);
+    data->crattleview.textures[2] = load_texture(game->renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
     default_character(&data->crattlecrute);
 
     data->scale = 5;
@@ -55,7 +56,7 @@ void scene_offset_viewer_render(void* vs, Game* game) {
     dest.y = (game->window_height - dest.h) / 2;
 
     for (int i = 0; i < 3; i++)
-        SDL_RenderCopyEx(game->renderer, s->crattlecrute.textures[i], &src, &dest, 0, 0,
+        SDL_RenderCopyEx(game->renderer, s->crattleview.textures[i], &src, &dest, 0, 0,
             game->controls.this_frame[C_SPACE] ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
 
     Uint8 r, g, b, a;
@@ -96,7 +97,7 @@ void scene_offset_viewer_render(void* vs, Game* game) {
 }
 void scene_offset_viewer_cleanup(void* vdata, Game* game) {
     OffsetViewer* data = (OffsetViewer*)vdata;
-    SDL_DestroyTexture(data->crattlecrute.textures[0]);
-    SDL_DestroyTexture(data->crattlecrute.textures[1]);
-    SDL_DestroyTexture(data->crattlecrute.textures[2]);
+    SDL_DestroyTexture(data->crattleview.textures[0]);
+    SDL_DestroyTexture(data->crattleview.textures[1]);
+    SDL_DestroyTexture(data->crattleview.textures[2]);
 }

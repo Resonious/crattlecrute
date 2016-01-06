@@ -24,19 +24,16 @@ void apply_character_physics(Game* game, Character* guy, Controls* controls, flo
             guy->flip = SDL_FLIP_NONE;
         }
         // JUMP
+        if (guy->just_jumped)
+            guy->just_jumped = false;
         if (guy->grounded) {
             if (guy->jumped)
                 guy->jumped = false;
             if (just_pressed(controls, C_UP)) {
                 guy->grounded = false;
                 guy->jumped = true;
+                guy->just_jumped = true;
                 guy->dy = guy->jump_acceleration;
-
-                // Test jump sound effect
-                if (guy->jump_sound && just_pressed(controls, C_UP)) {
-                    guy->jump_sound->samples_pos = 0;
-                    game->audio.oneshot_waves[GUY_JUMP_SOUND_CHANNEL] = guy->jump_sound;
-                }
             }
         }
         else if (just_released(controls, C_UP) && guy->jumped) {
@@ -89,7 +86,13 @@ void character_post_update(Character* guy) {
     guy->old_position = guy->position;
 }
 
-void draw_character(Game* game, Character* guy) {
+void draw_character(Game* game, Character* guy, CharacterView* guy_view) {
+    // Play sound effects!
+    if (guy->just_jumped) {
+        guy_view->jump_sound->samples_pos = 0;
+        game->audio.oneshot_waves[GUY_JUMP_SOUND_CHANNEL] = guy_view->jump_sound;
+    }
+
     // DRAW GUY
     SDL_Rect src = { guy->animation_frame * 90, 0, 90, 90 };
     SDL_Rect dest = {
@@ -101,7 +104,7 @@ void draw_character(Game* game, Character* guy) {
     // Chearfully assume that center_y is right after center_x and aligned the same as SDL_Point...
     SDL_Point* center = (SDL_Point*)&guy->center_x;
     for (int i = 0; i < 3; i++)
-        SDL_RenderCopyEx(game->renderer, guy->textures[i], &src, &dest, 360 - guy->ground_angle, center, guy->flip);
+        SDL_RenderCopyEx(game->renderer, guy_view->textures[i], &src, &dest, 360 - guy->ground_angle, center, guy->flip);
 
     // Draw sensors
 #ifdef _DEBUG
@@ -184,7 +187,6 @@ void default_character(Character* target) {
     target->jump_acceleration = 20.0f;
     target->animation_frame = 0;
     target->flip = SDL_FLIP_NONE;
-    target->jump_sound = NULL;
     target->left_hit = false;
     target->right_hit = false;
 
