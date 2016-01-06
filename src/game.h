@@ -34,6 +34,14 @@ struct Scene;
 typedef struct Game {
     SDL_Window* window;
     SDL_Renderer* renderer;
+    struct {
+        int text_buf_size;
+        char* text;
+        char* composition;
+        int cursor;
+        int selection_length;
+        bool enter_pressed;
+    } text_edit;
     AssetCache asset_cache;
     AudioQueue audio;
     Controls controls;
@@ -51,11 +59,16 @@ typedef struct Game {
 
 // Switch to a new scene (COMING SOON: fade to scene!?)
 void switch_scene(Game* game, int to_scene);
+// input_rect can be null who gives a shit
+void start_editing_text(Game* game, char* text_to_edit, int buffer_size, SDL_Rect* input_rect);
+void stop_editing_text(Game* game);
 
 // === Text functions ===
 
 #define set_text_color(game, r, g, b) SDL_SetTextureColorMod((game)->font, (r), (g), (b));
+void draw_text_ex_caret(Game* game, int x, int y, char* text, int padding, float scale, int caret);
 void draw_text_ex(Game* game, int x, int y, char* text, int padding, float scale);
+void draw_text_caret(Game* game, int x, int y, char* text, int caret);
 void draw_text(Game* game, int x, int y, char* text);
 #define draw_text_ex_f(game, x, y, padding, scale, fmttext, ...)\
     {\

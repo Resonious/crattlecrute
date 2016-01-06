@@ -46,8 +46,23 @@ void switch_scene(Game* game, int to_scene) {
     // TODO do an update here? (this is the only case where a render can happen WITHOUT an update preceding..)
 }
 
-void draw_text_ex(Game* game, int x, int y, char* text, int padding, float scale) {
+void start_editing_text(Game* game, char* text_to_edit, int buffer_size, SDL_Rect* input_rect) {
+    game->text_edit.text = text_to_edit;
+    game->text_edit.text_buf_size = buffer_size;
+    game->text_edit.cursor = strlen(text_to_edit);
+    game->text_edit.selection_length = 0;
+    SDL_SetTextInputRect(input_rect);
+    SDL_StartTextInput();
+}
+
+void stop_editing_text(Game* game) {
+    game->text_edit.text = NULL;
+    SDL_StopTextInput();
+}
+
+void draw_text_ex_caret(Game* game, int x, int y, char* text, int padding, float scale, int caret) {
     const int original_x = x;
+    int i = 0;
 
     while (*text) {
         // font image is 320x448
@@ -63,11 +78,32 @@ void draw_text_ex(Game* game, int x, int y, char* text, int padding, float scale
             drawto.w = (int)roundf((float)drawto.w * scale);
             drawto.h = (int)roundf((float)drawto.h * scale);
             SDL_RenderCopy(game->renderer, game->font, &glyph, &drawto);
+            if (i == caret) {
+                SDL_Rect caret_rect = drawto;
+                caret_rect.w = 3;
+                SDL_RenderFillRect(game->renderer, &caret_rect);
+            }
 
             x += 20.0f * scale + padding;
         }
         text++;
+        i++;
     }
+    // TODO this is a copy/paste of the code up there :( might wanna move the
+    // positioning code out into its own function.
+    if (i == caret) {
+        SDL_Rect caret_rect = { x, game->window_height - y, 3, 28 };
+        caret_rect.w = (int)roundf((float)caret_rect.w * scale);
+        caret_rect.h = (int)roundf((float)caret_rect.h * scale);
+        SDL_RenderFillRect(game->renderer, &caret_rect);
+    }
+}
+
+void draw_text_ex(Game* game, int x, int y, char* text, int padding, float scale) {
+    draw_text_ex_caret(game, x, y, text, padding, scale, -1);
+}
+void draw_text_caret(Game* game, int x, int y, char* text, int caret) {
+    draw_text_ex_caret(game, x, y, text, -1, 1.0f, caret);
 }
 void draw_text(Game* game, int x, int y, char* text) {
     draw_text_ex(game, x, y, text, -1, 1.0f);
@@ -75,6 +111,36 @@ void draw_text(Game* game, int x, int y, char* text) {
 
 void controls_pre_update(Controls* controls) {
     memcpy(controls->last_frame, controls->this_frame, sizeof(controls->last_frame));
+}
+
+void handle_key_during_text_edit(Game* game, int scancode) {
+    switch (scancode) {
+    case SDL_SCANCODE_ESCAPE:
+        stop_editing_text(game);
+        break;
+    case SDL_SCANCODE_RETURN:
+        game->text_edit.enter_pressed = true;
+        break;
+    case SDL_SCANCODE_LEFT:
+        if (game->text_edit.cursor >= 0)
+            game->text_edit.cursor -= 1;
+        break;
+    case SDL_SCANCODE_RIGHT:
+        if (game->text_edit.cursor < strlen(game->text_edit.text))
+            game->text_edit.cursor += 1;
+        break;
+    case SDL_SCANCODE_BACKSPACE:
+        if (game->text_edit.cursor > 0) {
+            char* current_spot = game->text_edit.text + game->text_edit.cursor;
+            int len_from_current_spot = strlen(current_spot);
+            int buf_size_from_current_spot = game->text_edit.text_buf_size - game->text_edit.cursor;
+
+            memmove(current_spot - 1, current_spot, min(len_from_current_spot, buf_size_from_current_spot));
+            current_spot[len_from_current_spot - 1] = 0;
+            game->text_edit.cursor -= 1;
+        }
+        break;
+    }
 }
 
 int main(int argc, char** argv) {
@@ -155,17 +221,47 @@ int main(int argc, char** argv) {
         memset(keys_up, 0, sizeof(keys_up));
         memset(keys_down, 0, sizeof(keys_down));
 
+        game.text_edit.enter_pressed = false;
+
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
             case SDL_QUIT:
                 running = false;
                 break;
 
+            case SDL_TEXTINPUT:
+                if (game.text_edit.text) {
+                    int input_size = strlen(event.text.text);
+                    char* current_spot = game.text_edit.text + game.text_edit.cursor;
+
+                    int len_from_current_spot = strlen(current_spot);
+                    if (input_size + game.text_edit.cursor + len_from_current_spot < game.text_edit.text_buf_size) {
+                        // "current_spot" should be where the next character will go. If that is zero, then it is
+                        // the end of the string and we need not make room in the middle.
+                        if (*current_spot != 0)
+                            memmove(current_spot + input_size, current_spot, len_from_current_spot);
+                        memmove(current_spot, event.text.text, input_size);
+                        game.text_edit.cursor += input_size;
+                    }
+                }
+                break;
+            case SDL_TEXTEDITING:
+                if (game.text_edit.text) {
+                    game.text_edit.composition = event.edit.text;
+                    game.text_edit.cursor = event.edit.start;
+                    game.text_edit.selection_length = event.edit.length;
+                }
+                break;
+
             case SDL_KEYDOWN:
-                switch (event.key.keysym.scancode) { SET_CONTROL(keys_down, true) }
+                if (game.text_edit.text)
+                    handle_key_during_text_edit(&game, event.key.keysym.scancode);
+                else
+                    switch (event.key.keysym.scancode) { SET_CONTROL(keys_down, true) }
                 break;
             case SDL_KEYUP:
-                switch (event.key.keysym.scancode) { SET_CONTROL(keys_up, true) }
+                if (!game.text_edit.text)
+                    switch (event.key.keysym.scancode) { SET_CONTROL(keys_up, true) }
                 break;
             }
         }
