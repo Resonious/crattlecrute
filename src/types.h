@@ -14,8 +14,8 @@
 #ifndef INT_MAX
 #define INT_MAX 2147483647
 #endif
-
 #endif
+
 typedef unsigned char byte;
 
 extern Uint64 ticks_per_second;

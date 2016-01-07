@@ -113,8 +113,25 @@ void controls_pre_update(Controls* controls) {
     memcpy(controls->last_frame, controls->this_frame, sizeof(controls->last_frame));
 }
 
-void handle_key_during_text_edit(Game* game, int scancode) {
-    switch (scancode) {
+void input_text(Game* game, char* text) {
+    if (game->text_edit.text) {
+        int input_size = strlen(text);
+        char* current_spot = game->text_edit.text + game->text_edit.cursor;
+
+        int len_from_current_spot = strlen(current_spot);
+        if (input_size + game->text_edit.cursor + len_from_current_spot < game->text_edit.text_buf_size) {
+            // "current_spot" should be where the next character will go. If that is zero, then it is
+            // the end of the string and we need not make room in the middle.
+            if (*current_spot != 0)
+                memmove(current_spot + input_size, current_spot, len_from_current_spot);
+            memmove(current_spot, text, input_size);
+            game->text_edit.cursor += input_size;
+        }
+    }
+}
+
+void handle_key_during_text_edit(Game* game, SDL_Event* event) {
+    switch (event->key.keysym.scancode) {
     case SDL_SCANCODE_ESCAPE:
         stop_editing_text(game);
         break;
@@ -150,6 +167,13 @@ void handle_key_during_text_edit(Game* game, int scancode) {
             current_spot[len_from_current_spot - 1] = 0;
         }
       break;
+    case SDL_SCANCODE_V:
+        if (event->key.keysym.mod & KMOD_CTRL) {
+            char* clipboard = SDL_GetClipboardText();
+            if (clipboard)
+                input_text(game, clipboard);
+        }
+        break;
     }
 }
 
@@ -240,20 +264,7 @@ int main(int argc, char** argv) {
                 break;
 
             case SDL_TEXTINPUT:
-                if (game.text_edit.text) {
-                    int input_size = strlen(event.text.text);
-                    char* current_spot = game.text_edit.text + game.text_edit.cursor;
-
-                    int len_from_current_spot = strlen(current_spot);
-                    if (input_size + game.text_edit.cursor + len_from_current_spot < game.text_edit.text_buf_size) {
-                        // "current_spot" should be where the next character will go. If that is zero, then it is
-                        // the end of the string and we need not make room in the middle.
-                        if (*current_spot != 0)
-                            memmove(current_spot + input_size, current_spot, len_from_current_spot);
-                        memmove(current_spot, event.text.text, input_size);
-                        game.text_edit.cursor += input_size;
-                    }
-                }
+                input_text(&game, event.text.text);
                 break;
             case SDL_TEXTEDITING:
                 if (game.text_edit.text) {
@@ -265,7 +276,7 @@ int main(int argc, char** argv) {
 
             case SDL_KEYDOWN:
                 if (game.text_edit.text)
-                    handle_key_during_text_edit(&game, event.key.keysym.scancode);
+                    handle_key_during_text_edit(&game, &event);
                 else
                     switch (event.key.keysym.scancode) { SET_CONTROL(keys_down, true) }
                 break;
