@@ -108,7 +108,6 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
     }
 
     // DRAW GUY
-    // assume idle animation for now
     AnimationAtlas* atlas = &guy_view->animation_textures[guy->animation_state];
     const int sprite_width = 90, sprite_height = 90;
     const int number_of_layers = CHARACTER_LAYERS;
@@ -122,6 +121,23 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
     // Chearfully assume that center_y is right after center_x and aligned the same as SDL_Point...
     SDL_Point* center = (SDL_Point*)&guy->center_x;
     for (int i = 0; i < number_of_layers; i++) {
+        SDL_Color* color;
+        if (i == 1)
+            color = &guy->body_color;
+        else if (guy->flip == SDL_FLIP_HORIZONTAL) {
+            if (i == 0)
+                color = &guy->right_foot_color;
+            else
+                color = &guy->left_foot_color;
+        }
+        else {
+            if (i == 0)
+                color = &guy->left_foot_color;
+            else
+                color = &guy->right_foot_color;
+        }
+
+        SDL_SetTextureColorMod(atlas->texture, color->r, color->g, color->b);
         SDL_RenderCopyEx(game->renderer,
             atlas->texture,
             &src, &dest,
@@ -133,10 +149,6 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
             src.y -= sprite_height;
         }
     }
-    /*
-    for (int i = 0; i < 3; i++)
-        SDL_RenderCopyEx(game->renderer, guy_view->textures[i], &src, &dest, 360 - guy->ground_angle, center, guy->flip);
-    */
 
     // Draw sensors
 #ifdef _DEBUG
@@ -247,14 +259,14 @@ void default_character(Character* target) {
     target->middle_sensors.x[S2X] = target->right_sensors.x[S1X];
     target->middle_sensors.x[S2Y] = (target->right_sensors.x[S1Y] + target->right_sensors.x[S2Y]) / 2.0f;
 
-    target->body_color.r = 45;
-    target->body_color.g = 167;
+    target->body_color.r = 0;
+    target->body_color.g = 210;
     target->body_color.b = 255;
     target->body_color.a = 255;
 
     target->left_foot_color.r = 255;
-    target->left_foot_color.g = 94;
-    target->left_foot_color.b = 99;
+    target->left_foot_color.g = 0;
+    target->left_foot_color.b = 0;
     target->left_foot_color.a = 255;
     target->right_foot_color = target->left_foot_color;
 }

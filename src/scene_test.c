@@ -66,6 +66,9 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->guy2.position.x[Y] = 170.0f;
     data->guy2.position.x[2] = 0.0f;
     data->guy2.position.x[3] = 0.0f;
+    data->guy2.body_color.r = 255;
+    data->guy2.body_color.g = 20;
+    data->guy2.body_color.b = 251;
     BENCH_END(loading_crattle2)
 
     BENCH_START(loading_tiles)
