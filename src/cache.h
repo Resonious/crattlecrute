@@ -27,4 +27,6 @@ SDL_Texture* cached_texture(struct Game* game, int asset);
 AudioWave* cached_sound(struct Game* game, int asset);
 Map* cached_map(struct Game* game, int asset);
 
+void cached_texture_dimensions(struct Game* game, int asset, /*out*/TextureDimensions* dims);
+
 #endif // CACH_H

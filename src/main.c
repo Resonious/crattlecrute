@@ -152,9 +152,10 @@ void handle_key_during_text_edit(Game* game, SDL_Event* event) {
             int len_from_current_spot = strlen(current_spot);
             int buf_size_from_current_spot = game->text_edit.text_buf_size - game->text_edit.cursor;
 
-            memmove(current_spot - 1, current_spot, min(len_from_current_spot, buf_size_from_current_spot));
-            current_spot[len_from_current_spot - 1] = 0;
-            game->text_edit.cursor -= 1;
+            int amount = 1;
+            memmove(current_spot - amount, current_spot, min(len_from_current_spot, buf_size_from_current_spot));
+            current_spot[len_from_current_spot - amount] = 0;
+            game->text_edit.cursor -= amount;
         }
         break;
     case SDL_SCANCODE_DELETE:
@@ -192,7 +193,7 @@ int main(int argc, char** argv) {
 #ifdef _DEBUG
     // All scene ids should equal their index
     for (int i = 0; i < sizeof(SCENES) / sizeof(Scene); i++)
-        assert(SCENES[i].id == i);
+        SDL_assert(SCENES[i].id == i);
 #endif
 
     game.current_scene = &SCENES[SCENE_TEST];

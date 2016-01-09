@@ -73,11 +73,23 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
 void update_character_animation(Character* guy) {
     guy->animation_counter += 1;
 
-    if (guy->animation_state == GUY_WALKING) {
+    if (guy->animation_state == GUY_IDLE) {
+        // increment every 10 frames
+        if (guy->animation_counter % 10 == 0)
+            guy->animation_frame += 1;
+
+        // cap at 8
+        if (guy->animation_frame >= 8)
+            guy->animation_frame = 0;
+    }
+    else if (guy->animation_state == GUY_WALKING) {
+        // increment every 5 frames
         if (guy->animation_counter % 5 == 0)
             guy->animation_frame += 1;
-        if (guy->animation_frame >= 9)
-            guy->animation_frame = 1;
+
+        // cap at 8
+        if (guy->animation_frame >= 8)
+            guy->animation_frame = 0;
     }
     else guy->animation_frame = 0;
 }
@@ -85,6 +97,8 @@ void update_character_animation(Character* guy) {
 void character_post_update(Character* guy) {
     guy->old_position = guy->position;
 }
+
+// ======= RENDERING =========
 
 void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) {
     // Play sound effects!
@@ -94,7 +108,11 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
     }
 
     // DRAW GUY
-    SDL_Rect src = { guy->animation_frame * 90, 0, 90, 90 };
+    // assume idle animation for now
+    AnimationAtlas* atlas = &guy_view->animation_textures[guy->animation_state];
+    const int sprite_width = 90, sprite_height = 90;
+    const int number_of_layers = CHARACTER_LAYERS;
+    SDL_Rect src = atlas->frames[guy->animation_frame];
     SDL_Rect dest = {
         guy->position.x[X] - guy->center_x - game->camera.x[X],
         game->window_height - guy->position.x[Y] - guy->center_y + game->camera.x[Y],
@@ -103,8 +121,22 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
     };
     // Chearfully assume that center_y is right after center_x and aligned the same as SDL_Point...
     SDL_Point* center = (SDL_Point*)&guy->center_x;
+    for (int i = 0; i < number_of_layers; i++) {
+        SDL_RenderCopyEx(game->renderer,
+            atlas->texture,
+            &src, &dest,
+            360 - guy->ground_angle, center, guy->flip
+        );
+        src.x += sprite_width;
+        if (src.x >= atlas->width) {
+            src.x -= atlas->width;
+            src.y -= sprite_height;
+        }
+    }
+    /*
     for (int i = 0; i < 3; i++)
         SDL_RenderCopyEx(game->renderer, guy_view->textures[i], &src, &dest, 360 - guy->ground_angle, center, guy->flip);
+    */
 
     // Draw sensors
 #ifdef _DEBUG
@@ -214,4 +246,51 @@ void default_character(Character* target) {
     target->middle_sensors.x[S1Y] = (target->left_sensors.x[S1Y] + target->left_sensors.x[S2Y]) / 2.0f;
     target->middle_sensors.x[S2X] = target->right_sensors.x[S1X];
     target->middle_sensors.x[S2Y] = (target->right_sensors.x[S1Y] + target->right_sensors.x[S2Y]) / 2.0f;
+
+    target->body_color.r = 45;
+    target->body_color.g = 167;
+    target->body_color.b = 255;
+    target->body_color.a = 255;
+
+    target->left_foot_color.r = 255;
+    target->left_foot_color.g = 94;
+    target->left_foot_color.b = 99;
+    target->left_foot_color.a = 255;
+    target->right_foot_color = target->left_foot_color;
+}
+
+void default_character_animations(struct Game* game, CharacterView* view) {
+    const int sprite_width = 90, sprite_height = 90;
+    SDL_Rect* rect = view->rects_for_frames;
+
+    for (int i = 0; i < GUY_ANIMATION_COUNT; i++) {
+        AnimationAtlas* animation = &view->animation_textures[i];
+
+        TextureDimensions atlas;
+        cached_texture_dimensions(game, DEFAULT_ASSETS_FOR_ANIMATIONS[i], &atlas);
+        animation->width   = atlas.width;
+        animation->height  = atlas.height;
+        animation->texture = atlas.tex;
+        animation->frames  = rect;
+
+        int number_of_frames = (atlas.width / sprite_width * atlas.height / sprite_height) / CHARACTER_LAYERS;
+        for (int frame = 0; frame < number_of_frames; frame++, rect++) {
+            rect->x = sprite_width * frame * CHARACTER_LAYERS;
+            rect->y = atlas.height - sprite_height;
+            rect->w = sprite_width;
+            rect->h = sprite_height;
+
+            while (rect->x >= atlas.width) {
+                rect->x -= atlas.width;
+                rect->y -= sprite_height;
+            }
+
+            SDL_assert(rect->x >= 0);
+            SDL_assert(rect->x + sprite_width <= atlas.width);
+            SDL_assert(rect->y >= 0);
+            SDL_assert(rect->y + sprite_height <= atlas.height);
+        }
+    }
+
+    SDL_assert(rect - view->rects_for_frames < 128);
 }

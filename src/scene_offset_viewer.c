@@ -13,9 +13,7 @@ typedef struct {
 
 void scene_offset_viewer_initialize(void* vdata, Game* game) {
     OffsetViewer* data = (OffsetViewer*)vdata;
-    data->crattleview.textures[0] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
-    data->crattleview.textures[1] = load_texture(game->renderer, ASSET_CRATTLECRUTE_BODY_PNG);
-    data->crattleview.textures[2] = load_texture(game->renderer, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
+    default_character_animations(game, &data->crattleview);
     default_character(&data->crattlecrute);
 
     data->scale = 5;
@@ -55,9 +53,12 @@ void scene_offset_viewer_render(void* vs, Game* game) {
     dest.x = (game->window_width - dest.w) / 2;
     dest.y = (game->window_height - dest.h) / 2;
 
+    draw_text(game, game->window_width / 2 - 50, game->window_height / 2, "no guy for now sorry");
+    /*
     for (int i = 0; i < 3; i++)
         SDL_RenderCopyEx(game->renderer, s->crattleview.textures[i], &src, &dest, 0, 0,
             game->controls.this_frame[C_SPACE] ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+            */
 
     Uint8 r, g, b, a;
     SDL_GetRenderDrawColor(game->renderer, &r, &b, &g, &a);
@@ -97,7 +98,4 @@ void scene_offset_viewer_render(void* vs, Game* game) {
 }
 void scene_offset_viewer_cleanup(void* vdata, Game* game) {
     OffsetViewer* data = (OffsetViewer*)vdata;
-    SDL_DestroyTexture(data->crattleview.textures[0]);
-    SDL_DestroyTexture(data->crattleview.textures[1]);
-    SDL_DestroyTexture(data->crattleview.textures[2]);
 }

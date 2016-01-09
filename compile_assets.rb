@@ -25,6 +25,15 @@ Dir.glob("#{assets_base_dir}/asset-dev/maps/*.tmx").reject(&File.method(:directo
   end
 end
 
+# Next, copy all images in asset-dev that have .anim counterparts, over to assets
+Dir.glob("#{assets_base_dir}/asset-dev/**/*.anim").reject(&File.method(:directory?)).each do |anim_file|
+  file_to_copy = anim_file.gsub('.anim', '.png')
+  out_file = file_to_copy.gsub('asset-dev', 'assets')
+
+  FileUtils.mkdir_p(File.dirname(out_file))
+  FileUtils.cp(file_to_copy, out_file)
+end
+
 
 # Open files for the .h and the assets themselves.
 assets = File.new("#{assets_base_dir}/build/crattlecrute.assets", 'wb')
@@ -41,7 +50,7 @@ header.write("// Generated #{Time.now}\n\n")
 all_files = Dir.glob("#{assets_base_dir}/assets/**/*").reject(&File.method(:directory?))
 
 header.write(
-  "typedef struct { byte* bytes; long long size; } AssetFile;\n"\
+  "typedef struct AssetFile { byte* bytes; long long size; } AssetFile;\n"\
   "int open_assets_file();\n"\
   "SDL_Surface* load_image(int asset);\n"\
   "SDL_Texture* load_texture(SDL_Renderer* renderer, int asset);\n"\
@@ -50,9 +59,7 @@ header.write(
 )
 
 header.write(
-  "const static struct {\n"\
-  "    long long offset, size;\n"\
-  "} ASSETS[#{all_files.size * 2}] = {\n"
+  "const static struct { long long offset, size; } ASSETS[#{all_files.size * 2}] = {\n"
 )
 
 current_offset = 0

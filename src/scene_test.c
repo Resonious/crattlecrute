@@ -48,10 +48,8 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->recording_frame = -1;
     data->playback_frame = -1;
 
-    BENCH_START(loading_crattle1)
-    data->guy_view.textures[0] = cached_texture(game, ASSET_CRATTLECRUTE_BACK_FOOT_PNG);
-    data->guy_view.textures[1] = cached_texture(game, ASSET_CRATTLECRUTE_BODY_PNG);
-    data->guy_view.textures[2] = cached_texture(game, ASSET_CRATTLECRUTE_FRONT_FOOT_PNG);
+    BENCH_START(loading_crattle1);
+    default_character_animations(game, &data->guy_view);
 
     default_character(&data->guy);
     data->guy.position.x[X] = 150.0f;
@@ -247,12 +245,7 @@ void scene_test_render(void* vs, Game* game) {
     // Draw guys
     {
         draw_character(game, &s->guy, &s->guy_view);
-
-        Uint8 r, g, b;
-        SDL_GetTextureColorMod(s->guy_view.textures[1], &r, &g, &b);
-        SDL_SetTextureColorMod(s->guy_view.textures[1], 255, 255, 1);
         draw_character(game, &s->guy2, &s->guy_view);
-        SDL_SetTextureColorMod(s->guy_view.textures[1], r, g, b);
     }
 
     // Recording indicator

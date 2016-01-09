@@ -16,7 +16,13 @@
 #endif
 #endif
 
+#define IS_WHITESPACE(c) (c == ' ' || c == '\n' || c == '\t')
+
 typedef unsigned char byte;
+typedef struct TextureDimensions {
+    SDL_Texture* tex;
+    int width, height;
+} TextureDimensions;
 
 extern Uint64 ticks_per_second;
 

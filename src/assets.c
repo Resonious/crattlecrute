@@ -258,3 +258,9 @@ Map* cached_map(Game* game, int asset) {
 
     return cached_asset->map;
 }
+
+void cached_texture_dimensions(struct Game* game, int asset, /*out*/TextureDimensions* dims) {
+    dims->tex = cached_texture(game, asset);
+    int result = SDL_QueryTexture(dims->tex, NULL, NULL, &dims->width, &dims->height);
+    SDL_assert(result == 0);
+}
