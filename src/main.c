@@ -1,3 +1,9 @@
+#ifdef _WIN32
+#include <WinSock2.h>
+// Stupid...
+WSADATA global_wsa;
+#endif
+
 #include <stdio.h>
 #include <malloc.h>
 #include <errno.h>
@@ -32,6 +38,7 @@ Uint64 ticks_per_second;
                 case SDL_SCANCODE_P:           this_frame[C_PAUSE]     = to; break; \
                 case SDL_SCANCODE_SPACE:       this_frame[C_SPACE]     = to; break; \
                 case SDL_SCANCODE_F1:          this_frame[C_F1]        = to; break; \
+                case SDL_SCANCODE_F2:          this_frame[C_F2]        = to; break; \
                 case SDL_SCANCODE_LEFTBRACKET: this_frame[C_DEBUG_ADV] = to; break;
 
 void switch_scene(Game* game, int to_scene) {
@@ -227,6 +234,11 @@ int main(int argc, char** argv) {
 
     int key_count;
     const Uint8* keys = SDL_GetKeyboardState(&key_count);
+
+#ifdef _WIN32 // Windows sucks and needs networking initialized
+    if (WSAStartup(MAKEWORD(2,2),&global_wsa) != 0)
+        SDL_ShowSimpleMessageBox(0, "Uh oh", "Couldn't initialize Windows networking", game.window);
+#endif
 
     // Main loop bitch
     SDL_Event event;
