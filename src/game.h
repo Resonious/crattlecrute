@@ -41,6 +41,7 @@ typedef struct Game {
         int cursor;
         int selection_length;
         bool enter_pressed;
+        bool canceled;
     } text_edit;
     AssetCache asset_cache;
     AudioQueue audio;

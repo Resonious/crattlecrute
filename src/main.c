@@ -63,6 +63,7 @@ void start_editing_text(Game* game, char* text_to_edit, int buffer_size, SDL_Rec
 }
 
 void stop_editing_text(Game* game) {
+    game->text_edit.canceled = true;
     game->text_edit.text = NULL;
     SDL_StopTextInput();
 }
@@ -269,6 +270,7 @@ int main(int argc, char** argv) {
         memset(keys_down, 0, sizeof(keys_down));
 
         game.text_edit.enter_pressed = false;
+        game.text_edit.canceled = false;
 
         while (SDL_PollEvent(&event)) {
             switch (event.type) {

@@ -1,3 +1,7 @@
+#ifdef _WIN32
+#include <WinSock2.h>
+#endif
+
 #include "scene.h"
 #include "game.h"
 #include "character.h"
@@ -7,13 +11,15 @@
 
 #ifdef _DEBUG
 extern bool debug_pause;
+/*
 extern int b1_tilespace_x, b1_tilespace_y, l1_tilespace_x, l1_tilespace_y, r1_tilespace_x, r1_tilespace_y;
 extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_tilespace_x, r2_tilespace_y;
+*/
 #endif
 
 // 5 seconds
 #define RECORDED_FRAME_COUNT 60 * 5
-#define EDITABLE_TEXT_BUFFER_SIZE 1024
+#define EDITABLE_TEXT_BUFFER_SIZE 255
 
 typedef struct {
     Controls dummy_controls;
@@ -28,9 +34,113 @@ typedef struct {
     int recording_frame;
     int playback_frame;
     bool recorded_controls[RECORDED_FRAME_COUNT][NUM_CONTROLS];
-
     char editable_text[EDITABLE_TEXT_BUFFER_SIZE];
+
+    struct {
+        SDL_atomic_t status_message_locked;
+        char status_message[512];
+        char textinput_ip_address[EDITABLE_TEXT_BUFFER_SIZE];
+        char textinput_port[EDITABLE_TEXT_BUFFER_SIZE];
+        enum { SERVER, CLIENT, NOT_CONNECTED } status;
+        bool connected;
+
+        SOCKET local_socket;
+        struct sockaddr_in my_address;
+        struct sockaddr_in other_address;
+        SDL_atomic_t buffer_locked;
+        byte buffer[4096];
+    } net;
 } TestScene;
+
+void wait_for_then_use_lock(SDL_atomic_t* lock) {
+    while (SDL_AtomicGet(lock)) {}
+    SDL_AtomicSet(lock, true);
+}
+
+#define SET_LOCKED_STRING(var, str) \
+    wait_for_then_use_lock(&var##_locked); \
+    strcpy(var, str); \
+    SDL_AtomicSet(&var##_locked, false);
+#define SET_LOCKED_STRING_F(var, str, ...) \
+    wait_for_then_use_lock(&var##_locked); \
+    SDL_snprintf(var, 512, str, __VA_ARGS__); \
+    SDL_AtomicSet(&var##_locked, false);
+
+int network_server_loop(void* vdata) {
+    TestScene* scene = (TestScene*)vdata;
+
+    SET_LOCKED_STRING(scene->net.status_message, "Server started!");
+
+    memset((char *) &scene->net.my_address, 0, sizeof(scene->net.my_address));
+    scene->net.my_address.sin_family = AF_INET;
+    scene->net.my_address.sin_addr.s_addr = INADDR_ANY;
+    scene->net.my_address.sin_port = htons(atoi(scene->net.textinput_port));
+    if(bind(scene->net.local_socket, (struct sockaddr *)&scene->net.my_address , sizeof(scene->net.my_address)) == SOCKET_ERROR)
+    {
+        SET_LOCKED_STRING(scene->net.status_message, "Failed to bind");
+        return 1;
+    }
+
+    // NOTE do not exit this scene after initializing network lol
+    while (true) {
+        memset(scene->net.buffer, 0, sizeof(scene->net.buffer));
+
+        int other_addr_len;
+        int recv_len = recvfrom(
+            scene->net.local_socket,
+            scene->net.buffer,
+            sizeof(scene->net.buffer),
+            0,
+            (struct sockaddr*)&scene->net.other_address,
+            &other_addr_len
+        );
+
+        if (recv_len == SOCKET_ERROR) {
+            SET_LOCKED_STRING(scene->net.status_message, "Failed to receive");
+            return 2;
+        }
+
+        SET_LOCKED_STRING_F(
+            scene->net.status_message,
+            "Data from %s:%d -> %i",
+            inet_ntoa(scene->net.other_address.sin_addr),
+            ntohs(scene->net.other_address.sin_port),
+            (int)scene->net.buffer[0]
+        );
+    }
+
+    return 0;
+}
+
+int network_client_loop(void* vdata) {
+    TestScene* scene = (TestScene*)vdata;
+
+    SET_LOCKED_STRING(scene->net.status_message, "Connecting to server!");
+
+    memset((char *) &scene->net.other_address, 0, sizeof(scene->net.other_address));
+    scene->net.other_address.sin_family = AF_INET;
+    scene->net.other_address.sin_addr.s_addr = inet_addr(scene->net.textinput_ip_address);
+    scene->net.other_address.sin_port = htons(atoi(scene->net.textinput_port));
+
+    char message = 9;
+    int send_result = sendto(
+        scene->net.local_socket,
+        &message, 1,
+        0,
+        (struct sockaddr*)&scene->net.other_address,
+        sizeof(scene->net.other_address)
+    );
+
+    if (send_result == SOCKET_ERROR) {
+        int error_code = WSAGetLastError();
+        SET_LOCKED_STRING_F(scene->net.status_message, "Failed to send: %i", error_code);
+    }
+    else {
+        SET_LOCKED_STRING_F(scene->net.status_message, "Sent \"%i\"!", (int)message);
+    }
+
+    return 0;
+}
 
 SDL_Rect text_box_rect = { 200, 200, 400, 40 };
 
@@ -48,6 +158,21 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->recording_frame = -1;
     data->playback_frame = -1;
 
+    // NETWORKING TIME
+    {
+        data->net.status = NOT_CONNECTED;
+        SDL_AtomicSet(&data->net.buffer_locked, false);
+        SDL_AtomicSet(&data->net.status_message_locked, false);
+
+        SDL_memset(data->net.textinput_ip_address, 0, sizeof(data->net.textinput_ip_address));
+        SDL_strlcat(data->net.textinput_ip_address, "127.0.0.1", EDITABLE_TEXT_BUFFER_SIZE);
+        SDL_memset(data->net.textinput_port, 0, sizeof(data->net.textinput_port));
+        SDL_strlcat(data->net.textinput_port, "2997", EDITABLE_TEXT_BUFFER_SIZE);
+
+        data->net.local_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        SDL_assert(data->net.local_socket != SOCKET_ERROR);
+    }
+
     BENCH_START(loading_crattle1);
     default_character_animations(game, &data->guy_view);
 
@@ -56,8 +181,6 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->guy.position.x[Y] = 170.0f;
     data->guy.position.x[2] = 0.0f;
     data->guy.position.x[3] = 0.0f;
-
-    // ================= TODO TODO TODO =============
     BENCH_END(loading_crattle1);
 
     BENCH_START(loading_crattle2)
@@ -198,9 +321,52 @@ void scene_test_update(void* vs, Game* game) {
     // Swap to offset viewer on F1 press
     // if (just_pressed(&game->controls, C_F1))
         // switch_scene(game, SCENE_OFFSET_VIEWER);
-    // ACTUALLY, start editing text at this point!
-    if (just_pressed(&game->controls, C_F1))
-        start_editing_text(game, s->editable_text, EDITABLE_TEXT_BUFFER_SIZE, &text_box_rect);
+
+    if (s->net.status == NOT_CONNECTED) {
+        if (just_pressed(&game->controls, C_F1)) {
+            start_editing_text(game, s->net.textinput_ip_address, EDITABLE_TEXT_BUFFER_SIZE, &text_box_rect);
+            s->net.status = SERVER;
+        }
+        else if (just_pressed(&game->controls, C_F2)) {
+            start_editing_text(game, s->net.textinput_ip_address, EDITABLE_TEXT_BUFFER_SIZE, &text_box_rect);
+            s->net.status = CLIENT;
+        }
+    }
+    else {
+        if (game->text_edit.canceled) {
+            // This seems maybe unreliable lol... or a little too reliable
+            s->net.status == NOT_CONNECTED;
+        }
+        if (game->text_edit.enter_pressed) {
+            stop_editing_text(game);
+            switch (s->net.status) {
+            case SERVER:
+                s->net.connected = true;
+                SDL_CreateThread(network_server_loop, "Network server loop", s);
+                break;
+            case CLIENT:
+                s->net.connected = true;
+                SDL_CreateThread(network_client_loop, "Network client loop", s);
+                break;
+            default:
+                SDL_assert(false);
+                break;
+            }
+        }
+    }
+}
+
+void draw_text_box(struct Game* game, SDL_Rect* text_box_rect, char* text) {
+    Uint8 r, g, b, a;
+    SDL_GetRenderDrawColor(game->renderer, &r, &g, &b, &a);
+    SDL_SetRenderDrawColor(game->renderer, 255, 255, 255, 255);
+    SDL_RenderFillRect(game->renderer, text_box_rect);
+
+    set_text_color(game, 0, 0, 0);
+    SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
+    int caret = game->frame_count % 30 < (30 / 2) ? game->text_edit.cursor : -1;
+    draw_text_caret(game, text_box_rect->x + 4, (game->window_height - text_box_rect->y) - 4, text, caret);
+    SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
 }
 
 void scene_test_render(void* vs, Game* game) {
@@ -275,16 +441,23 @@ void scene_test_render(void* vs, Game* game) {
 
     // Draw editable text box!!
     if (game->text_edit.text == s->editable_text) {
-        Uint8 r, g, b, a;
-        SDL_GetRenderDrawColor(game->renderer, &r, &g, &b, &a);
-        SDL_SetRenderDrawColor(game->renderer, 255, 255, 255, 255);
-        SDL_RenderFillRect(game->renderer, &text_box_rect);
+        draw_text_box(game, &text_box_rect, s->editable_text);
+    }
+    else if (game->text_edit.text == s->net.textinput_ip_address) {
+        set_text_color(game, 255, 255, 255);
+        if (s->net.status == SERVER)
+            draw_text(game, text_box_rect.x - 130, 200, "So you want to be server");
+        else
+            draw_text(game, text_box_rect.x - 100, 200, "So you want to be client");
 
-        set_text_color(game, 0, 0, 0);
-        SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
-        int caret = game->frame_count % 30 < (30 / 2) ? game->text_edit.cursor : -1;
-        draw_text_caret(game, text_box_rect.x + 4, (game->window_height - text_box_rect.y) - 4, s->editable_text, caret);
-        SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
+        draw_text_box(game, &text_box_rect, s->net.textinput_ip_address);
+    }
+
+    if (s->net.connected) {
+        wait_for_then_use_lock(&s->net.status_message_locked);
+        set_text_color(game, 100, 50, 255);
+        draw_text(game, 10, game->window_height - 50, s->net.status_message);
+        SDL_AtomicSet(&s->net.status_message_locked, false);
     }
 }
 
