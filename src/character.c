@@ -68,12 +68,16 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
         guy->position.x[1] = -100;
         guy->dy = 0;
     }
+    if (!guy->grounded || guy->jumped) {
+        guy->animation_state = GUY_JUMPING;
+    }
 }
 
 void update_character_animation(Character* guy) {
     guy->animation_counter += 1;
 
-    if (guy->animation_state == GUY_IDLE) {
+    switch (guy->animation_state) {
+    case GUY_IDLE:
         // increment every 10 frames
         if (guy->animation_counter % 10 == 0)
             guy->animation_frame += 1;
@@ -81,8 +85,8 @@ void update_character_animation(Character* guy) {
         // cap at 8
         if (guy->animation_frame >= 8)
             guy->animation_frame = 0;
-    }
-    else if (guy->animation_state == GUY_WALKING) {
+        break;
+    case GUY_WALKING:
         // increment every 5 frames
         if (guy->animation_counter % 5 == 0)
             guy->animation_frame += 1;
@@ -90,8 +94,20 @@ void update_character_animation(Character* guy) {
         // cap at 8
         if (guy->animation_frame >= 8)
             guy->animation_frame = 0;
+        break;
+    case GUY_JUMPING:
+        if (guy->dy >= 0)
+            guy->animation_frame = 1;
+        else {
+            guy->animation_frame = (int)floorf(-guy->dy / 5.0f) + 1;
+            if (guy->animation_frame >= 4)
+                guy->animation_frame = 3;
+        }
+
+        break;
+    default: guy->animation_frame = 0;
+        break;
     }
-    else guy->animation_frame = 0;
 }
 
 void character_post_update(Character* guy) {
