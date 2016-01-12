@@ -41,7 +41,7 @@ typedef struct {
         char status_message[512];
         char textinput_ip_address[EDITABLE_TEXT_BUFFER_SIZE];
         char textinput_port[EDITABLE_TEXT_BUFFER_SIZE];
-        enum { SERVER, CLIENT, NOT_CONNECTED } status;
+        enum { HOSTING, JOINING, NOT_CONNECTED } status;
         bool connected;
 
         SOCKET local_socket;
@@ -325,11 +325,11 @@ void scene_test_update(void* vs, Game* game) {
     if (s->net.status == NOT_CONNECTED) {
         if (just_pressed(&game->controls, C_F1)) {
             start_editing_text(game, s->net.textinput_ip_address, EDITABLE_TEXT_BUFFER_SIZE, &text_box_rect);
-            s->net.status = SERVER;
+            s->net.status = HOSTING;
         }
         else if (just_pressed(&game->controls, C_F2)) {
             start_editing_text(game, s->net.textinput_ip_address, EDITABLE_TEXT_BUFFER_SIZE, &text_box_rect);
-            s->net.status = CLIENT;
+            s->net.status = JOINING;
         }
     }
     else {
@@ -340,11 +340,11 @@ void scene_test_update(void* vs, Game* game) {
         if (game->text_edit.enter_pressed) {
             stop_editing_text(game);
             switch (s->net.status) {
-            case SERVER:
+            case HOSTING:
                 s->net.connected = true;
                 SDL_CreateThread(network_server_loop, "Network server loop", s);
                 break;
-            case CLIENT:
+            case JOINING:
                 s->net.connected = true;
                 SDL_CreateThread(network_client_loop, "Network client loop", s);
                 break;
@@ -445,7 +445,7 @@ void scene_test_render(void* vs, Game* game) {
     }
     else if (game->text_edit.text == s->net.textinput_ip_address) {
         set_text_color(game, 255, 255, 255);
-        if (s->net.status == SERVER)
+        if (s->net.status == HOSTING)
             draw_text(game, text_box_rect.x - 130, 200, "So you want to be server");
         else
             draw_text(game, text_box_rect.x - 100, 200, "So you want to be client");

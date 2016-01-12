@@ -122,6 +122,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testoverlay2", "tests\testo
 		{DA956FD3-E143-46F2-9FE5-C77BEBC56B1A} = {DA956FD3-E143-46F2-9FE5-C77BEBC56B1A}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CCserver", "CCserver\CCserver.vcxproj", "{F6962FBE-C9B4-479D-987F-559198CD9726}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -299,6 +301,14 @@ Global
 		{55812185-D13C-4022-9C81-32E0F4A08AAD}.Release|Win32.Build.0 = Release|Win32
 		{55812185-D13C-4022-9C81-32E0F4A08AAD}.Release|x64.ActiveCfg = Release|x64
 		{55812185-D13C-4022-9C81-32E0F4A08AAD}.Release|x64.Build.0 = Release|x64
+		{F6962FBE-C9B4-479D-987F-559198CD9726}.Debug|Win32.ActiveCfg = Debug|Win32
+		{F6962FBE-C9B4-479D-987F-559198CD9726}.Debug|Win32.Build.0 = Debug|Win32
+		{F6962FBE-C9B4-479D-987F-559198CD9726}.Debug|x64.ActiveCfg = Debug|x64
+		{F6962FBE-C9B4-479D-987F-559198CD9726}.Debug|x64.Build.0 = Debug|x64
+		{F6962FBE-C9B4-479D-987F-559198CD9726}.Release|Win32.ActiveCfg = Release|Win32
+		{F6962FBE-C9B4-479D-987F-559198CD9726}.Release|Win32.Build.0 = Release|Win32
+		{F6962FBE-C9B4-479D-987F-559198CD9726}.Release|x64.ActiveCfg = Release|x64
+		{F6962FBE-C9B4-479D-987F-559198CD9726}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
