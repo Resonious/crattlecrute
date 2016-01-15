@@ -69,6 +69,18 @@ void wait_for_then_use_lock(SDL_atomic_t* lock) {
 
 #define NETOP_UPDATE_POSITION 10
 
+void netop_update_position(TestScene* scene) {
+    memcpy(scene->guy2.position.x, scene->net.buffer + 1, sizeof(scene->guy2.position.x));
+    memcpy(&scene->guy2.flip, scene->net.buffer + 1 + sizeof(scene->guy2.position.x), sizeof(scene->guy2.flip));
+}
+
+void netwrite_guy_position(TestScene* scene) {
+    memset(scene->net.buffer, 0, PACKET_SIZE);
+    scene->net.buffer[0] = NETOP_UPDATE_POSITION;
+    memcpy(scene->net.buffer + 1, scene->guy.position.x, sizeof(scene->guy.position.x));
+    memcpy(scene->net.buffer + 1 + sizeof(scene->guy.position.x), &scene->guy.flip, sizeof(scene->guy.flip));
+}
+
 int network_server_loop(void* vdata) {
     int r = 0;
     TestScene* scene = (TestScene*)vdata;
@@ -108,7 +120,7 @@ int network_server_loop(void* vdata) {
 
         switch (scene->net.buffer[0]) {
         case NETOP_UPDATE_POSITION:
-            memcpy(scene->guy2.position.x, scene->net.buffer + 1, sizeof(scene->guy2.position.x));
+            netop_update_position(scene);
             break;
         default:
             SET_LOCKED_STRING_F(
@@ -122,9 +134,7 @@ int network_server_loop(void* vdata) {
         }
 
         // Now use the buffer to send to the client
-        memset(scene->net.buffer, 0, PACKET_SIZE);
-        scene->net.buffer[0] = NETOP_UPDATE_POSITION;
-        memcpy(scene->net.buffer + 1, scene->guy.position.x, sizeof(scene->guy.position.x));
+        netwrite_guy_position(scene);
         sendto(
             scene->net.local_socket,
             scene->net.buffer,
@@ -155,9 +165,7 @@ int network_client_loop(void* vdata) {
 
     while (true) {
         // Send character position (TODO this is currently a copy/paste)
-        memset(scene->net.buffer, 0, PACKET_SIZE);
-        scene->net.buffer[0] = NETOP_UPDATE_POSITION;
-        memcpy(scene->net.buffer + 1, scene->guy.position.x, sizeof(scene->guy.position.x));
+        netwrite_guy_position(scene);
         int send_result = send(
             scene->net.local_socket,
             scene->net.buffer,
@@ -185,7 +193,7 @@ int network_client_loop(void* vdata) {
 
         switch (scene->net.buffer[0]) {
         case NETOP_UPDATE_POSITION:
-            memcpy(scene->guy2.position.x, scene->net.buffer + 1, sizeof(scene->guy2.position.x));
+            netop_update_position(scene);
             break;
         default:
             SET_LOCKED_STRING_F(
@@ -316,7 +324,7 @@ void scene_test_update(void* vs, Game* game) {
     slide_character(s->gravity, &s->guy);
     update_character_animation(&s->guy);
 
-    if (s->net.status != NOT_CONNECTED) {
+    if (s->net.status == NOT_CONNECTED) {
         apply_character_physics(game, &s->guy2, &s->dummy_controls, s->gravity, s->drag);
         collide_character(&s->guy2, &s->map->tile_collision);
         slide_character(s->gravity, &s->guy2);

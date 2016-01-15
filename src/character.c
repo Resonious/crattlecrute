@@ -244,7 +244,9 @@ void default_character(Character* target) {
     target->position.x[3] = 0.0f;
     target->grounded = false;
     target->jumped = false;
+    target->just_jumped = false;
     target->jump_acceleration = 20.0f;
+    target->animation_state = GUY_IDLE;
     target->animation_frame = 0;
     target->flip = SDL_FLIP_NONE;
     target->left_hit = false;
