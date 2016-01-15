@@ -373,6 +373,10 @@ int main(int argc, char** argv) {
     SDL_PauseAudio(true);
     SDL_DestroyWindow(game.window);
 
+#ifdef _WIN32 // Windows sucks and needs networking cleaned up
+    WSACleanup();
+#endif
+
     SDL_Quit();
     return 0;
 }

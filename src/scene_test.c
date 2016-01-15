@@ -20,6 +20,7 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 // 5 seconds
 #define RECORDED_FRAME_COUNT 60 * 5
 #define EDITABLE_TEXT_BUFFER_SIZE 255
+#define PACKET_SIZE 500
 
 typedef struct {
     Controls dummy_controls;
@@ -48,7 +49,7 @@ typedef struct {
         struct sockaddr_in my_address;
         struct sockaddr_in other_address;
         SDL_atomic_t buffer_locked;
-        byte buffer[4096];
+        byte* buffer;
     } net;
 } TestScene;
 
@@ -66,8 +67,12 @@ void wait_for_then_use_lock(SDL_atomic_t* lock) {
     SDL_snprintf(var, 512, str, __VA_ARGS__); \
     SDL_AtomicSet(&var##_locked, false);
 
+#define NETOP_UPDATE_POSITION 10
+
 int network_server_loop(void* vdata) {
+    int r = 0;
     TestScene* scene = (TestScene*)vdata;
+    scene->net.buffer = malloc(PACKET_SIZE);
 
     SET_LOCKED_STRING(scene->net.status_message, "Server started!");
 
@@ -77,43 +82,68 @@ int network_server_loop(void* vdata) {
     scene->net.my_address.sin_port = htons(atoi(scene->net.textinput_port));
     if(bind(scene->net.local_socket, (struct sockaddr *)&scene->net.my_address , sizeof(scene->net.my_address)) == SOCKET_ERROR)
     {
-        SET_LOCKED_STRING(scene->net.status_message, "Failed to bind");
+        SET_LOCKED_STRING_F(scene->net.status_message, "Failed to bind: %i", WSAGetLastError());
         return 1;
     }
 
     // NOTE do not exit this scene after initializing network lol
     while (true) {
-        memset(scene->net.buffer, 0, sizeof(scene->net.buffer));
+        memset(scene->net.buffer, 0, PACKET_SIZE);
 
-        int other_addr_len;
+        int other_addr_len = sizeof(scene->net.other_address);
         int recv_len = recvfrom(
             scene->net.local_socket,
             scene->net.buffer,
-            sizeof(scene->net.buffer),
+            PACKET_SIZE,
             0,
             (struct sockaddr*)&scene->net.other_address,
             &other_addr_len
         );
 
         if (recv_len == SOCKET_ERROR) {
-            SET_LOCKED_STRING(scene->net.status_message, "Failed to receive");
-            return 2;
+            SET_LOCKED_STRING_F(scene->net.status_message, "Failed to receive: %i", WSAGetLastError());
+            scene->net.status = NOT_CONNECTED;
+            r = 2; goto Done;
         }
 
-        SET_LOCKED_STRING_F(
-            scene->net.status_message,
-            "Data from %s:%d -> %i",
-            inet_ntoa(scene->net.other_address.sin_addr),
-            ntohs(scene->net.other_address.sin_port),
-            (int)scene->net.buffer[0]
+        switch (scene->net.buffer[0]) {
+        case NETOP_UPDATE_POSITION:
+            memcpy(scene->guy2.position.x, scene->net.buffer + 1, sizeof(scene->guy2.position.x));
+            break;
+        default:
+            SET_LOCKED_STRING_F(
+                scene->net.status_message,
+                "Data from %s:%d -> %i",
+                inet_ntoa(scene->net.other_address.sin_addr),
+                ntohs(scene->net.other_address.sin_port),
+                (int)scene->net.buffer[0]
+            );
+            break;
+        }
+
+        // Now use the buffer to send to the client
+        memset(scene->net.buffer, 0, PACKET_SIZE);
+        scene->net.buffer[0] = NETOP_UPDATE_POSITION;
+        memcpy(scene->net.buffer + 1, scene->guy.position.x, sizeof(scene->guy.position.x));
+        sendto(
+            scene->net.local_socket,
+            scene->net.buffer,
+            sizeof(scene->guy.position.x) + 1,
+            0,
+            (struct sockaddr*)&scene->net.other_address,
+            sizeof(scene->net.other_address)
         );
     }
 
-    return 0;
+    Done:
+    closesocket(scene->net.local_socket);
+    scene->net.local_socket = 0;
+    return r;
 }
 
 int network_client_loop(void* vdata) {
     TestScene* scene = (TestScene*)vdata;
+    scene->net.buffer = malloc(PACKET_SIZE);
 
     SET_LOCKED_STRING(scene->net.status_message, "Connecting to server!");
 
@@ -121,22 +151,52 @@ int network_client_loop(void* vdata) {
     scene->net.other_address.sin_family = AF_INET;
     scene->net.other_address.sin_addr.s_addr = inet_addr(scene->net.textinput_ip_address);
     scene->net.other_address.sin_port = htons(atoi(scene->net.textinput_port));
+    connect(scene->net.local_socket, (struct sockaddr*)&scene->net.other_address, sizeof(scene->net.other_address));
 
-    char message = 9;
-    int send_result = sendto(
-        scene->net.local_socket,
-        &message, 1,
-        0,
-        (struct sockaddr*)&scene->net.other_address,
-        sizeof(scene->net.other_address)
-    );
+    while (true) {
+        // Send character position (TODO this is currently a copy/paste)
+        memset(scene->net.buffer, 0, PACKET_SIZE);
+        scene->net.buffer[0] = NETOP_UPDATE_POSITION;
+        memcpy(scene->net.buffer + 1, scene->guy.position.x, sizeof(scene->guy.position.x));
+        int send_result = send(
+            scene->net.local_socket,
+            scene->net.buffer,
+            sizeof(scene->guy.position.x) + 1,
+            0
+        );
 
-    if (send_result == SOCKET_ERROR) {
-        int error_code = WSAGetLastError();
-        SET_LOCKED_STRING_F(scene->net.status_message, "Failed to send: %i", error_code);
-    }
-    else {
-        SET_LOCKED_STRING_F(scene->net.status_message, "Sent \"%i\"!", (int)message);
+        if (send_result == SOCKET_ERROR) {
+            int error_code = WSAGetLastError();
+            SET_LOCKED_STRING_F(scene->net.status_message, "Failed to send: %i", error_code);
+            scene->net.status = NOT_CONNECTED;
+            return 1;
+        }
+
+
+        int other_addr_len = sizeof(scene->net.other_address);
+        int recv_len = recvfrom(
+            scene->net.local_socket,
+            scene->net.buffer,
+            PACKET_SIZE,
+            0,
+            (struct sockaddr*)&scene->net.other_address,
+            &other_addr_len
+        );
+
+        switch (scene->net.buffer[0]) {
+        case NETOP_UPDATE_POSITION:
+            memcpy(scene->guy2.position.x, scene->net.buffer + 1, sizeof(scene->guy2.position.x));
+            break;
+        default:
+            SET_LOCKED_STRING_F(
+                scene->net.status_message,
+                "Data from %s:%d -> %i",
+                inet_ntoa(scene->net.other_address.sin_addr),
+                ntohs(scene->net.other_address.sin_port),
+                (int)scene->net.buffer[0]
+            );
+            break;
+        }
     }
 
     return 0;
@@ -169,6 +229,7 @@ void scene_test_initialize(void* vdata, Game* game) {
         SDL_memset(data->net.textinput_port, 0, sizeof(data->net.textinput_port));
         SDL_strlcat(data->net.textinput_port, "2997", EDITABLE_TEXT_BUFFER_SIZE);
 
+        data->net.buffer = NULL;
         data->net.local_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         SDL_assert(data->net.local_socket != SOCKET_ERROR);
     }
@@ -255,10 +316,13 @@ void scene_test_update(void* vs, Game* game) {
     slide_character(s->gravity, &s->guy);
     update_character_animation(&s->guy);
 
-    apply_character_physics(game, &s->guy2, &s->dummy_controls, s->gravity, s->drag);
-    collide_character(&s->guy2, &s->map->tile_collision);
-    slide_character(s->gravity, &s->guy2);
+    if (s->net.status != NOT_CONNECTED) {
+        apply_character_physics(game, &s->guy2, &s->dummy_controls, s->gravity, s->drag);
+        collide_character(&s->guy2, &s->map->tile_collision);
+        slide_character(s->gravity, &s->guy2);
+    }
     update_character_animation(&s->guy2);
+
 
     // Follow player with camera
     game->camera_target.x[X] = s->guy.position.x[X] - game->window_width / 2.0f;
@@ -465,4 +529,8 @@ void scene_test_cleanup(void* vdata, Game* game) {
     TestScene* data = (TestScene*)vdata;
     game->audio.oneshot_waves[0] = NULL;
     game->audio.looped_waves[0] = NULL;
+
+    closesocket(data->net.local_socket);
+    if (data->net.buffer)
+        free(data->net.buffer);
 }
