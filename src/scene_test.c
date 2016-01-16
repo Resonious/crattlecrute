@@ -22,7 +22,7 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 #define EDITABLE_TEXT_BUFFER_SIZE 255
 #define PACKET_SIZE 500
 
-typedef struct {
+typedef struct TestScene {
     Controls dummy_controls;
     float gravity;
     float drag;
@@ -37,7 +37,7 @@ typedef struct {
     bool recorded_controls[RECORDED_FRAME_COUNT][NUM_CONTROLS];
     char editable_text[EDITABLE_TEXT_BUFFER_SIZE];
 
-    struct {
+    struct NetInfo {
         SDL_atomic_t status_message_locked;
         char status_message[512];
         char textinput_ip_address[EDITABLE_TEXT_BUFFER_SIZE];
@@ -74,11 +74,15 @@ void netop_update_position(TestScene* scene) {
     memcpy(&scene->guy2.flip, scene->net.buffer + 1 + sizeof(scene->guy2.position.x), sizeof(scene->guy2.flip));
 }
 
-void netwrite_guy_position(TestScene* scene) {
+int netwrite_guy_position(TestScene* scene) {
     memset(scene->net.buffer, 0, PACKET_SIZE);
     scene->net.buffer[0] = NETOP_UPDATE_POSITION;
-    memcpy(scene->net.buffer + 1, scene->guy.position.x, sizeof(scene->guy.position.x));
-    memcpy(scene->net.buffer + 1 + sizeof(scene->guy.position.x), &scene->guy.flip, sizeof(scene->guy.flip));
+    int pos = 1;
+    memcpy(scene->net.buffer + pos, scene->guy.position.x, sizeof(scene->guy.position.x));
+    pos += sizeof(scene->guy.position.x);
+    memcpy(scene->net.buffer + pos, &scene->guy.flip, sizeof(scene->guy.flip));
+    pos += sizeof(scene->guy.flip);
+    return pos;
 }
 
 int network_server_loop(void* vdata) {
@@ -134,11 +138,11 @@ int network_server_loop(void* vdata) {
         }
 
         // Now use the buffer to send to the client
-        netwrite_guy_position(scene);
+        int size = netwrite_guy_position(scene);
         sendto(
             scene->net.local_socket,
             scene->net.buffer,
-            sizeof(scene->guy.position.x) + 1,
+            size,
             0,
             (struct sockaddr*)&scene->net.other_address,
             sizeof(scene->net.other_address)
@@ -164,12 +168,11 @@ int network_client_loop(void* vdata) {
     connect(scene->net.local_socket, (struct sockaddr*)&scene->net.other_address, sizeof(scene->net.other_address));
 
     while (true) {
-        // Send character position (TODO this is currently a copy/paste)
-        netwrite_guy_position(scene);
+        int size = netwrite_guy_position(scene);
         int send_result = send(
             scene->net.local_socket,
             scene->net.buffer,
-            sizeof(scene->guy.position.x) + 1,
+            size,
             0
         );
 
