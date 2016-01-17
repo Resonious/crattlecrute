@@ -326,10 +326,15 @@ void scene_test_update(void* vs, Game* game) {
     if (s->playback_frame >= 0) {
         SDL_assert(s->controls_buffer[0] == RECORDED_FRAME_COUNT);
         if (s->playback_frame < s->controls_buffer[0]) {
-            memset(s->dummy_controls.this_frame, 0, sizeof(s->dummy_controls.this_frame));
+            // memset(s->dummy_controls.this_frame, 0, sizeof(s->dummy_controls.this_frame));
             while (s->controls_buffer[s->controls_buffer_playback] != CONTROL_BLOCK_END) {
                 SDL_assert(s->controls_buffer[s->controls_buffer_playback] < NUM_CONTROLS);
-                s->dummy_controls.this_frame[s->controls_buffer[s->controls_buffer_playback++]] = true;
+
+                bool* this_frame = s->dummy_controls.this_frame;
+                int control = s->controls_buffer[s->controls_buffer_playback];
+                this_frame[control] = !this_frame[control];
+
+                s->controls_buffer_playback += 1;
             }
             s->controls_buffer_playback += 1;
 
@@ -394,7 +399,7 @@ void scene_test_update(void* vs, Game* game) {
         else {
             // record
             for (enum Control ctrl = 0; ctrl < NUM_CONTROLS; ctrl++) {
-                if (game->controls.this_frame[ctrl])
+                if (game->controls.this_frame[ctrl] != game->controls.last_frame[ctrl])
                     s->controls_buffer[s->controls_buffer_pos++] = ctrl;
             }
             s->controls_buffer[s->controls_buffer_pos++] = CONTROL_BLOCK_END;
