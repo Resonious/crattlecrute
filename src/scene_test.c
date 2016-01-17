@@ -18,7 +18,7 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 #endif
 
 // 5 seconds
-#define RECORDED_FRAME_COUNT 60 * 5
+#define RECORDED_FRAME_COUNT 60 * 3
 #define EDITABLE_TEXT_BUFFER_SIZE 255
 #define PACKET_SIZE 500
 
@@ -34,8 +34,13 @@ typedef struct TestScene {
     Map* map;
     int recording_frame;
     int playback_frame;
+    // TODO not using recorded_controls anymore
     bool recorded_controls[RECORDED_FRAME_COUNT][NUM_CONTROLS];
     char editable_text[EDITABLE_TEXT_BUFFER_SIZE];
+
+    byte controls_buffer[500];
+    int controls_buffer_pos;
+    int controls_buffer_playback;
 
     struct NetInfo {
         SDL_atomic_t status_message_locked;
@@ -245,6 +250,10 @@ void scene_test_initialize(void* vdata, Game* game) {
         SDL_assert(data->net.local_socket != SOCKET_ERROR);
     }
 
+    data->controls_buffer_pos = 0;
+    data->controls_buffer_playback = 0;
+    memset(data->controls_buffer, 0, sizeof(data->controls_buffer));
+
     BENCH_START(loading_crattle1);
     default_character_animations(game, &data->guy_view);
 
@@ -281,6 +290,8 @@ void scene_test_initialize(void* vdata, Game* game) {
 
 #define PERCENT_CHANCE(percent) (rand() < RAND_MAX / (100 / percent))
 
+#define CONTROL_BLOCK_END NUM_CONTROLS
+
 void scene_test_update(void* vs, Game* game) {
     TestScene* s = (TestScene*)vs;
 
@@ -313,11 +324,19 @@ void scene_test_update(void* vs, Game* game) {
     */
     // Have guy2 playback recorded controls
     if (s->playback_frame >= 0) {
-        if (s->playback_frame >= RECORDED_FRAME_COUNT)
-            s->playback_frame = -1;
-        else {
-            SDL_memcpy(s->dummy_controls.this_frame, s->recorded_controls[s->playback_frame], sizeof(s->dummy_controls.this_frame));
+        SDL_assert(s->controls_buffer[0] == RECORDED_FRAME_COUNT);
+        if (s->playback_frame < s->controls_buffer[0]) {
+            memset(s->dummy_controls.this_frame, 0, sizeof(s->dummy_controls.this_frame));
+            while (s->controls_buffer[s->controls_buffer_playback] != CONTROL_BLOCK_END) {
+                SDL_assert(s->controls_buffer[s->controls_buffer_playback] < NUM_CONTROLS);
+                s->dummy_controls.this_frame[s->controls_buffer[s->controls_buffer_playback++]] = true;
+            }
+            s->controls_buffer_playback += 1;
+
             s->playback_frame += 1;
+        }
+        else {
+            s->playback_frame = -1;
         }
     }
 
@@ -365,14 +384,22 @@ void scene_test_update(void* vs, Game* game) {
     }
     if (s->recording_frame >= 0) {
         if (s->recording_frame >= RECORDED_FRAME_COUNT) {
-            // Set last frame to all zeros so the dummy stops (might not wanna do this for networking)
-            SDL_memset(s->recorded_controls[s->recording_frame - 1], 0, sizeof(game->controls));
+            // Write the number of frames we recorded to first element of controls buffer
+            s->controls_buffer[0] = s->recording_frame;
+
             // -60 so that we can display a message for 60 frames
             // indicating that we are finished recording
             s->recording_frame = -60;
         }
         else {
-            SDL_memcpy(s->recorded_controls[s->recording_frame], &game->controls, sizeof(game->controls));
+            // record
+            for (enum Control ctrl = 0; ctrl < NUM_CONTROLS; ctrl++) {
+                if (game->controls.this_frame[ctrl])
+                    s->controls_buffer[s->controls_buffer_pos++] = ctrl;
+            }
+            s->controls_buffer[s->controls_buffer_pos++] = CONTROL_BLOCK_END;
+            SDL_assert(s->controls_buffer_pos < sizeof(s->controls_buffer));
+
             s->recording_frame += 1;
         }
     }
@@ -380,10 +407,15 @@ void scene_test_update(void* vs, Game* game) {
         s->recording_frame += 1;
     }
     else if (s->playback_frame == -1) {
-        if (just_pressed(&game->controls, C_A))
+        if (just_pressed(&game->controls, C_A)) {
+            // start at position 1 (position 1 = # frames recorded)
+            s->controls_buffer_pos = 1;
             s->recording_frame = 0;
-        else if (just_pressed(&game->controls, C_S))
+        }
+        else if (just_pressed(&game->controls, C_S)) {
+            s->controls_buffer_playback = 1;
             s->playback_frame = 0;
+        }
         else if (just_pressed(&game->controls, C_D))
             // TODO teleportation should be considered a special case if we decide to use multi-pass collision.
             s->guy.position.simd = s->guy2.position.simd;
