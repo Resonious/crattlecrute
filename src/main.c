@@ -187,6 +187,7 @@ void handle_key_during_text_edit(Game* game, SDL_Event* event) {
 }
 
 int main(int argc, char** argv) {
+    srand(time(0));
     ticks_per_second = SDL_GetPerformanceFrequency();
     _MM_SET_ROUNDING_MODE(_MM_ROUND_DOWN);
 
