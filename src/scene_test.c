@@ -450,17 +450,21 @@ void scene_test_update(void* vs, Game* game) {
     }
     */
     // Have guy2 playback recorded controls
+    bool should_update_guy2_physics = false;
     if (s->playback_frame >= 0) {
+        should_update_guy2_physics = true;
         wait_for_then_use_lock(&s->playback_locked);
 
         if (s->playback_frame < s->playback_buffer[0]) {
+            memset(s->dummy_controls.this_frame, 0, sizeof(s->dummy_controls.this_frame));
+
             while (s->playback_buffer[s->controls_buffer_playback] != CONTROL_BLOCK_END) {
                 SDL_assert(s->controls_buffer_playback < s->playback_buffer_size);
                 SDL_assert(s->playback_buffer[s->controls_buffer_playback] < NUM_CONTROLS);
 
                 bool* this_frame = s->dummy_controls.this_frame;
                 int control = s->playback_buffer[s->controls_buffer_playback];
-                this_frame[control] = !this_frame[control];
+                this_frame[control] = true;
 
                 s->controls_buffer_playback += 1;
             }
@@ -481,9 +485,11 @@ void scene_test_update(void* vs, Game* game) {
     slide_character(s->gravity, &s->guy);
     update_character_animation(&s->guy);
 
-    apply_character_physics(game, &s->guy2, &s->dummy_controls, s->gravity, s->drag);
-    collide_character(&s->guy2, &s->map->tile_collision);
-    slide_character(s->gravity, &s->guy2);
+    if (should_update_guy2_physics) {
+        apply_character_physics(game, &s->guy2, &s->dummy_controls, s->gravity, s->drag);
+        collide_character(&s->guy2, &s->map->tile_collision);
+        slide_character(s->gravity, &s->guy2);
+    }
     update_character_animation(&s->guy2);
 
 
@@ -527,7 +533,7 @@ void scene_test_update(void* vs, Game* game) {
     if (s->recording_frame >= 0) {
         // record
         for (enum Control ctrl = 0; ctrl < NUM_CONTROLS; ctrl++) {
-            if (game->controls.this_frame[ctrl] != game->controls.last_frame[ctrl])
+            if (game->controls.this_frame[ctrl])
                 controls_buffer[s->controls_buffer_pos++] = ctrl;
         }
         controls_buffer[s->controls_buffer_pos++] = CONTROL_BLOCK_END;
@@ -539,20 +545,7 @@ void scene_test_update(void* vs, Game* game) {
         s->recording_frame += 1;
     }
     else if (s->playback_frame == -1) {
-        /*
-        if (just_pressed(&game->controls, C_A)) {
-            // start at position 1 (position 1 = # frames recorded)
-            s->controls_buffer_pos = 1;
-            s->recording_frame = 0;
-        }
-        else if (just_pressed(&game->controls, C_S)) {
-            s->controls_buffer_playback = 1;
-            s->playback_frame = 0;
-        }
-        else if (just_pressed(&game->controls, C_D))
-            // TODO teleportation should be considered a special case if we decide to use multi-pass collision.
-            s->guy.position.simd = s->guy2.position.simd;
-            */
+        // NOTE this used to be where we trigger recording on button press
     }
     SDL_AtomicSet(&s->controls_locked, false);
 
@@ -577,7 +570,7 @@ void scene_test_update(void* vs, Game* game) {
     else {
         if (game->text_edit.canceled) {
             // This seems maybe unreliable lol... or a little too reliable
-            s->net.status == NOT_CONNECTED;
+            s->net.status == NOT_CONNECTED; // WTF is this dude did you mean single = ??? doesn't matter for now.
         }
         if (game->text_edit.enter_pressed) {
             stop_editing_text(game);
