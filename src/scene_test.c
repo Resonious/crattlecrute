@@ -1,5 +1,13 @@
 #ifdef _WIN32
 #include <WinSock2.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <sys/types.h>
+#define WSAGetLastError() (-1)
+#define SOCKET_ERROR (-1)
+#define SOCKET int
+#define closesocket close
 #endif
 
 #include "scene.h"
