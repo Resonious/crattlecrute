@@ -489,11 +489,30 @@ void scene_test_update(void* vs, Game* game) {
     }
     */
     // Have guy2 playback recorded controls
-    bool should_update_guy2_physics = false;
+    int number_of_netguy_physics_updates = 0;
     wait_for_then_use_lock(&s->playback_locked);
+
     if (s->playback_frame >= 0) {
         if (s->playback_frame < s->playback_buffer[0]) {
-            should_update_guy2_physics = true;
+            // Do 2 frames at a time if we're so many frames behind
+            int frames_behind = (int)s->playback_buffer[0] - s->playback_frame;
+            // TODO keep track of ping, calculate how many frames behind we should be.
+            const int frames_behind_threshold = 60;
+
+            if (frames_behind > frames_behind_threshold) {
+                printf("Control sync behind by %i frames\n", frames_behind);
+                number_of_netguy_physics_updates = 2;
+            }
+            else
+                number_of_netguy_physics_updates = 1;
+        }
+        else
+            SDL_assert(false); // This shouldn't happen (we check and set to -1 in that for loop)
+
+        for (int i = 0; i < number_of_netguy_physics_updates; i++) {
+            if (i > 0) // After the first update, we're doing consecutive ones and we need to "end" the frame.
+                character_post_update(&s->guy2);
+
             controls_pre_update(&s->dummy_controls);
             memset(s->dummy_controls.this_frame, 0, sizeof(s->dummy_controls.this_frame));
 
@@ -508,17 +527,17 @@ void scene_test_update(void* vs, Game* game) {
                 s->controls_buffer_playback += 1;
             }
             s->controls_buffer_playback += 1;
-
             s->playback_frame += 1;
+
+            apply_character_physics(game, &s->guy2, &s->dummy_controls, s->gravity, s->drag);
+            collide_character(&s->guy2, &s->map->tile_collision);
+            slide_character(s->gravity, &s->guy2);
+
             if (s->playback_frame >= s->playback_buffer[0]) {
                 s->playback_frame = -1;
+                break;
             }
         }
-        else {
-            SDL_assert(false); // This shouldn't happen (we check and set to -1 above)
-            s->playback_frame = -1;
-        }
-
     }
     SDL_AtomicSet(&s->playback_locked, false);
 
@@ -528,13 +547,8 @@ void scene_test_update(void* vs, Game* game) {
     slide_character(s->gravity, &s->guy);
     update_character_animation(&s->guy);
 
-    if (should_update_guy2_physics) {
-        apply_character_physics(game, &s->guy2, &s->dummy_controls, s->gravity, s->drag);
-        collide_character(&s->guy2, &s->map->tile_collision);
-        slide_character(s->gravity, &s->guy2);
-    }
-    update_character_animation(&s->guy2);
-
+    for (int i = 0; i < max(1, number_of_netguy_physics_updates); i++)
+        update_character_animation(&s->guy2);
 
     // Follow player with camera
     game->camera_target.x[X] = s->guy.position.x[X] - game->window_width / 2.0f;
@@ -594,8 +608,7 @@ void scene_test_update(void* vs, Game* game) {
 
     // This should happen after all entities are done interacting (riiight at the end of the frame)
     character_post_update(&s->guy);
-    if (should_update_guy2_physics)
-        character_post_update(&s->guy2);
+    character_post_update(&s->guy2);
 
     // Swap to offset viewer on F1 press
     // if (just_pressed(&game->controls, C_F1))
