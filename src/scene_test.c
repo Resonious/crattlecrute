@@ -45,6 +45,7 @@ typedef struct TestScene {
     byte controls_buffer_2[CONTROLS_BUFFER_SIZE];
     int controls_buffer_pos;
     int controls_buffer_playback;
+    const char* dbg_last_action;
 
     struct NetInfo {
         SDL_atomic_t status_message_locked;
@@ -79,10 +80,22 @@ void wait_for_then_use_lock(SDL_atomic_t* lock) {
 #define NETOP_UPDATE_POSITION 10
 #define NETOP_UPDATE_CONTROLS 11
 
+void write_to_buffer(byte* buffer, void* src, int* pos, int size) {
+    memcpy(buffer + *pos, src, size);
+    *pos += size;
+}
+
+void read_from_buffer(byte* buffer, void* dest, int* pos, int size) {
+    memcpy(dest, buffer + *pos, size);
+    *pos += size;
+}
+
 void netop_update_position(TestScene* scene) {
-    memcpy(scene->guy2.position.x, scene->net.buffer + 1, sizeof(scene->guy2.position.x));
-    memcpy(&scene->guy2.flip, scene->net.buffer + 1 + sizeof(scene->guy2.position.x), sizeof(scene->guy2.flip));
-    memcpy(&scene->guy2.body_color, scene->net.buffer + 1 + sizeof(scene->guy2.position.x) + sizeof(scene->guy2.flip), sizeof(SDL_Color) * 3);
+    int pos = 1;
+    read_from_buffer(scene->net.buffer, scene->guy2.position.x, &pos, sizeof(scene->guy2.position.x));
+    memcpy(scene->guy2.old_position.x, scene->guy2.position.x, sizeof(scene->guy2.position.x));
+    read_from_buffer(scene->net.buffer, &scene->guy2.flip, &pos, sizeof(scene->guy2.flip));
+    read_from_buffer(scene->net.buffer, &scene->guy2.body_color, &pos, sizeof(SDL_Color) * 3);
 }
 
 void netop_update_controls(TestScene* scene, int buffer_size) {
@@ -100,10 +113,29 @@ void netop_update_controls(TestScene* scene, int buffer_size) {
     if (scene->playback_frame >= 0) {
         // Append new buffer data to current playback buffer
         int old_buffer_size = scene->playback_buffer_size;
+
+        if ((int)new_playback_buffer[0] + (int)scene->playback_buffer[0] >= 255) {
+            // Truncate old data from playback buffer
+            int frames_remaining = scene->playback_buffer[0] - scene->playback_frame;
+            SDL_assert(frames_remaining > 0);
+            int bytes_remaining = scene->playback_buffer_size - scene->controls_buffer_playback;
+            memmove(scene->playback_buffer + 1, scene->playback_buffer + scene->controls_buffer_playback, bytes_remaining);
+            old_buffer_size = scene->playback_buffer_size = bytes_remaining + 1;
+
+            SDL_assert((int)new_playback_buffer[0] + (int)frames_remaining < 255);
+            scene->playback_buffer[0] = frames_remaining;
+            scene->playback_frame = 0;
+            scene->controls_buffer_playback = 1;
+
+            SDL_assert(scene->playback_buffer_size > scene->playback_buffer[0]);
+        }
+        // Proceed with append
         scene->playback_buffer_size += new_playback_size - 1;
         scene->playback_buffer[0] += new_playback_buffer[0];
         // We keep offsetting new_playback_size by -1 because the first element is the number of frames recorded.
         memcpy(scene->playback_buffer + old_buffer_size, new_playback_buffer + 1, new_playback_size - 1);
+
+        scene->dbg_last_action = "Append";
     }
     else {
         // Set playback buffer and start from the beginning
@@ -111,6 +143,8 @@ void netop_update_controls(TestScene* scene, int buffer_size) {
         scene->controls_buffer_playback = 1;
         scene->playback_buffer_size = new_playback_size;
         memcpy(scene->playback_buffer, new_playback_buffer, new_playback_size);
+
+        scene->dbg_last_action = "Reset";
     }
 
     done: SDL_AtomicSet(&scene->playback_locked, false);
@@ -119,10 +153,11 @@ void netop_update_controls(TestScene* scene, int buffer_size) {
 int netwrite_guy_controls(TestScene* scene) {
     memset(scene->net.buffer, 0, PACKET_SIZE);
     scene->net.buffer[0] = NETOP_UPDATE_CONTROLS;
-    int result;
 
     wait_for_then_use_lock(&scene->controls_locked);
-    if (scene->recording_frame <= 0) {
+    int pos = 1; // For writing
+
+    if (scene->recording_frame < 0) {
         scene->net.buffer[1] = 0;
         SDL_AtomicSet(&scene->controls_locked, false);
         return 2;
@@ -134,7 +169,7 @@ int netwrite_guy_controls(TestScene* scene) {
     byte* buffer_to_copy_over = current_controls_buffer == 1 ?  scene->controls_buffer_1 : scene->controls_buffer_2;
     int new_current_buffer    = current_controls_buffer == 1 ?  2 : 1;
 
-    buffer_to_copy_over[0] = scene->recording_frame;
+    buffer_to_copy_over[0]       = scene->recording_frame;
     int buffer_to_copy_over_size = scene->controls_buffer_pos;
 
     scene->controls_buffer_pos = 1;
@@ -142,22 +177,19 @@ int netwrite_guy_controls(TestScene* scene) {
     SDL_AtomicSet(&scene->current_controls_buffer, new_current_buffer);
     SDL_AtomicSet(&scene->controls_locked, false);
 
-    memcpy(scene->net.buffer + 1, buffer_to_copy_over, buffer_to_copy_over_size);
+    write_to_buffer(scene->net.buffer, buffer_to_copy_over, &pos, buffer_to_copy_over_size);
 
-    return 1 + buffer_to_copy_over_size;
+    return pos;
 }
 
 int netwrite_guy_position(TestScene* scene) {
     memset(scene->net.buffer, 0, PACKET_SIZE);
-    scene->net.buffer[0] = NETOP_UPDATE_POSITION;
+    int pos = 0;
+    scene->net.buffer[pos++] = NETOP_UPDATE_POSITION;
 
-    int pos = 1;
-    memcpy(scene->net.buffer + pos, scene->guy.position.x, sizeof(scene->guy.position.x));
-    pos += sizeof(scene->guy.position.x);
-    memcpy(scene->net.buffer + pos, &scene->guy.flip, sizeof(scene->guy.flip));
-    pos += sizeof(scene->guy.flip);
-    memcpy(scene->net.buffer + pos, &scene->guy.body_color, sizeof(scene->guy.body_color) * 3);
-    pos += sizeof(scene->guy.body_color) * 3;
+    write_to_buffer(scene->net.buffer, scene->guy.position.x, &pos, sizeof(scene->guy.position.x));
+    write_to_buffer(scene->net.buffer, &scene->guy.flip, &pos, sizeof(scene->guy.flip));
+    write_to_buffer(scene->net.buffer, &scene->guy.body_color, &pos, sizeof(scene->guy.body_color) * 3);
     return pos;
 }
 
@@ -422,7 +454,6 @@ void scene_test_initialize(void* vdata, Game* game) {
 void scene_test_update(void* vs, Game* game) {
     TestScene* s = (TestScene*)vs;
 
-    controls_pre_update(&s->dummy_controls);
     // Stupid AI
     /*
     if (game->frame_count % 10 == 0) {
@@ -451,11 +482,11 @@ void scene_test_update(void* vs, Game* game) {
     */
     // Have guy2 playback recorded controls
     bool should_update_guy2_physics = false;
+    wait_for_then_use_lock(&s->playback_locked);
     if (s->playback_frame >= 0) {
-        should_update_guy2_physics = true;
-        wait_for_then_use_lock(&s->playback_locked);
-
         if (s->playback_frame < s->playback_buffer[0]) {
+            should_update_guy2_physics = true;
+            controls_pre_update(&s->dummy_controls);
             memset(s->dummy_controls.this_frame, 0, sizeof(s->dummy_controls.this_frame));
 
             while (s->playback_buffer[s->controls_buffer_playback] != CONTROL_BLOCK_END) {
@@ -471,13 +502,17 @@ void scene_test_update(void* vs, Game* game) {
             s->controls_buffer_playback += 1;
 
             s->playback_frame += 1;
+            if (s->playback_frame >= s->playback_buffer[0]) {
+                s->playback_frame = -1;
+            }
         }
         else {
+            SDL_assert(false); // This shouldn't happen (we check and set to -1 above)
             s->playback_frame = -1;
         }
 
-        SDL_AtomicSet(&s->playback_locked, false);
     }
+    SDL_AtomicSet(&s->playback_locked, false);
 
     // Update characters
     apply_character_physics(game, &s->guy, &game->controls, s->gravity, s->drag);
@@ -551,7 +586,8 @@ void scene_test_update(void* vs, Game* game) {
 
     // This should happen after all entities are done interacting (riiight at the end of the frame)
     character_post_update(&s->guy);
-    character_post_update(&s->guy2);
+    if (should_update_guy2_physics)
+        character_post_update(&s->guy2);
 
     // Swap to offset viewer on F1 press
     // if (just_pressed(&game->controls, C_F1))
