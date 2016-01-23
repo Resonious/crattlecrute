@@ -68,6 +68,9 @@ typedef struct TestScene {
         struct sockaddr_in other_address;
         SDL_atomic_t buffer_locked;
         byte* buffer;
+        // Ping is in frames
+        int ping, ping_counter;
+        SDL_atomic_t network_poke;
     } net;
 } TestScene;
 
@@ -222,6 +225,8 @@ int network_server_loop(void* vdata) {
     while (true) {
         memset(scene->net.buffer, 0, PACKET_SIZE);
 
+        SDL_AtomicSet(&scene->net.network_poke, true);
+
         int other_addr_len = sizeof(scene->net.other_address);
         int recv_len = recvfrom(
             scene->net.local_socket,
@@ -368,6 +373,8 @@ int network_client_loop(void* vdata) {
             );
             break;
         }
+
+        SDL_AtomicSet(&scene->net.network_poke, true);
     }
 
     return 0;
@@ -393,6 +400,9 @@ void scene_test_initialize(void* vdata, Game* game) {
 
     // NETWORKING TIME
     {
+        SDL_AtomicSet(&data->net.network_poke, false);
+        data->net.ping_counter = 0;
+        data->net.ping = 0;
         data->net.status = NOT_CONNECTED;
         SDL_AtomicSet(&data->net.buffer_locked, false);
         SDL_AtomicSet(&data->net.status_message_locked, false);
@@ -462,6 +472,13 @@ void scene_test_initialize(void* vdata, Game* game) {
 void scene_test_update(void* vs, Game* game) {
     TestScene* s = (TestScene*)vs;
 
+    s->net.ping_counter += 1;
+    if (SDL_AtomicGet(&s->net.network_poke)) {
+        s->net.ping = s->net.ping_counter;
+        s->net.ping_counter = 0;
+        SDL_AtomicSet(&s->net.network_poke, false);
+    }
+
     // Stupid AI
     /*
     if (game->frame_count % 10 == 0) {
@@ -497,7 +514,7 @@ void scene_test_update(void* vs, Game* game) {
             // Do 2 frames at a time if we're so many frames behind
             int frames_behind = (int)s->playback_buffer[0] - s->playback_frame;
             // TODO keep track of ping, calculate how many frames behind we should be.
-            const int frames_behind_threshold = 60;
+            const int frames_behind_threshold = s->net.ping + 2;
 
             if (frames_behind > frames_behind_threshold) {
                 printf("Control sync behind by %i frames\n", frames_behind);
@@ -751,6 +768,8 @@ void scene_test_render(void* vs, Game* game) {
         draw_text(game, 10, game->window_height - 50, s->net.status_message);
         SDL_AtomicSet(&s->net.status_message_locked, false);
     }
+
+    draw_text_ex_f(game, game->window_width - 150, game->window_height - 40, -1, 0.7f, "PING: %i", s->net.ping);
 }
 
 void scene_test_cleanup(void* vdata, Game* game) {
