@@ -49,9 +49,7 @@ typedef struct TestScene {
     int playback_pos;
 
     SDL_atomic_t controls_locked;
-    SDL_atomic_t current_controls_buffer;
-    byte controls_buffer_1[CONTROLS_BUFFER_SIZE];
-    byte controls_buffer_2[CONTROLS_BUFFER_SIZE];
+    byte controls_buffer[CONTROLS_BUFFER_SIZE];
     int controls_buffer_pos;
     const char* dbg_last_action;
 
@@ -71,6 +69,11 @@ typedef struct TestScene {
         // Ping is in frames
         int ping, ping_counter;
         SDL_atomic_t network_poke;
+
+        // TODO do something with this or can it I don't care
+        struct NetPlayer {
+            Character guy;
+        } players;
     } net;
 } TestScene;
 
@@ -130,6 +133,7 @@ void netop_update_controls(TestScene* scene, int buffer_size) {
             int frames_remaining = scene->playback_buffer[0] - scene->playback_frame;
             SDL_assert(frames_remaining > 0);
             int bytes_remaining = scene->playback_buffer_size - scene->playback_pos;
+            SDL_assert(bytes_remaining > 0);
             memmove(scene->playback_buffer + 1, scene->playback_buffer + scene->playback_pos, bytes_remaining);
             old_buffer_size = scene->playback_buffer_size = bytes_remaining + 1;
 
@@ -174,21 +178,17 @@ int netwrite_guy_controls(TestScene* scene) {
         return 2;
     }
 
-    int current_controls_buffer = SDL_AtomicGet(&scene->current_controls_buffer);
-    SDL_assert(current_controls_buffer == 1 || current_controls_buffer == 2);
-
-    byte* buffer_to_copy_over = current_controls_buffer == 1 ?  scene->controls_buffer_1 : scene->controls_buffer_2;
-    int new_current_buffer    = current_controls_buffer == 1 ?  2 : 1;
+    byte* buffer_to_copy_over = scene->controls_buffer;
 
     buffer_to_copy_over[0]       = scene->recording_frame;
     int buffer_to_copy_over_size = scene->controls_buffer_pos;
 
     scene->controls_buffer_pos = 1;
     scene->recording_frame = 0;
-    SDL_AtomicSet(&scene->current_controls_buffer, new_current_buffer);
-    SDL_AtomicSet(&scene->controls_locked, false);
 
     write_to_buffer(scene->net.buffer, buffer_to_copy_over, &pos, buffer_to_copy_over_size);
+
+    SDL_AtomicSet(&scene->controls_locked, false);
 
     return pos;
 }
@@ -423,12 +423,10 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->controls_buffer_pos = 0;
     data->playback_pos = 0;
     data->playback_buffer_size = 0;
-    memset(data->playback_buffer,   0, sizeof(data->playback_buffer));
-    memset(data->controls_buffer_1, 0, sizeof(data->controls_buffer_1));
-    memset(data->controls_buffer_2, 0, sizeof(data->controls_buffer_2));
+    memset(data->playback_buffer, 0, sizeof(data->playback_buffer));
+    memset(data->controls_buffer, 0, sizeof(data->controls_buffer));
     SDL_AtomicSet(&data->controls_locked, false);
     SDL_AtomicSet(&data->playback_locked, false);
-    SDL_AtomicSet(&data->current_controls_buffer, 1);
 
     BENCH_START(loading_crattle1);
     default_character_animations(game, &data->guy_view);
@@ -595,11 +593,6 @@ void scene_test_update(void* vs, Game* game) {
 
     // Record controls! FOR NETWORK
     wait_for_then_use_lock(&s->controls_locked);
-    int current_buffer = SDL_AtomicGet(&s->current_controls_buffer);
-    SDL_assert(current_buffer == 1 || current_buffer == 2);
-
-    byte* controls_buffer;
-    controls_buffer = current_buffer == 1 ? s->controls_buffer_1 : s->controls_buffer_2;
 
     /*
     if (just_pressed(&game->controls, C_W)) {
@@ -611,9 +604,9 @@ void scene_test_update(void* vs, Game* game) {
         // record
         for (enum Control ctrl = 0; ctrl < NUM_CONTROLS; ctrl++) {
             if (game->controls.this_frame[ctrl])
-                controls_buffer[s->controls_buffer_pos++] = ctrl;
+                s->controls_buffer[s->controls_buffer_pos++] = ctrl;
         }
-        controls_buffer[s->controls_buffer_pos++] = CONTROL_BLOCK_END;
+        s->controls_buffer[s->controls_buffer_pos++] = CONTROL_BLOCK_END;
         SDL_assert(s->controls_buffer_pos < CONTROLS_BUFFER_SIZE);
 
         s->recording_frame += 1;
