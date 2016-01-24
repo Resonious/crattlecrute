@@ -46,13 +46,13 @@ typedef struct TestScene {
     SDL_atomic_t playback_locked;
     byte playback_buffer[CONTROLS_BUFFER_SIZE];
     int playback_buffer_size;
+    int playback_pos;
 
     SDL_atomic_t controls_locked;
     SDL_atomic_t current_controls_buffer;
     byte controls_buffer_1[CONTROLS_BUFFER_SIZE];
     byte controls_buffer_2[CONTROLS_BUFFER_SIZE];
     int controls_buffer_pos;
-    int controls_buffer_playback;
     const char* dbg_last_action;
 
     struct NetInfo {
@@ -129,14 +129,14 @@ void netop_update_controls(TestScene* scene, int buffer_size) {
             // Truncate old data from playback buffer
             int frames_remaining = scene->playback_buffer[0] - scene->playback_frame;
             SDL_assert(frames_remaining > 0);
-            int bytes_remaining = scene->playback_buffer_size - scene->controls_buffer_playback;
-            memmove(scene->playback_buffer + 1, scene->playback_buffer + scene->controls_buffer_playback, bytes_remaining);
+            int bytes_remaining = scene->playback_buffer_size - scene->playback_pos;
+            memmove(scene->playback_buffer + 1, scene->playback_buffer + scene->playback_pos, bytes_remaining);
             old_buffer_size = scene->playback_buffer_size = bytes_remaining + 1;
 
             SDL_assert((int)new_playback_buffer[0] + (int)frames_remaining < 255);
             scene->playback_buffer[0] = frames_remaining;
             scene->playback_frame = 0;
-            scene->controls_buffer_playback = 1;
+            scene->playback_pos = 1;
 
             SDL_assert(scene->playback_buffer_size > scene->playback_buffer[0]);
         }
@@ -151,7 +151,7 @@ void netop_update_controls(TestScene* scene, int buffer_size) {
     else {
         // Set playback buffer and start from the beginning
         scene->playback_frame = 0;
-        scene->controls_buffer_playback = 1;
+        scene->playback_pos = 1;
         scene->playback_buffer_size = new_playback_size;
         memcpy(scene->playback_buffer, new_playback_buffer, new_playback_size);
 
@@ -397,7 +397,7 @@ void scene_test_initialize(void* vdata, Game* game) {
 
     data->recording_frame = -1;
     data->playback_frame = -1;
-    data->controls_buffer_playback = 1;
+    data->playback_pos = 1;
     data->controls_buffer_pos = 1;
 
     // NETWORKING TIME
@@ -421,7 +421,7 @@ void scene_test_initialize(void* vdata, Game* game) {
     }
 
     data->controls_buffer_pos = 0;
-    data->controls_buffer_playback = 0;
+    data->playback_pos = 0;
     data->playback_buffer_size = 0;
     memset(data->playback_buffer,   0, sizeof(data->playback_buffer));
     memset(data->controls_buffer_1, 0, sizeof(data->controls_buffer_1));
@@ -536,17 +536,17 @@ void scene_test_update(void* vs, Game* game) {
             controls_pre_update(&s->dummy_controls);
             memset(s->dummy_controls.this_frame, 0, sizeof(s->dummy_controls.this_frame));
 
-            while (s->playback_buffer[s->controls_buffer_playback] != CONTROL_BLOCK_END) {
-                SDL_assert(s->controls_buffer_playback < s->playback_buffer_size);
-                SDL_assert(s->playback_buffer[s->controls_buffer_playback] < NUM_CONTROLS);
+            while (s->playback_buffer[s->playback_pos] != CONTROL_BLOCK_END) {
+                SDL_assert(s->playback_pos < s->playback_buffer_size);
+                SDL_assert(s->playback_buffer[s->playback_pos] < NUM_CONTROLS);
 
                 bool* this_frame = s->dummy_controls.this_frame;
-                int control = s->playback_buffer[s->controls_buffer_playback];
+                int control = s->playback_buffer[s->playback_pos];
                 this_frame[control] = true;
 
-                s->controls_buffer_playback += 1;
+                s->playback_pos += 1;
             }
-            s->controls_buffer_playback += 1;
+            s->playback_pos += 1;
             s->playback_frame += 1;
 
             apply_character_physics(game, &s->guy2, &s->dummy_controls, s->gravity, s->drag);
@@ -646,8 +646,7 @@ void scene_test_update(void* vs, Game* game) {
     }
     else {
         if (game->text_edit.canceled) {
-            // This seems maybe unreliable lol... or a little too reliable
-            s->net.status == NOT_CONNECTED; // WTF is this dude did you mean single = ??? doesn't matter for now.
+            s->net.status = NOT_CONNECTED;
         }
         if (game->text_edit.enter_pressed) {
             stop_editing_text(game);
