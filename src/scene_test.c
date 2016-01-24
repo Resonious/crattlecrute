@@ -252,6 +252,7 @@ int network_server_loop(void* vdata) {
             scene->recording_frame = 0;
             scene->controls_buffer_pos = 1;
             SDL_AtomicSet(&scene->controls_locked, false);
+            scene->net.connected = true;
 
             netop_update_position(scene);
             write_func = netwrite_guy_position;
@@ -359,6 +360,7 @@ int network_client_loop(void* vdata) {
         switch (scene->net.buffer[0]) {
         case NETOP_UPDATE_POSITION:
             netop_update_position(scene);
+            scene->net.connected = true;
             break;
         case NETOP_UPDATE_CONTROLS:
             netop_update_controls(scene, recv_len);
@@ -400,6 +402,7 @@ void scene_test_initialize(void* vdata, Game* game) {
 
     // NETWORKING TIME
     {
+        data->net.connected = false;
         SDL_AtomicSet(&data->net.network_poke, false);
         data->net.ping_counter = 0;
         data->net.ping = 0;
@@ -650,11 +653,9 @@ void scene_test_update(void* vs, Game* game) {
             stop_editing_text(game);
             switch (s->net.status) {
             case HOSTING:
-                s->net.connected = true;
                 SDL_CreateThread(network_server_loop, "Network server loop", s);
                 break;
             case JOINING:
-                s->net.connected = true;
                 SDL_CreateThread(network_client_loop, "Network client loop", s);
                 break;
             default:
@@ -762,14 +763,14 @@ void scene_test_render(void* vs, Game* game) {
         draw_text_box(game, &text_box_rect, s->net.textinput_ip_address);
     }
 
-    if (s->net.connected) {
+    if (s->net.status != NOT_CONNECTED) {
         wait_for_then_use_lock(&s->net.status_message_locked);
         set_text_color(game, 100, 50, 255);
         draw_text(game, 10, game->window_height - 50, s->net.status_message);
         SDL_AtomicSet(&s->net.status_message_locked, false);
     }
 
-    draw_text_ex_f(game, game->window_width - 150, game->window_height - 40, -1, 0.7f, "PING: %i", s->net.ping);
+    draw_text_ex_f(game, game->window_width - 150, game->window_height - 40, -1, 0.7f, "Ping: %i", s->net.ping);
 }
 
 void scene_test_cleanup(void* vdata, Game* game) {
