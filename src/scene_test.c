@@ -138,17 +138,18 @@ void netop_update_player(TestScene* scene) {
 
 void netop_update_controls(TestScene* scene) {
     int pos = 1; // [0] is opcode, which we know by now
-    int player_id;
-    read_from_buffer(scene->net.buffer, &player_id, &pos, sizeof(player_id));
+    int player_id = (int)scene->net.buffer[pos++];
 
     RemotePlayer* player = player_of_id(scene, player_id);
+    if (player == NULL)
+        return;
 
     int new_playback_size;
     read_from_buffer(scene->net.buffer, &new_playback_size, &pos, sizeof(new_playback_size));
 
     // At this point, pos should be at the first byte of the playback buffer (# frames)
     // (also new_playback_size would be 0 but keeping it like this for now)
-    if (player == NULL || scene->net.buffer[pos] == 0)
+    if (scene->net.buffer[pos] == 0)
         return;
 
     wait_for_then_use_lock(&player->playback_locked);
@@ -587,6 +588,8 @@ void scene_test_update(void* vs, Game* game) {
     // Have guy2 playback recorded controls
     for (int i = 0; i < s->net.number_of_players; i++) {
         RemotePlayer* plr = s->net.players[i];
+        if (plr == NULL)
+            continue;
 
         int number_of_netguy_physics_updates = 0;
         // TODO skip to the next guy and revisit if locked!
@@ -596,7 +599,6 @@ void scene_test_update(void* vs, Game* game) {
             if (plr->playback_frame < plr->playback_buffer[0]) {
                 // Do 2 frames at a time if we're so many frames behind
                 int frames_behind = (int)plr->playback_buffer[0] - plr->playback_frame;
-                // TODO keep track of ping, calculate how many frames behind we should be.
                 const int frames_behind_threshold = s->net.ping + 2;
 
                 if (frames_behind > frames_behind_threshold) {
