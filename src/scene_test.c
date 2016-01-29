@@ -29,17 +29,21 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 #define PACKET_SIZE 500
 #define CONTROLS_BUFFER_SIZE (255 * NUM_CONTROLS)
 
+typedef struct ControlsBuffer {
+    SDL_atomic_t locked;
+    int current_frame;
+    int size;
+    int pos;
+    byte bytes[CONTROLS_BUFFER_SIZE];
+} ControlsBuffer;
+
 typedef struct RemotePlayer {
     int id;
     Controls controls;
     Character guy;
     int number_of_physics_updates_this_frame;
 
-    int playback_frame;
-    SDL_atomic_t playback_locked;
-    int playback_buffer_size;
-    int playback_pos;
-    byte playback_buffer[CONTROLS_BUFFER_SIZE];
+    ControlsBuffer controls_playback;
 } RemotePlayer;
 
 typedef struct TestScene {
@@ -52,10 +56,7 @@ typedef struct TestScene {
     Map* map;
     char editable_text[EDITABLE_TEXT_BUFFER_SIZE];
 
-    int recording_frame;
-    SDL_atomic_t controls_locked;
-    byte controls_buffer[CONTROLS_BUFFER_SIZE];
-    int controls_buffer_pos;
+    ControlsBuffer controls_stream;
     const char* dbg_last_action;
 
     struct NetInfo {
@@ -136,13 +137,13 @@ void netop_update_player(TestScene* scene) {
     read_from_buffer(scene->net.buffer, &player->guy.body_color, &pos, sizeof(SDL_Color) * 3);
 }
 
-void netop_update_controls(TestScene* scene) {
+int netop_update_controls(TestScene* scene) {
     int pos = 1; // [0] is opcode, which we know by now
     int player_id = (int)scene->net.buffer[pos++];
 
     RemotePlayer* player = player_of_id(scene, player_id);
     if (player == NULL)
-        return;
+        return player_id;
 
     int new_playback_size;
     read_from_buffer(scene->net.buffer, &new_playback_size, &pos, sizeof(new_playback_size));
@@ -150,50 +151,52 @@ void netop_update_controls(TestScene* scene) {
     // At this point, pos should be at the first byte of the playback buffer (# frames)
     // (also new_playback_size would be 0 but keeping it like this for now)
     if (scene->net.buffer[pos] == 0)
-        return;
+        return player_id;
 
-    wait_for_then_use_lock(&player->playback_locked);
+    wait_for_then_use_lock(&player->controls_playback.locked);
     byte* new_playback_buffer = scene->net.buffer + pos;
 
-    if (player->playback_frame >= 0) {
+    if (player->controls_playback.current_frame >= 0) {
         // Append new buffer data to current playback buffer
-        int old_buffer_size = player->playback_buffer_size;
+        int old_buffer_size = player->controls_playback.size;
 
-        if ((int)new_playback_buffer[0] + (int)player->playback_buffer[0] >= 255) {
+        if ((int)new_playback_buffer[0] + (int)player->controls_playback.bytes[0] >= 255) {
             // Truncate old data from playback buffer
-            int frames_remaining = player->playback_buffer[0] - player->playback_frame;
+            int frames_remaining = player->controls_playback.bytes[0] - player->controls_playback.current_frame;
             SDL_assert(frames_remaining > 0);
-            int bytes_remaining = player->playback_buffer_size - player->playback_pos;
+            int bytes_remaining = player->controls_playback.size - player->controls_playback.pos;
             SDL_assert(bytes_remaining > 0);
-            memmove(player->playback_buffer + 1, player->playback_buffer + player->playback_pos, bytes_remaining);
-            old_buffer_size = player->playback_buffer_size = bytes_remaining + 1;
+            memmove(player->controls_playback.bytes + 1, player->controls_playback.bytes + player->controls_playback.pos, bytes_remaining);
+            old_buffer_size = player->controls_playback.size = bytes_remaining + 1;
 
             SDL_assert((int)new_playback_buffer[0] + (int)frames_remaining < 255);
-            player->playback_buffer[0] = frames_remaining;
-            player->playback_frame = 0;
-            player->playback_pos = 1;
+            player->controls_playback.bytes[0] = frames_remaining;
+            player->controls_playback.current_frame = 0;
+            player->controls_playback.pos = 1;
 
-            SDL_assert(player->playback_buffer_size > player->playback_buffer[0]);
+            SDL_assert(player->controls_playback.size > player->controls_playback.bytes[0]);
         }
         // Proceed with append
-        player->playback_buffer_size += new_playback_size - 1;
-        player->playback_buffer[0] += new_playback_buffer[0];
+        player->controls_playback.size += new_playback_size - 1;
+        player->controls_playback.bytes[0] += new_playback_buffer[0];
         // We keep offsetting new_playback_size by -1 because the first element is the number of frames recorded.
-        memcpy(player->playback_buffer + old_buffer_size, new_playback_buffer + 1, new_playback_size - 1);
+        memcpy(player->controls_playback.bytes + old_buffer_size, new_playback_buffer + 1, new_playback_size - 1);
 
         scene->dbg_last_action = "Append";
     }
     else {
         // Set playback buffer and start from the beginning
-        player->playback_frame = 0;
-        player->playback_pos = 1;
-        player->playback_buffer_size = new_playback_size;
-        memcpy(player->playback_buffer, new_playback_buffer, new_playback_size);
+        player->controls_playback.current_frame = 0;
+        player->controls_playback.pos = 1;
+        player->controls_playback.size = new_playback_size;
+        memcpy(player->controls_playback.bytes, new_playback_buffer, new_playback_size);
 
         scene->dbg_last_action = "Reset";
     }
 
-    SDL_AtomicSet(&player->playback_locked, false);
+    SDL_AtomicSet(&player->controls_playback.locked, false);
+
+    return player_id;
 }
 
 int netwrite_guy_controls(TestScene* scene) {
@@ -202,27 +205,27 @@ int netwrite_guy_controls(TestScene* scene) {
     scene->net.buffer[pos++] = NETOP_UPDATE_CONTROLS;
     scene->net.buffer[pos++] = scene->net.remote_id;
 
-    if (scene->recording_frame < 0) {
+    if (scene->controls_stream.current_frame < 0) {
         int zero = 0;
         write_to_buffer(scene->net.buffer, &zero, &pos, sizeof(zero));
         scene->net.buffer[pos++] = 0;
         return pos;
     }
 
-    wait_for_then_use_lock(&scene->controls_locked);
+    wait_for_then_use_lock(&scene->controls_stream.locked);
 
-    byte* buffer_to_copy_over = scene->controls_buffer;
+    byte* buffer_to_copy_over = scene->controls_stream.bytes;
 
-    buffer_to_copy_over[0]       = scene->recording_frame;
-    int buffer_to_copy_over_size = scene->controls_buffer_pos;
+    buffer_to_copy_over[0]       = scene->controls_stream.current_frame;
+    int buffer_to_copy_over_size = scene->controls_stream.pos;
 
-    scene->controls_buffer_pos = 1;
-    scene->recording_frame = 0;
+    scene->controls_stream.pos = 1;
+    scene->controls_stream.current_frame = 0;
 
     write_to_buffer(scene->net.buffer, &buffer_to_copy_over_size, &pos, sizeof(buffer_to_copy_over_size));
     write_to_buffer(scene->net.buffer, buffer_to_copy_over, &pos, buffer_to_copy_over_size);
 
-    SDL_AtomicSet(&scene->controls_locked, false);
+    SDL_AtomicSet(&scene->controls_stream.locked, false);
 
     return pos;
 }
@@ -256,12 +259,12 @@ RemotePlayer* allocate_new_player(int id) {
     SDL_memset(&new_player->controls, 0, sizeof(Controls));
 
     // PLAYBACK_SHIT
-    new_player->playback_pos = 0;
-    new_player->playback_buffer_size = 0;
-    memset(new_player->playback_buffer, 0, sizeof(new_player->playback_buffer));
-    SDL_AtomicSet(&new_player->playback_locked, false);
-    new_player->playback_frame = -1;
-    new_player->playback_pos = 1;
+    new_player->controls_playback.pos = 0;
+    new_player->controls_playback.size = 0;
+    memset(new_player->controls_playback.bytes, 0, sizeof(new_player->controls_playback.bytes));
+    SDL_AtomicSet(&new_player->controls_playback.locked, false);
+    new_player->controls_playback.current_frame = -1;
+    new_player->controls_playback.pos = 1;
 
     return new_player;
 }
@@ -327,17 +330,17 @@ int network_server_loop(void* vdata) {
             for (int i = 0; i < s->net.number_of_players; i++) {
                 RemotePlayer* plr = s->net.players[i];
                 */
-            wait_for_then_use_lock(&scene->controls_locked);
-            scene->recording_frame = 0;
-            scene->controls_buffer_pos = 1;
-            SDL_AtomicSet(&scene->controls_locked, false);
+            wait_for_then_use_lock(&scene->controls_stream.locked);
+            scene->controls_stream.current_frame = 0;
+            scene->controls_stream.pos = 1;
+            SDL_AtomicSet(&scene->controls_stream.locked, false);
             scene->net.connected = true;
 
             netop_update_player(scene);
             bytes_wrote = netwrite_guy_position(scene);
             break;
         case NETOP_UPDATE_CONTROLS:
-            netop_update_controls(scene, recv_len);
+            netop_update_controls(scene);
             bytes_wrote = netwrite_guy_controls(scene);
             break;
         default:
@@ -354,7 +357,7 @@ int network_server_loop(void* vdata) {
                 0,
                 (struct sockaddr*)&scene->net.other_address,
                 sizeof(scene->net.other_address)
-                );
+            );
         }
     }
 
@@ -386,10 +389,10 @@ int network_client_loop(void* vdata) {
         // CLIENT
         if (scene->net.remote_id == -1) {
             // Start updating controls, then send over the ID request.
-            wait_for_then_use_lock(&scene->controls_locked);
-            scene->recording_frame = 0;
-            scene->controls_buffer_pos = 1;
-            SDL_AtomicSet(&scene->controls_locked, false);
+            wait_for_then_use_lock(&scene->controls_stream.locked);
+            scene->controls_stream.current_frame = 0;
+            scene->controls_stream.pos = 1;
+            SDL_AtomicSet(&scene->controls_stream.locked, false);
 
             scene->net.buffer[0] = NETOP_WANT_ID;
             send_result = send(
@@ -449,12 +452,13 @@ int network_client_loop(void* vdata) {
             scene->net.connected = true;
             // Allocate server player for when netop_update_player comes in.
             scene->net.players[scene->net.number_of_players++] = allocate_new_player(0);
+            SET_LOCKED_STRING_F(scene->net.status_message, "Client ID: %i", scene->net.remote_id);
             break;
         case NETOP_UPDATE_PLAYER:
             netop_update_player(scene);
             break;
         case NETOP_UPDATE_CONTROLS:
-            netop_update_controls(scene, recv_len);
+            netop_update_controls(scene);
             break;
         default:
             SET_LOCKED_STRING_F(
@@ -484,8 +488,8 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->gravity = 1.15f; // In pixels per frame per frame
     data->drag = 0.025f; // Again p/s^2
 
-    data->recording_frame = -1;
-    data->controls_buffer_pos = 1;
+    data->controls_stream.current_frame = -1;
+    data->controls_stream.pos = 1;
 
     // NETWORKING TIME
     {
@@ -511,9 +515,9 @@ void scene_test_initialize(void* vdata, Game* game) {
         SDL_assert(data->net.local_socket != SOCKET_ERROR);
     }
 
-    data->controls_buffer_pos = 0;
-    memset(data->controls_buffer, 0, sizeof(data->controls_buffer));
-    SDL_AtomicSet(&data->controls_locked, false);
+    data->controls_stream.pos = 0;
+    memset(data->controls_stream.bytes, 0, sizeof(data->controls_stream.bytes));
+    SDL_AtomicSet(&data->controls_stream.locked, false);
 
     BENCH_START(loading_crattle1);
     default_character_animations(game, &data->guy_view);
@@ -593,12 +597,12 @@ void scene_test_update(void* vs, Game* game) {
 
         int number_of_netguy_physics_updates = 0;
         // TODO skip to the next guy and revisit if locked!
-        wait_for_then_use_lock(&plr->playback_locked);
+        wait_for_then_use_lock(&plr->controls_playback.locked);
 
-        if (plr->playback_frame >= 0) {
-            if (plr->playback_frame < plr->playback_buffer[0]) {
+        if (plr->controls_playback.current_frame >= 0) {
+            if (plr->controls_playback.current_frame < plr->controls_playback.bytes[0]) {
                 // Do 2 frames at a time if we're so many frames behind
-                int frames_behind = (int)plr->playback_buffer[0] - plr->playback_frame;
+                int frames_behind = (int)plr->controls_playback.bytes[0] - plr->controls_playback.current_frame;
                 const int frames_behind_threshold = s->net.ping + 2;
 
                 if (frames_behind > frames_behind_threshold) {
@@ -618,30 +622,30 @@ void scene_test_update(void* vs, Game* game) {
                 controls_pre_update(&plr->controls);
                 memset(plr->controls.this_frame, 0, sizeof(plr->controls.this_frame));
 
-                while (plr->playback_buffer[plr->playback_pos] != CONTROL_BLOCK_END) {
-                    SDL_assert(plr->playback_pos < plr->playback_buffer_size);
-                    SDL_assert(plr->playback_buffer[plr->playback_pos] < NUM_CONTROLS);
+                while (plr->controls_playback.bytes[plr->controls_playback.pos] != CONTROL_BLOCK_END) {
+                    SDL_assert(plr->controls_playback.pos < plr->controls_playback.size);
+                    SDL_assert(plr->controls_playback.bytes[plr->controls_playback.pos] < NUM_CONTROLS);
 
                     bool* this_frame = plr->controls.this_frame;
-                    int control = plr->playback_buffer[plr->playback_pos];
+                    int control = plr->controls_playback.bytes[plr->controls_playback.pos];
                     this_frame[control] = true;
 
-                    plr->playback_pos += 1;
+                    plr->controls_playback.pos += 1;
                 }
-                plr->playback_pos += 1;
-                plr->playback_frame += 1;
+                plr->controls_playback.pos += 1;
+                plr->controls_playback.current_frame += 1;
 
                 apply_character_physics(game, &plr->guy, &plr->controls, s->gravity, s->drag);
                 collide_character(&plr->guy, &s->map->tile_collision);
                 slide_character(s->gravity, &plr->guy);
 
-                if (plr->playback_frame >= plr->playback_buffer[0]) {
-                    plr->playback_frame = -1;
+                if (plr->controls_playback.current_frame >= plr->controls_playback.bytes[0]) {
+                    plr->controls_playback.current_frame = -1;
                     break;
                 }
             }
         }
-        SDL_AtomicSet(&plr->playback_locked, false);
+        SDL_AtomicSet(&plr->controls_playback.locked, false);
 
         for (int i = 0; i < max(1, number_of_netguy_physics_updates); i++)
             update_character_animation(&plr->guy);
@@ -677,29 +681,29 @@ void scene_test_update(void* vs, Game* game) {
         game->camera.x[Y] = game->camera_target.x[Y];
 
     // Record controls! FOR NETWORK
-    wait_for_then_use_lock(&s->controls_locked);
+    wait_for_then_use_lock(&s->controls_stream.locked);
 
     /*
     if (just_pressed(&game->controls, C_W)) {
-        s->recording_frame = -1;
+        s->controls_stream.current_frame = -1;
         s->playback_frame  = -1;
     }
     */
-    if (s->recording_frame >= 0) {
+    if (s->controls_stream.current_frame >= 0) {
         // record
         for (enum Control ctrl = 0; ctrl < NUM_CONTROLS; ctrl++) {
             if (game->controls.this_frame[ctrl])
-                s->controls_buffer[s->controls_buffer_pos++] = ctrl;
+                s->controls_stream.bytes[s->controls_stream.pos++] = ctrl;
         }
-        s->controls_buffer[s->controls_buffer_pos++] = CONTROL_BLOCK_END;
-        SDL_assert(s->controls_buffer_pos < CONTROLS_BUFFER_SIZE);
+        s->controls_stream.bytes[s->controls_stream.pos++] = CONTROL_BLOCK_END;
+        SDL_assert(s->controls_stream.pos < CONTROLS_BUFFER_SIZE);
 
-        s->recording_frame += 1;
+        s->controls_stream.current_frame += 1;
     }
-    else if (s->recording_frame < -1) {
-        s->recording_frame += 1;
+    else if (s->controls_stream.current_frame < -1) {
+        s->controls_stream.current_frame += 1;
     }
-    SDL_AtomicSet(&s->controls_locked, false);
+    SDL_AtomicSet(&s->controls_stream.locked, false);
 
     // This should happen after all entities are done interacting (riiight at the end of the frame)
     character_post_update(&s->guy);
@@ -809,12 +813,12 @@ void scene_test_render(void* vs, Game* game) {
     {
         char* text = NULL;
         int num = 0;
-        if (s->recording_frame >= 0) {
+        if (s->controls_stream.current_frame >= 0) {
             set_text_color(game, 255, 0, 0);
             text = "Recording (%i)";
-            num = s->recording_frame;
+            num = s->controls_stream.current_frame;
         }
-        else if (s->recording_frame < -1) {
+        else if (s->controls_stream.current_frame < -1) {
             set_text_color(game, 50, 255, 50);
             text = "Done!";
         }
