@@ -28,6 +28,7 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 #define EDITABLE_TEXT_BUFFER_SIZE 255
 #define PACKET_SIZE 500
 #define CONTROLS_BUFFER_SIZE (255 * NUM_CONTROLS)
+#define MAX_PLAYERS 20
 
 typedef struct ControlsBuffer {
     SDL_atomic_t locked;
@@ -83,7 +84,7 @@ typedef struct TestScene {
 
         // Array of malloced RemotePlayers
         int number_of_players;
-        RemotePlayer* players[20];
+        RemotePlayer* players[MAX_PLAYERS];
     } net;
 } TestScene;
 
@@ -125,17 +126,16 @@ int truncate_controls_buffer(ControlsBuffer* buffer, int to_frame, int to_pos) {
     int bytes_remaining = buffer->size - buffer->pos;
     if (bytes_remaining <= 0)
         return 0;
-    SDL_assert(to_pos < bytes_remaining);
+    SDL_assert(to_pos <= bytes_remaining);
 
     memmove(buffer->bytes + to_pos, buffer->bytes + buffer->pos, bytes_remaining);
-    int new_size = buffer->size = bytes_remaining + to_pos;
+    buffer->size = bytes_remaining + to_pos;
 
-    // SDL_assert((int)new_playback_buffer[0] + (int)frames_remaining < 255);
     buffer->bytes[0] = frames_remaining;
     buffer->current_frame = to_frame;
     buffer->pos = to_pos;
 
-    return new_size;
+    return buffer->size;
 }
 
 RemotePlayer* player_of_id(TestScene* scene, int id, struct sockaddr_in* addr) {
@@ -188,7 +188,11 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
     wait_for_then_use_lock(&player->controls_playback.locked);
     byte* new_playback_buffer = scene->net.buffer + pos;
 
-    if (player->controls_playback.current_frame >= 0) {
+    if (
+        player->controls_playback.current_frame >= 0                             &&
+        player->controls_playback.pos           < player->controls_playback.size &&
+        player->controls_playback.current_frame < player->controls_playback.bytes[0]
+    ) {
         // Append new buffer data to current playback buffer
         int old_buffer_size = player->controls_playback.size;
 
@@ -197,14 +201,15 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
             old_buffer_size = truncate_controls_buffer(&player->controls_playback, 0, 1);
 
             SDL_assert(player->controls_playback.size > player->controls_playback.bytes[0]);
+            scene->dbg_last_action = "Truncate";
         }
+        else
+            scene->dbg_last_action = "Append";
         // Proceed with append
         player->controls_playback.size += new_playback_size - 1;
         player->controls_playback.bytes[0] += new_playback_buffer[0];
         // We keep offsetting new_playback_size by -1 because the first element is the number of frames recorded.
         memcpy(player->controls_playback.bytes + old_buffer_size, new_playback_buffer + 1, new_playback_size - 1);
-
-        scene->dbg_last_action = "Append";
     }
     else {
         // Set playback buffer and start from the beginning
@@ -651,7 +656,7 @@ void scene_test_update(void* vs, Game* game) {
         c[C_UP] = s->guy2.jumped || PERCENT_CHANCE(20);
     }
     */
-    // Have guy2 playback recorded controls
+    // Have net players playback controls
     for (int i = 0; i < s->net.number_of_players; i++) {
         RemotePlayer* plr = s->net.players[i];
         if (plr == NULL)
@@ -661,8 +666,12 @@ void scene_test_update(void* vs, Game* game) {
         // TODO skip to the next guy and revisit if locked!
         wait_for_then_use_lock(&plr->controls_playback.locked);
 
-        if (plr->controls_playback.current_frame >= 0) {
-            if (plr->controls_playback.current_frame < plr->controls_playback.bytes[0]) {
+        if (
+            plr->controls_playback.current_frame >= 0                          &&
+            plr->controls_playback.pos           < plr->controls_playback.size &&
+            plr->controls_playback.current_frame < plr->controls_playback.bytes[0]
+        ) {
+            if (true /*plr->controls_playback.current_frame < plr->controls_playback.bytes[0]*/) {
                 // Do 2 frames at a time if we're so many frames behind
                 int frames_behind = (int)plr->controls_playback.bytes[0] - plr->controls_playback.current_frame;
                 const int frames_behind_threshold = s->net.ping * 2;
@@ -674,8 +683,6 @@ void scene_test_update(void* vs, Game* game) {
                 else
                     number_of_netguy_physics_updates = 1;
             }
-            else
-                SDL_assert(false); // This shouldn't happen (we check and set to -1 in that for loop)
 
             for (int i = 0; i < number_of_netguy_physics_updates; i++) {
                 if (i > 0) // After the first update, we're doing consecutive ones and we need to "end" the frame.
@@ -694,6 +701,7 @@ void scene_test_update(void* vs, Game* game) {
 
                     plr->controls_playback.pos += 1;
                 }
+                // pos is now on that last CONTROL_BLOCK_END
                 plr->controls_playback.pos += 1;
                 plr->controls_playback.current_frame += 1;
 
@@ -702,7 +710,8 @@ void scene_test_update(void* vs, Game* game) {
                 slide_character(s->gravity, &plr->guy);
 
                 if (plr->controls_playback.current_frame >= plr->controls_playback.bytes[0]) {
-                    plr->controls_playback.current_frame = -1;
+                    SDL_assert(plr->controls_playback.pos == plr->controls_playback.size);
+                    // plr->controls_playback.current_frame = -1;
                     break;
                 }
             }
@@ -764,6 +773,7 @@ void scene_test_update(void* vs, Game* game) {
                 s->controls_stream.pos = 1;
             }
             else {
+                // ==== Truncate the controls stream such that the lowest remote-player position is 0 ====
                 int lowest_frame = 255;
                 int lowest_pos = PACKET_SIZE;
                 for (int i = 0; i < s->net.number_of_players; i++) {
