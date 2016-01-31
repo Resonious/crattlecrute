@@ -107,6 +107,7 @@ void wait_for_then_use_lock(SDL_atomic_t* lock) {
 #define NETOP_UPDATE_CONTROLS 11
 
 void write_to_buffer(byte* buffer, void* src, int* pos, int size) {
+    SDL_assert(size >= 0);
     memcpy(buffer + *pos, src, size);
     *pos += size;
 }
@@ -117,23 +118,24 @@ void read_from_buffer(byte* buffer, void* dest, int* pos, int size) {
 }
 
 int truncate_controls_buffer(ControlsBuffer* buffer, int to_frame, int to_pos) {
-    SDL_assert(to_pos != 0 /*0 is reserved for # frames identifier :(*/);
+    SDL_assert(to_pos > 0 /*0 is reserved for # frames identifier :(*/);
     int frames_remaining = buffer->bytes[0] - buffer->current_frame;
-    SDL_assert(frames_remaining > 0);
-    SDL_assert(to_frame < frames_remaining);
+    SDL_assert(frames_remaining >= 0);
+    SDL_assert(to_frame <= frames_remaining);
     int bytes_remaining = buffer->size - buffer->pos;
-    SDL_assert(bytes_remaining > 0);
+    if (bytes_remaining <= 0)
+        return 0;
     SDL_assert(to_pos < bytes_remaining);
 
     memmove(buffer->bytes + to_pos, buffer->bytes + buffer->pos, bytes_remaining);
-    int old_buffer_size = buffer->size = bytes_remaining + to_pos;
+    int new_size = buffer->size = bytes_remaining + to_pos;
 
     // SDL_assert((int)new_playback_buffer[0] + (int)frames_remaining < 255);
     buffer->bytes[0] = frames_remaining;
     buffer->current_frame = to_frame;
     buffer->pos = to_pos;
 
-    return old_buffer_size;
+    return new_size;
 }
 
 RemotePlayer* player_of_id(TestScene* scene, int id, struct sockaddr_in* addr) {
@@ -175,6 +177,7 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
         return NULL;
 
     int new_playback_size;
+    SDL_assert(new_playback_size >= 0);
     read_from_buffer(scene->net.buffer, &new_playback_size, &pos, sizeof(new_playback_size));
 
     // At this point, pos should be at the first byte of the playback buffer (# frames)
@@ -238,20 +241,24 @@ int netwrite_guy_controls(TestScene* scene, RemotePlayer* target_player) {
     int buffer_to_copy_over_size;
 
     if (target_player) {
+        wait_for_then_use_lock(&target_player->controls_playback.locked);
         buffer_to_copy_over      = scene->controls_stream.bytes + target_player->position_in_local_controls_stream;
         buffer_to_copy_over_size = scene->controls_stream.pos - target_player->position_in_local_controls_stream;
         int actual_size = buffer_to_copy_over_size + 1;
 
+        SDL_assert(buffer_to_copy_over_size >= 0);
         SDL_assert(buffer_to_copy_over_size < PACKET_SIZE);
 
         write_to_buffer(scene->net.buffer, &actual_size, &pos, sizeof(actual_size));
         int original_pos = pos;
         pos += 1;
-        write_to_buffer(scene->net.buffer, &buffer_to_copy_over_size, &pos, sizeof(buffer_to_copy_over_size));
-        scene->net.buffer[original_pos] = target_player->frame_in_local_controls_stream;
+        write_to_buffer(scene->net.buffer, buffer_to_copy_over, &pos, buffer_to_copy_over_size);
+        scene->net.buffer[original_pos] = scene->controls_stream.current_frame - target_player->frame_in_local_controls_stream;
+        SDL_assert(scene->net.buffer[original_pos] >= 0);
 
         target_player->position_in_local_controls_stream = scene->controls_stream.pos;
         target_player->frame_in_local_controls_stream    = scene->controls_stream.current_frame;
+        SDL_AtomicSet(&target_player->controls_playback.locked, false);
     }
     else {
         buffer_to_copy_over      = scene->controls_stream.bytes;
@@ -337,6 +344,11 @@ int network_server_loop(void* vdata) {
 
     struct sockaddr_in other_address;
 
+    wait_for_then_use_lock(&scene->controls_stream.locked);
+    scene->controls_stream.current_frame = 0;
+    scene->controls_stream.pos = 1;
+    SDL_AtomicSet(&scene->controls_stream.locked, false);
+
     // NOTE do not exit this scene after initializing network lol
     while (true) {
         memset(scene->net.buffer, 0, PACKET_SIZE);
@@ -381,12 +393,6 @@ int network_server_loop(void* vdata) {
                 */
             scene->net.connected = true;
 
-            // TODO move this shit outside!!! NETOP_UPDATE_PLAYER will show up multiple times!
-        wait_for_then_use_lock(&scene->controls_stream.locked);
-        scene->controls_stream.current_frame = 0;
-        scene->controls_stream.pos = 1;
-        SDL_AtomicSet(&scene->controls_stream.locked, false);
-
             RemotePlayer* player = netop_update_player(scene, &other_address);
             player->position_in_local_controls_stream = scene->controls_stream.pos;
             player->frame_in_local_controls_stream    = scene->controls_stream.current_frame;
@@ -394,8 +400,8 @@ int network_server_loop(void* vdata) {
             break;
         case NETOP_UPDATE_CONTROLS: {
             RemotePlayer* player = netop_update_controls(scene, &other_address);
-            // TODO pass player if it's not NULL here - keeping like this to ensure I factor out the truncation shit
-            bytes_wrote = netwrite_guy_controls(scene, NULL);
+            if (player)
+                bytes_wrote = netwrite_guy_controls(scene, player);
         } break;
         default:
             SDL_assert(!"Hey what's this? Unknown packet.");
@@ -739,12 +745,6 @@ void scene_test_update(void* vs, Game* game) {
     // Record controls! FOR NETWORK
     wait_for_then_use_lock(&s->controls_stream.locked);
 
-    /*
-    if (just_pressed(&game->controls, C_W)) {
-        s->controls_stream.current_frame = -1;
-        s->playback_frame  = -1;
-    }
-    */
     if (s->controls_stream.current_frame >= 0) {
         // record
         for (enum Control ctrl = 0; ctrl < NUM_CONTROLS; ctrl++) {
@@ -755,8 +755,61 @@ void scene_test_update(void* vs, Game* game) {
         SDL_assert(s->controls_stream.pos < CONTROLS_BUFFER_SIZE);
 
         s->controls_stream.current_frame += 1;
+
+        if (s->controls_stream.current_frame >= 255) {
+            SDL_assert(s->net.status == HOSTING); // TODO OTHERWISE THIS MEANS SERVER CRASHED!
+
+            if (s->net.number_of_players == 0) {
+                s->controls_stream.current_frame = 0;
+                s->controls_stream.pos = 1;
+            }
+            else {
+                int lowest_frame = 255;
+                int lowest_pos = PACKET_SIZE;
+                for (int i = 0; i < s->net.number_of_players; i++) {
+                    RemotePlayer* player = s->net.players[i];
+                    if (player != NULL) {
+                        // TODO I don't think this lock is necessary - these fields are only accessed when controls_stream is locked, which it is.
+                        wait_for_then_use_lock(&player->controls_playback.locked);
+                        if (player->frame_in_local_controls_stream < lowest_frame && player->frame_in_local_controls_stream >= 0) {
+                            lowest_frame = player->frame_in_local_controls_stream;
+                            lowest_pos   = player->position_in_local_controls_stream;
+                        }
+                    }
+                }
+
+                int frame_difference = s->controls_stream.current_frame - lowest_frame;
+                int pos_difference   = s->controls_stream.pos - lowest_pos;
+                int original_position = s->controls_stream.pos;
+                int original_frame    = s->controls_stream.current_frame;
+
+                memmove(s->controls_stream.bytes + 1, s->controls_stream.bytes + lowest_pos, pos_difference);
+
+                s->controls_stream.current_frame = frame_difference;
+                s->controls_stream.pos           = pos_difference + 1;
+                SDL_assert(s->controls_stream.bytes[s->controls_stream.pos - 1] == CONTROL_BLOCK_END);
+
+                int change_in_position = original_position - s->controls_stream.pos;
+                int change_in_frame    = original_frame - s->controls_stream.current_frame;
+
+                for (int i = 0; i < s->net.number_of_players; i++) {
+                    RemotePlayer* player = s->net.players[i];
+                    if (player != NULL) {
+                        if (player->frame_in_local_controls_stream >= 0) {
+                            player->frame_in_local_controls_stream -= change_in_frame;
+                            player->position_in_local_controls_stream -= change_in_position;
+                            SDL_assert(player->frame_in_local_controls_stream >= 0);
+                            SDL_assert(player->position_in_local_controls_stream > 0);
+                        }
+                        SDL_AtomicSet(&player->controls_playback.locked, false);
+                    }
+                }
+            }
+        }
     }
     else if (s->controls_stream.current_frame < -1) {
+        // NOTE this was from displaying the old "Recording complete!" message.
+        // Can remove probably.
         s->controls_stream.current_frame += 1;
     }
     SDL_AtomicSet(&s->controls_stream.locked, false);
