@@ -5,7 +5,7 @@ def debug_flags
       # TODO benchmark/compare O2 and O3 performance
       '-O2 -DNDEBUG'
     else
-      '-g -O0 -D_DEBUG'
+      '-g -O0 -D_DEBUG -DDRAW_FPS'
     end
 end
 
