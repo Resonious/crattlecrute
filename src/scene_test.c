@@ -53,6 +53,7 @@ typedef struct RemotePlayer {
     // NOTE this IS indexed by player ID - scene.net.players is not.
     ControlsBufferSpot stream_spots_of[MAX_PLAYERS];
     struct sockaddr_in address;
+    SDL_atomic_t poke;
 
     ControlsBuffer controls_playback;
 } RemotePlayer;
@@ -87,7 +88,6 @@ typedef struct TestScene {
         byte* buffer;
         // Ping is in frames
         int ping, ping_counter;
-        SDL_atomic_t network_poke;
 
         // Array of malloced RemotePlayers
         int number_of_players;
@@ -147,8 +147,15 @@ int simple_truncate_controls_buffer(ControlsBuffer* buffer, int to_frame, int to
 struct BufferChanges {
     int change_in_position, change_in_frame;
 } truncate_controls_buffer(ControlsBuffer* buffer, int zero_frame, int zero_pos) {
-    if (zero_pos < 1 || zero_pos > buffer->pos)               zero_pos = 1;
-    if (zero_frame < 0 || zero_frame > buffer->current_frame) zero_frame = 0;
+    if (zero_pos < 1)
+        zero_pos = 1;
+    else if (zero_pos > buffer->pos)
+        zero_pos = buffer->pos;
+
+    if (zero_frame < 0)
+        zero_frame = 0;
+    else if (zero_frame > buffer->current_frame)
+        zero_frame = buffer->current_frame;
 
     int frame_difference = buffer->current_frame - zero_frame;
     int pos_difference   = buffer->pos - zero_pos;
@@ -161,6 +168,7 @@ struct BufferChanges {
 
     buffer->current_frame = frame_difference;
     buffer->pos           = pos_difference + 1;
+    // buffer->size         -= pos_difference;
     // SDL_assert(buffer->bytes[buffer->pos - 1] == CONTROL_BLOCK_END);
 
     struct BufferChanges change = {
@@ -284,8 +292,8 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
     byte* new_playback_buffer = scene->net.buffer + pos;
 
     if (
-        player->controls_playback.current_frame >= 0                             &&
-        player->controls_playback.pos           < player->controls_playback.size &&
+        player->controls_playback.current_frame >= 0 &&
+        player->controls_playback.pos < player->controls_playback.size &&
         player->controls_playback.current_frame < player->controls_playback.bytes[0]
     ) {
         // Append new buffer data to current playback buffer
@@ -299,7 +307,6 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
                 int id_of_lowest = -1;
                 for (int i = 0; i < scene->net.number_of_players; i++) {
                     RemotePlayer* player_of_spot = scene->net.players[i];
-                    // TODO I don't think this lock is necessary - these fields are only accessed when controls_stream is locked, which it is.
                     if (player_of_spot != NULL && player_of_spot->id != player->id) {
                         ControlsBufferSpot* spot = &player_of_spot->stream_spots_of[player->id];
                         if (spot->frame < lowest_frame && spot->frame >= 0) {
@@ -309,10 +316,10 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
                         }
                     }
                 }
-                // SDL_assert(lowest_frame < 255);
-                // SDL_assert(lowest_pos < PACKET_SIZE);
 
                 struct BufferChanges change = truncate_controls_buffer(&player->controls_playback, lowest_frame, lowest_pos);
+                player->controls_playback.size -= change.change_in_position;
+                player->controls_playback.bytes[0] -= change.change_in_frame;
                 old_buffer_size -= change.change_in_position;
 
                 for (int i = 0; i < scene->net.number_of_players; i++) {
@@ -508,9 +515,6 @@ int network_server_loop(void* vdata) {
     while (true) {
         memset(scene->net.buffer, 0, PACKET_SIZE);
 
-        // TODO this has to be per-player...
-        SDL_AtomicSet(&scene->net.network_poke, true);
-
         int other_addr_len = sizeof(other_address);
         int recv_len = recvfrom(
             scene->net.local_socket,
@@ -582,6 +586,7 @@ int network_server_loop(void* vdata) {
         case NETOP_UPDATE_CONTROLS: {
             RemotePlayer* player = netop_update_controls(scene, &other_address);
             if (player) {
+                SDL_AtomicSet(&player->poke, true);
                 server_sendto(
                     scene,
                     netwrite_guy_controls(
@@ -759,6 +764,7 @@ int network_client_loop(void* vdata) {
                     printf("UPDATING FORF BULLSHIT PLAYER");
                 }
                 else {
+                    SDL_AtomicSet(&player->poke, true);
                     if (player->id != 0) {
                         // Don't need to bounce back for updating non-server player's controls
                         goto Receive;
@@ -776,8 +782,6 @@ int network_client_loop(void* vdata) {
                     );
                 break;
             }
-
-            SDL_AtomicSet(&scene->net.network_poke, true);
         }
     }
 
@@ -805,7 +809,6 @@ void scene_test_initialize(void* vdata, Game* game) {
         memset(data->net.players, NULL, sizeof(data->net.players));
 
         data->net.connected = false;
-        SDL_AtomicSet(&data->net.network_poke, false);
         data->net.ping_counter = 0;
         data->net.ping = 0;
         data->net.status = NOT_CONNECTED;
@@ -861,11 +864,17 @@ void scene_test_initialize(void* vdata, Game* game) {
 void scene_test_update(void* vs, Game* game) {
     TestScene* s = (TestScene*)vs;
 
-    s->net.ping_counter += 1;
-    if (SDL_AtomicGet(&s->net.network_poke)) {
-        s->net.ping = s->net.ping_counter;
-        s->net.ping_counter = 0;
-        SDL_AtomicSet(&s->net.network_poke, false);
+    // I'm only gonna count ping for first guy I don't really care right now
+    {
+        s->net.ping_counter += 1;
+        RemotePlayer* player_of_ping = s->net.players[0];
+        if (player_of_ping != NULL) {
+            if (SDL_AtomicGet(&player_of_ping->poke)) {
+                s->net.ping = s->net.ping_counter;
+                s->net.ping_counter = 0;
+                SDL_AtomicSet(&player_of_ping->poke, false);
+            }
+        }
     }
 
     // Stupid AI
@@ -912,7 +921,7 @@ void scene_test_update(void* vs, Game* game) {
             if (plr->controls_playback.current_frame < plr->controls_playback.bytes[0]) {
                 // Do 2 frames at a time if we're so many frames behind
                 int frames_behind = (int)plr->controls_playback.bytes[0] - plr->controls_playback.current_frame;
-                const int frames_behind_threshold = s->net.ping * 2;
+                const int frames_behind_threshold = s->net.ping + 2;
 
                 if (frames_behind > frames_behind_threshold) {
                     printf("Network control sync behind by %i frames\n", frames_behind);
