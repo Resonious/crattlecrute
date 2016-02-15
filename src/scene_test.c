@@ -151,24 +151,28 @@ int simple_truncate_controls_buffer(ControlsBuffer* buffer, int to_frame, int to
 }
 
 struct BufferChanges {
-    int change_in_position, change_in_frame, change_in_size;
+    int change_in_position, change_in_frame, change_in_size, change_in_bytes0;
 } truncate_controls_buffer(ControlsBuffer* buffer, int zero_frame, int zero_pos) {
     if (zero_pos < 1)
         zero_pos = 1;
-    else if (zero_pos > buffer->pos)
-        zero_pos = buffer->pos;
+    else if (zero_pos > buffer->size)
+        zero_pos = buffer->size;
 
     if (zero_frame < 0)
         zero_frame = 0;
-    else if (zero_frame > buffer->current_frame)
-        zero_frame = buffer->current_frame;
+    else if (zero_frame > buffer->bytes[0])
+        zero_frame = buffer->bytes[0];
 
     int frame_difference  = buffer->current_frame - zero_frame;
     int size_difference   = buffer->size - zero_pos;
+    int bytes0_difference = buffer->bytes[0] - zero_frame;
     int pos_difference    = buffer->pos - zero_pos;
+
+    int original_bytes0   = buffer->bytes[0];
     int original_position = buffer->pos;
     int original_size     = buffer->size;
     int original_frame    = buffer->current_frame;
+
     SDL_assert(frame_difference >= 0);
     SDL_assert(pos_difference >= 0);
 
@@ -176,13 +180,16 @@ struct BufferChanges {
 
     buffer->current_frame = frame_difference;
     buffer->pos           = pos_difference + 1;
+    buffer->bytes[0]      = bytes0_difference;
+    buffer->size          = size_difference + 1;
     // buffer->size         -= pos_difference;
     // SDL_assert(buffer->bytes[buffer->pos - 1] == CONTROL_BLOCK_END);
 
     struct BufferChanges change = {
         original_position - buffer->pos,
         original_frame - buffer->current_frame,
-        original_size - buffer->size
+        original_size - buffer->size,
+        original_bytes0 - buffer->bytes[0]
     };
     return change;
 }
@@ -326,8 +333,6 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
                 }
 
                 struct BufferChanges change = truncate_controls_buffer(&player->controls_playback, lowest_frame, lowest_pos);
-                player->controls_playback.size -= change.change_in_size;
-                player->controls_playback.bytes[0] -= change.change_in_frame;
                 old_buffer_size = player->controls_playback.size;
                 SDL_assert(old_buffer_size >= 0);
 
@@ -1034,6 +1039,9 @@ void scene_test_update(void* vs, Game* game) {
 
         s->controls_stream.current_frame += 1;
 
+        s->controls_stream.size = s->controls_stream.pos;
+        s->controls_stream.bytes[0] = s->controls_stream.current_frame;
+
         if (s->controls_stream.current_frame >= 255) {
             SDL_assert(s->net.status == HOSTING); // TODO OTHERWISE THIS MEANS SERVER CRASHED!
 
@@ -1062,7 +1070,7 @@ void scene_test_update(void* vs, Game* game) {
                     if (player != NULL) {
                         if (player->local_stream_spot.frame >= 0) {
                             player->local_stream_spot.frame -= change.change_in_frame;
-                            player->local_stream_spot.pos -= change.change_in_position;
+                            player->local_stream_spot.pos   -= change.change_in_position;
                             SDL_assert(player->local_stream_spot.frame >= 0);
                             SDL_assert(player->local_stream_spot.pos > 0);
                         }
