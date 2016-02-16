@@ -178,12 +178,13 @@ struct BufferChanges {
 
     memmove(buffer->bytes + 1, buffer->bytes + zero_pos, size_difference);
 
-    buffer->current_frame = frame_difference;
-    buffer->pos           = pos_difference + 1;
     buffer->bytes[0]      = bytes0_difference;
     buffer->size          = size_difference + 1;
-    // buffer->size         -= pos_difference;
+
     // SDL_assert(buffer->bytes[buffer->pos - 1] == CONTROL_BLOCK_END);
+
+    buffer->current_frame = frame_difference;
+    buffer->pos           = pos_difference + 1;
 
     struct BufferChanges change = {
         original_position - buffer->pos,
@@ -210,12 +211,11 @@ RemotePlayer* allocate_new_player(int id, struct sockaddr_in* addr) {
     SDL_memset(new_player->stream_spots_of, 0, sizeof(new_player->stream_spots_of));
 
     // PLAYBACK_SHIT
-    new_player->controls_playback.pos = 0;
-    new_player->controls_playback.size = 0;
     memset(new_player->controls_playback.bytes, 0, sizeof(new_player->controls_playback.bytes));
     SDL_AtomicSet(&new_player->controls_playback.locked, false);
     new_player->controls_playback.current_frame = -1;
-    new_player->controls_playback.pos = 1;
+    new_player->controls_playback.pos = 0;
+    new_player->controls_playback.size = 0;
     new_player->last_frames_playback_pos = 1;
 
     new_player->local_stream_spot.pos = -1;
@@ -251,8 +251,7 @@ void write_guy_info_to_buffer(byte* buffer, Character* guy, int* pos) {
     write_to_buffer(buffer, &guy->body_color, pos, sizeof(guy->body_color) * 3);
 }
 
-// NOTE this might want to be 2 different functions. As it is, addr being NULL means
-// that we want to create new players for bad ids.
+// balls
 RemotePlayer* netop_update_player(TestScene* scene, struct sockaddr_in* addr) {
     int pos = 1;
 
@@ -333,6 +332,7 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
                 }
 
                 struct BufferChanges change = truncate_controls_buffer(&player->controls_playback, lowest_frame, lowest_pos);
+
                 old_buffer_size = player->controls_playback.size;
                 SDL_assert(old_buffer_size >= 0);
 
@@ -341,11 +341,14 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
                     if (player_of_spot != NULL && player_of_spot->id != player->id) {
                         ControlsBufferSpot* spot = &player_of_spot->stream_spots_of[player->id];
                         if (spot->frame >= 0) {
-                            spot->frame -= change.change_in_frame;
+                            spot->frame -= change.change_in_bytes0;
                             spot->pos -= change.change_in_size;
                             SDL_assert(spot->frame >= 0);
                             SDL_assert(spot->pos > 0);
                             printf("ACTUALLY TRUNCATED %i's position in %i's buffer. LOWEST: %i\n", player_of_spot->id, player->id, id_of_lowest);
+                        }
+                        else {
+                            printf("WANTED TO TRUNC %i's position in %i's buffer. LOWEST: %i\n", player_of_spot->id, player->id, id_of_lowest);
                         }
                     }
                 }
@@ -628,7 +631,7 @@ int network_server_loop(void* vdata) {
                         ControlsBufferSpot* players_spot_of_other_player = &player->stream_spots_of[other_player->id];
                         wait_for_then_use_lock(&other_player->controls_playback.locked);
                         if (
-                            other_player->controls_playback.current_frame != -1 &&
+                            other_player->controls_playback.current_frame >= 0 &&
                             players_spot_of_other_player->frame >= 0 &&
                             players_spot_of_other_player->pos < other_player->controls_playback.size &&
                             players_spot_of_other_player->frame < other_player->controls_playback.bytes[0]
@@ -989,6 +992,11 @@ void scene_test_update(void* vs, Game* game) {
                 if (plr->controls_playback.current_frame >= plr->controls_playback.bytes[0]) {
                     // TODO TODO TODO THIS GETS TRIPPED SOMETIMES!!!!!!!!!!!!
                     // SDL_assert(plr->controls_playback.pos == plr->controls_playback.size);
+                    if (plr->controls_playback.pos != plr->controls_playback.size) {
+                        // uhhhh
+                        plr->controls_playback.size = plr->controls_playback.pos;
+                        printf("ADJUSTED %i's PLAYBACK SIZE\n", plr->id);
+                    }
                     break;
                 }
             }
@@ -1069,8 +1077,8 @@ void scene_test_update(void* vs, Game* game) {
                     RemotePlayer* player = s->net.players[i];
                     if (player != NULL) {
                         if (player->local_stream_spot.frame >= 0) {
-                            player->local_stream_spot.frame -= change.change_in_frame;
-                            player->local_stream_spot.pos   -= change.change_in_position;
+                            player->local_stream_spot.frame -= change.change_in_bytes0;
+                            player->local_stream_spot.pos   -= change.change_in_size;
                             SDL_assert(player->local_stream_spot.frame >= 0);
                             SDL_assert(player->local_stream_spot.pos > 0);
                         }
@@ -1078,8 +1086,6 @@ void scene_test_update(void* vs, Game* game) {
                 }
             }
         }
-        s->controls_stream.size = s->controls_stream.pos;
-        s->controls_stream.bytes[0] = s->controls_stream.current_frame;
     }
     else if (s->controls_stream.current_frame < -1) {
         // NOTE this was from displaying the old "Recording complete!" message.
