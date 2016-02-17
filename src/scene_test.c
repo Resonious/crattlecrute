@@ -345,7 +345,7 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
                             spot->pos -= change.change_in_size;
                             SDL_assert(spot->frame >= 0);
                             SDL_assert(spot->pos > 0);
-                            printf("ACTUALLY TRUNCATED %i's position in %i's buffer. LOWEST: %i\n", player_of_spot->id, player->id, id_of_lowest);
+                            printf("actually truncated %i's position in %i's buffer. LOWEST: %i\n", player_of_spot->id, player->id, id_of_lowest);
                         }
                         else {
                             printf("WANTED TO TRUNC %i's position in %i's buffer. LOWEST: %i\n", player_of_spot->id, player->id, id_of_lowest);
@@ -371,10 +371,33 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
     }
     else {
         // Set playback buffer and start from the beginning
+        int original_size = player->controls_playback.size;
+        int original_bytes0 = player->controls_playback.bytes[0];
+
         player->controls_playback.current_frame = 0;
         player->controls_playback.pos = 1;
         player->controls_playback.size = new_playback_size;
         memcpy(player->controls_playback.bytes, new_playback_buffer, new_playback_size);
+
+        int change_in_size   = original_size - player->controls_playback.size;
+        int change_in_bytes0 = original_bytes0 - player->controls_playback.bytes[0];
+
+        if (scene->net.status == HOSTING) {
+            for (int i = 0; i < scene->net.number_of_players; i++) {
+                RemotePlayer* player_of_spot = scene->net.players[i];
+                if (player_of_spot != NULL && player_of_spot->id != player->id) {
+                    ControlsBufferSpot* spot = &player_of_spot->stream_spots_of[player->id];
+                    if (spot->frame >= 0) {
+                        spot->frame -= change_in_bytes0;
+                        spot->pos   -= change_in_size;
+                        SDL_assert(spot->frame >= 0);
+                        SDL_assert(spot->pos > 0);
+                    }
+                    else {
+                    }
+                }
+            }
+        }
 
         scene->dbg_last_action = "Reset";
     }
@@ -631,7 +654,7 @@ int network_server_loop(void* vdata) {
                         ControlsBufferSpot* players_spot_of_other_player = &player->stream_spots_of[other_player->id];
                         wait_for_then_use_lock(&other_player->controls_playback.locked);
                         if (
-                            other_player->controls_playback.current_frame >= 0 &&
+                            other_player->controls_playback.size > 0 &&
                             players_spot_of_other_player->frame >= 0 &&
                             players_spot_of_other_player->pos < other_player->controls_playback.size &&
                             players_spot_of_other_player->frame < other_player->controls_playback.bytes[0]
