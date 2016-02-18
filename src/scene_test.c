@@ -117,7 +117,7 @@ void wait_for_then_use_lock(SDL_atomic_t* lock) {
 
 #define NETOP_HERES_YOUR_ID 8
 #define NETOP_WANT_ID 9
-#define NETOP_UPDATE_PLAYER 10
+#define NETOP_INITIALIZE_PLAYER 10
 #define NETOP_UPDATE_CONTROLS 11
 void write_to_buffer(byte* buffer, void* src, int* pos, int size) {
     SDL_assert(size >= 0);
@@ -252,7 +252,7 @@ void write_guy_info_to_buffer(byte* buffer, Character* guy, int* pos) {
 }
 
 // balls
-RemotePlayer* netop_update_player(TestScene* scene, struct sockaddr_in* addr) {
+RemotePlayer* netop_initialize_player(TestScene* scene, struct sockaddr_in* addr) {
     int pos = 1;
 
     int player_count;
@@ -476,7 +476,7 @@ int netwrite_guy_position(TestScene* scene) {
 
     memset(scene->net.buffer, 0, PACKET_SIZE);
     int pos = 0;
-    scene->net.buffer[pos++] = NETOP_UPDATE_PLAYER;
+    scene->net.buffer[pos++] = NETOP_INITIALIZE_PLAYER;
 
     int number_of_players = 1;
     write_to_buffer(scene->net.buffer, &number_of_players, &pos, sizeof(number_of_players));
@@ -492,7 +492,7 @@ int netwrite_player_positions(TestScene* scene, RemotePlayer* target_player) {
     SDL_assert(scene->net.status == HOSTING);
 
     int pos = 0;
-    scene->net.buffer[pos++] = NETOP_UPDATE_PLAYER;
+    scene->net.buffer[pos++] = NETOP_INITIALIZE_PLAYER;
     // number_of_players - 1 (excluding target) + 1 (including local server player)
     write_to_buffer(scene->net.buffer, &scene->net.number_of_players, &pos, sizeof(scene->net.number_of_players));
 
@@ -593,14 +593,14 @@ int network_server_loop(void* vdata) {
             scene->net.players[scene->net.number_of_players++] = player;
         } break;
 
-        case NETOP_UPDATE_PLAYER: {
+        case NETOP_INITIALIZE_PLAYER: {
             /*
             for (int i = 0; i < s->net.number_of_players; i++) {
                 RemotePlayer* plr = s->net.players[i];
                 */
             scene->net.connected = true;
 
-            RemotePlayer* new_player = netop_update_player(scene, &other_address);
+            RemotePlayer* new_player = netop_initialize_player(scene, &other_address);
             if (new_player) {
                 wait_for_then_use_lock(&scene->controls_stream.locked);
                 new_player->local_stream_spot.pos   = scene->controls_stream.pos;
@@ -807,8 +807,8 @@ int network_client_loop(void* vdata) {
                 SET_LOCKED_STRING_F(scene->net.status_message, "Client ID: %i", scene->net.remote_id);
             } break;
 
-            case NETOP_UPDATE_PLAYER:
-                netop_update_player(scene, NULL);
+            case NETOP_INITIALIZE_PLAYER:
+                netop_initialize_player(scene, NULL);
                 break;
 
             case NETOP_UPDATE_CONTROLS: {
