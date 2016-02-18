@@ -1017,8 +1017,25 @@ void scene_test_update(void* vs, Game* game) {
                     // SDL_assert(plr->controls_playback.pos == plr->controls_playback.size);
                     if (plr->controls_playback.pos != plr->controls_playback.size) {
                         // uhhhh
+                        int original_size = plr->controls_playback.size;
                         plr->controls_playback.size = plr->controls_playback.pos;
                         printf("ADJUSTED %i's PLAYBACK SIZE\n", plr->id);
+
+                        if (s->net.status == HOSTING) {
+                            int change_in_size = original_size - plr->controls_playback.size;
+
+                            for (int i = 0; i < s->net.number_of_players; i++) {
+                                RemotePlayer* player_of_spot = s->net.players[i];
+                                if (player_of_spot != NULL && player_of_spot->id != plr->id) {
+                                    ControlsBufferSpot* spot = &player_of_spot->stream_spots_of[plr->id];
+                                    if (spot->frame >= 0) {
+                                        spot->pos   -= change_in_size;
+                                        SDL_assert(spot->frame >= 0);
+                                        SDL_assert(spot->pos > 0);
+                                    }
+                                }
+                            }
+                        }
                     }
                     break;
                 }
