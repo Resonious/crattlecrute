@@ -2,7 +2,12 @@
 #include "game.h"
 #include <stdio.h>
 #include <errno.h>
+
+#ifdef __APPLE__
+#else
 #include <malloc.h>
+#endif
+
 #include "SDL.h"
 #include "stb_image.h"
 
@@ -19,6 +24,23 @@ int open_assets_file() {
     HRSRC resource = FindResource(NULL, MAKEINTRESOURCE(IDR_RCDATA1), RT_RCDATA);
     HGLOBAL resource_data = LoadResource(NULL, resource);
     embedded_assets = LockResource(resource_data);
+    return 0;
+}
+
+AssetFile load_asset(int asset) {
+    AssetFile f;
+    f.size = ASSETS[asset].size;
+    f.bytes = embedded_assets + ASSETS[asset].offset;
+
+    return f;
+}
+
+#elif __APPLE__
+byte* embedded_assets;
+
+int open_assets_file() {
+    unsigned long _size;
+    embedded_assets = getsectdata("assets", "assets", &_size);
     return 0;
 }
 

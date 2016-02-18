@@ -5,7 +5,12 @@ WSADATA global_wsa;
 #endif
 
 #include <stdio.h>
+
+#ifdef __APPLE__
+#else
 #include <malloc.h>
+#endif
+
 #include <errno.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"

@@ -3,7 +3,9 @@
 
 #include <xmmintrin.h>
 #include <emmintrin.h>
+
 #include "SDL.h"
+
 #ifndef _WIN32
 #define bool int
 #define true 1
