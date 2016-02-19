@@ -1,4 +1,5 @@
 #ifdef _WIN32
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <WinSock2.h>
 #else
 #include <sys/socket.h>
@@ -923,7 +924,7 @@ void scene_test_initialize(void* vdata, Game* game) {
     {
         data->net.remote_id = -1;
         data->net.number_of_players = 0;
-        memset(data->net.players, NULL, sizeof(data->net.players));
+        memset(data->net.players, 0, sizeof(data->net.players));
 
         data->net.connected = false;
         data->net.ping_counter = 0;

@@ -100,7 +100,7 @@ AudioWave decode_ogg(int asset) {
     AudioWave wave;
     wave.samples_pos = 0;
     int num_samples = stb_vorbis_decode_memory(
-        oggfile.bytes, oggfile.size,
+        oggfile.bytes, (int)oggfile.size,
         &oggfile_channels, &oggfile_frequency,
         (short**)&wave.samples
     );

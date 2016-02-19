@@ -464,7 +464,7 @@ static void do_bottom_sensors(struct Character* guy, CollisionMap* tile_collisio
         guy->position.x[Y] = fmaxf(b_collision_1.new_position, b_collision_2.new_position);
         guy->ground_angle = atan2f(
             b_collision_2.new_position - b_collision_1.new_position,
-            guy->bottom_sensors.x[S2X] - guy->bottom_sensors.x[S1X]
+            (float)(guy->bottom_sensors.x[S2X] - guy->bottom_sensors.x[S1X])
         ) / (float)M_PI * 180.0f;
 
         const float ground_angle_cap = 30;

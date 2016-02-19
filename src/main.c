@@ -229,7 +229,7 @@ int main(int argc, char** argv) {
         "Crattlecrute",
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
-        game.window_width, game.window_height,
+        (int)game.window_width, (int)game.window_height,
         0
     );
     main_window = game.window;
@@ -342,7 +342,7 @@ int main(int argc, char** argv) {
             frame_count_this_second = 0;
             tick_second_counter = 0;
         }
-        draw_text_ex_f(&game, game.window_width - 150, game.window_height - 20, -1, 0.7f, "FPS: %.2f", fps);
+        draw_text_ex_f(&game, (int)game.window_width - 150, (int)game.window_height - 20, -1, 0.7f, "FPS: %.2f", fps);
 #endif
         SDL_RenderPresent(game.renderer);
 
@@ -367,7 +367,7 @@ int main(int argc, char** argv) {
         {
             Uint64 i = SDL_GetPerformanceCounter();
             if (last_frame_ticks > 2 * ticks_per_frame) {
-                printf("Frame %i took longer than 16ms\n", game.frame_count);
+                printf("Frame %I64i took longer than 16ms\n", game.frame_count);
             }
             Uint64 f = SDL_GetPerformanceCounter();
             last_frame_ticks += f - i;

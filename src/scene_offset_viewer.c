@@ -94,7 +94,7 @@ void scene_offset_viewer_render(void* vs, Game* game) {
 
     float theta = (float)game->frame_count / 10.0f;
     set_text_color(game, 255, 127 + (Uint8)(sin(theta) * 128), 0);
-    draw_text_ex_f(game, 10, game->window_height - 20, -3, 1.5f, "%c Very nice TEXT..!", (char)26);
+    draw_text_ex_f(game, 10, (int)game->window_height - 20, -3, 1.5f, "%c Very nice TEXT..!", (char)26);
 }
 void scene_offset_viewer_cleanup(void* vdata, Game* game) {
     OffsetViewer* data = (OffsetViewer*)vdata;
