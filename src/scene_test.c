@@ -30,6 +30,7 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 #define CONTROLS_BUFFER_SIZE (255 * NUM_CONTROLS)
 #define CONTROL_BLOCK_END NUM_CONTROLS
 #define MAX_PLAYERS 20
+#define FRAMES_BETWEEN_POSITION_SYNCS 30
 
 typedef struct ControlsBuffer {
     SDL_mutex* locked;
@@ -54,6 +55,12 @@ typedef struct RemotePlayer {
     ControlsBufferSpot stream_spots_of[MAX_PLAYERS];
     struct sockaddr_in address;
     SDL_atomic_t poke;
+
+    // Countdown until we SEND our position
+    SDL_atomic_t position_sync_countdown;
+    // Position we have RECEIVED and plan to set (if we so choose)
+    vec4 sync_position, sync_old_position;
+    SDL_atomic_t sync_on_frame;
 
     int last_frames_playback_pos;
     ControlsBuffer controls_playback;
@@ -110,6 +117,18 @@ void wait_for_then_use_lock(SDL_mutex* mutex) {
         exit(1);
 }
 
+void sync_player_frame_if_should(int status, RemotePlayer* plr) {
+    if (status == JOINING) {
+        int sync_on_frame = SDL_AtomicGet(&plr->sync_on_frame);
+        if (plr->controls_playback.current_frame == sync_on_frame) {
+            plr->guy.position.simd = plr->sync_position.simd;
+            plr->guy.old_position  = plr->sync_old_position;
+
+            SDL_AtomicSet(&plr->sync_on_frame, -1);
+        }
+    }
+}
+
 #define SET_LOCKED_STRING(var, str) \
     while (SDL_AtomicGet(&var##_locked)) {} \
     SDL_AtomicSet(&var##_locked, true); \
@@ -125,6 +144,7 @@ void wait_for_then_use_lock(SDL_mutex* mutex) {
 #define NETOP_WANT_ID 9
 #define NETOP_INITIALIZE_PLAYER 10
 #define NETOP_UPDATE_CONTROLS 11
+
 void write_to_buffer(byte* buffer, void* src, int* pos, int size) {
     SDL_assert(size >= 0);
     memcpy(buffer + *pos, src, size);
@@ -230,6 +250,9 @@ RemotePlayer* allocate_new_player(int id, struct sockaddr_in* addr) {
     new_player->local_stream_spot.pos = -1;
     new_player->local_stream_spot.frame = -1;
 
+    SDL_AtomicSet(&new_player->position_sync_countdown, 0);
+    SDL_AtomicSet(&new_player->sync_on_frame, -1);
+
     return new_player;
 }
 
@@ -294,7 +317,7 @@ RemotePlayer* netop_initialize_player(TestScene* scene, struct sockaddr_in* addr
     return first_player;
 }
 
-RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) {
+RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr, int bufsize) {
     int pos = 1; // [0] is opcode, which we know by now
     int player_id = (int)scene->net.buffer[pos++];
 
@@ -411,17 +434,34 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
         scene->dbg_last_action = "Reset";
     }
 
+    pos += new_playback_size;
+    if (pos < bufsize) {
+        byte frames_down_from_bytes0 = scene->net.buffer[pos++];
+        int frame_of_position = (int)(player->controls_playback.bytes[0] - frames_down_from_bytes0);
+        SDL_assert(frame_of_position <= player->controls_playback.bytes[0]);
+
+        read_from_buffer(scene->net.buffer, player->sync_position.x, &pos, sizeof(vec4));
+        read_from_buffer(scene->net.buffer, player->sync_old_position.x, &pos, sizeof(vec4));
+        SDL_AtomicSet(&player->sync_on_frame, frame_of_position);
+
+        sync_player_frame_if_should(scene->net.status, player);
+    }
+
     SDL_UnlockMutex(player->controls_playback.locked);
 
     return player;
 }
 
-int netwrite_guy_controls(
+#define netwrite_guy_controls(buffer, player_id, controls_stream, spot, already_locked) \
+    netwrite_guy_controls_and_position(buffer, player_id, controls_stream, spot, already_locked, NULL, NULL)
+
+int netwrite_guy_controls_and_position(
     byte*               buffer,
     int                 player_id,
     ControlsBuffer*     controls_stream,
     ControlsBufferSpot* spot,
-    bool already_locked
+    bool                already_locked,
+    vec4* position, vec4* old_position
 ) {
     memset(buffer, 0, PACKET_SIZE);
     int pos = 0;
@@ -460,6 +500,7 @@ int netwrite_guy_controls(
         spot->frame = controls_stream->bytes[0];
     }
     else {
+        // Then it's the controls stream (where current_pos == size and such)
         buffer_to_copy_over      = controls_stream->bytes;
         buffer_to_copy_over[0]   = controls_stream->current_frame;
         buffer_to_copy_over_size = controls_stream->pos;
@@ -471,6 +512,12 @@ int netwrite_guy_controls(
 
         write_to_buffer(buffer, &buffer_to_copy_over_size, &pos, sizeof(buffer_to_copy_over_size));
         write_to_buffer(buffer, buffer_to_copy_over, &pos, buffer_to_copy_over_size);
+    }
+
+    if (position && old_position) {
+        buffer[pos++] = controls_stream->bytes[0] - (byte)controls_stream->current_frame;
+        write_to_buffer(buffer, position->x, &pos, sizeof(vec4));
+        write_to_buffer(buffer, old_position->x, &pos, sizeof(vec4));
     }
 
     if (!already_locked)
@@ -638,7 +685,7 @@ int network_server_loop(void* vdata) {
         } break;
 
         case NETOP_UPDATE_CONTROLS: {
-            RemotePlayer* player = netop_update_controls(scene, &other_address);
+            RemotePlayer* player = netop_update_controls(scene, &other_address, recv_len);
             if (player) {
                 SDL_AtomicSet(&player->poke, true);
                 server_sendto(
@@ -668,14 +715,22 @@ int network_server_loop(void* vdata) {
                             players_spot_of_other_player->pos < other_player->controls_playback.size &&
                             players_spot_of_other_player->frame < other_player->controls_playback.bytes[0]
                         ) {
+                            vec4* position = NULL,* old_position = NULL;
+                            if (SDL_AtomicGet(&other_player->position_sync_countdown) <= 0) {
+                                position     = &other_player->guy.position;
+                                old_position = &other_player->guy.old_position;
+                                SDL_AtomicSet(&other_player->position_sync_countdown, FRAMES_BETWEEN_POSITION_SYNCS);
+                            }
+
                             server_sendto(
                                 scene,
-                                netwrite_guy_controls(
+                                netwrite_guy_controls_and_position(
                                     scene->net.buffer,
                                     other_player->id,
                                     &other_player->controls_playback,
                                     players_spot_of_other_player,
-                                    true
+                                    true,
+                                    position, old_position
                                 ),
                                 &other_address
                             );
@@ -821,7 +876,7 @@ int network_client_loop(void* vdata) {
                 break;
 
             case NETOP_UPDATE_CONTROLS: {
-                RemotePlayer* player = netop_update_controls(scene, NULL);
+                RemotePlayer* player = netop_update_controls(scene, NULL, recv_len);
                 if (player == NULL) {
                     printf("UPDATING FORF BULLSHIT PLAYER\n");
                 }
@@ -941,6 +996,14 @@ void scene_test_update(void* vs, Game* game) {
             }
         }
     }
+    // Decrement counters
+    {
+        for (int i = 0; i < s->net.number_of_players; i++) {
+            RemotePlayer* player = s->net.players[i];
+            if (player != NULL)
+                SDL_AtomicAdd(&player->position_sync_countdown, -1);
+        }
+    }
 
     // Stupid AI
     /*
@@ -1023,6 +1086,8 @@ void scene_test_update(void* vs, Game* game) {
                 collide_character(&plr->guy, &s->map->tile_collision);
                 slide_character(s->gravity, &plr->guy);
                 update_character_animation(&plr->guy);
+
+                sync_player_frame_if_should(s->net.status, plr);
 
                 if (plr->controls_playback.current_frame >= plr->controls_playback.bytes[0]) {
                     // TODO TODO TODO THIS GETS TRIPPED SOMETIMES!!!!!!!!!!!!
