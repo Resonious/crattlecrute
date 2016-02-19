@@ -40,8 +40,17 @@ extern Uint64 ticks_per_second;
 #define BENCH_END(x)
 #endif
 
+#define aligned_malloc(size) malloc(size)
+#define aligned_free(ptr) free(ptr)
+
 #ifdef _WIN32
 #define ALIGN_16 __declspec(align(16))
+
+#ifdef X86
+#define aligned_malloc(size) _aligned_malloc(size, 16)
+#define aligned_free(ptr) _aligned_free(ptr)
+#endif
+
 #else
 #define ALIGN_16
 #endif

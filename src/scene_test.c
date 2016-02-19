@@ -223,7 +223,7 @@ struct BufferChanges {
 }
 
 RemotePlayer* allocate_new_player(int id, struct sockaddr_in* addr) {
-    RemotePlayer* new_player = malloc(sizeof(RemotePlayer));
+    RemotePlayer* new_player = aligned_malloc(sizeof(RemotePlayer));
     memset(new_player, 0, sizeof(RemotePlayer));
 
     new_player->id = id;
@@ -584,7 +584,7 @@ int server_sendto(TestScene* scene, int bytes_wrote, struct sockaddr_in* other_a
 int network_server_loop(void* vdata) {
     int r = 0;
     TestScene* scene = (TestScene*)vdata;
-    scene->net.buffer = malloc(PACKET_SIZE);
+    scene->net.buffer = aligned_malloc(PACKET_SIZE);
 
     SET_LOCKED_STRING(scene->net.status_message, "Server started!");
 
@@ -771,7 +771,7 @@ int network_server_loop(void* vdata) {
 
 int network_client_loop(void* vdata) {
     TestScene* scene = (TestScene*)vdata;
-    scene->net.buffer = malloc(PACKET_SIZE);
+    scene->net.buffer = aligned_malloc(PACKET_SIZE);
 
     SET_LOCKED_STRING(scene->net.status_message, "Connecting to server!");
 
@@ -1370,5 +1370,5 @@ void scene_test_cleanup(void* vdata, Game* game) {
 
     closesocket(data->net.local_socket);
     if (data->net.buffer)
-        free(data->net.buffer);
+        aligned_free(data->net.buffer);
 }
