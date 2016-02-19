@@ -83,7 +83,7 @@ TileCollision process_bottom_sensor_one_tile_down(struct Character* guy, Collisi
 
             // Just assume that we want to be placed here (this function should only be called when grounded)
             result.hit = true;
-            result.new_position = t->tilepos.x[sensor+Y] + height - guy->bottom_sensors.x[sensor+Y];
+            result.new_position = (float)(t->tilepos.x[sensor+Y] + height - guy->bottom_sensors.x[sensor+Y]);
         }
     }
 
@@ -350,10 +350,10 @@ static void draw_tile(struct Game* game, Tilemap* tilemap, TileIndex* tile_index
     vec4i new_dest;
     SDL_memcpy(&new_dest, dest, sizeof(SDL_Rect));
     new_dest.simd = _mm_sub_epi32(new_dest.simd, _mm_cvtps_epi32(game->camera.simd));
-    new_dest.rect.y = game->window_height - new_dest.rect.y - 32;
+    new_dest.rect.y = (int)game->window_height - new_dest.rect.y - 32;
 
     SDL_RendererFlip flip = (tile_index->flags & TILE_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_RenderCopyEx(game->renderer, tilemap->tex, src, &new_dest, 0, NULL, flip);
+    SDL_RenderCopyEx(game->renderer, tilemap->tex, src, &new_dest.rect, 0, NULL, flip);
 }
 
 
@@ -465,7 +465,7 @@ static void do_bottom_sensors(struct Character* guy, CollisionMap* tile_collisio
         guy->ground_angle = atan2f(
             b_collision_2.new_position - b_collision_1.new_position,
             guy->bottom_sensors.x[S2X] - guy->bottom_sensors.x[S1X]
-        ) / M_PI * 180;
+        ) / (float)M_PI * 180.0f;
 
         const float ground_angle_cap = 30;
         if (guy->ground_angle > ground_angle_cap)
@@ -581,7 +581,7 @@ void slide_character(float gravity, struct Character* guy) {
     if (guy->grounded) {
         if (fabsf(guy->ground_angle) > 5.0f) {
             // guy->slide_speed -= gravity / tanf(guy->ground_angle * (M_PI / 180.0f));
-            const float sin_ground_angle = sinf(guy->ground_angle * (M_PI / 180.0f));
+            const float sin_ground_angle = sinf(guy->ground_angle * ((float)M_PI / 180.0f));
             float slide_accel = gravity * 0.1f * sin_ground_angle;
 
             // if we slide into another slope of opposite direction, accelerate the slide faster
@@ -661,7 +661,7 @@ void load_map(const int asset, /*out*/ Map* map) {
         map->tilemaps[i].tex = NULL;
         map->tilemaps[i].tiles_per_row = (int)tiles_per_row;
         // Assuming embedded assets
-        map->tilemaps[i].tiles = file.bytes + pos;
+        map->tilemaps[i].tiles = (int*)(file.bytes + pos);
 
         pos += data_size_in_bytes * sizeof(int);
     }
@@ -669,5 +669,5 @@ void load_map(const int asset, /*out*/ Map* map) {
     READ(Uint32, collision_tiles_size);
     SDL_assert(collision_tiles_size == tiles_high * tiles_wide);
     // Again, assuming embedded assets
-    map->tile_collision.tiles = file.bytes + pos;
+    map->tile_collision.tiles = (int*)(file.bytes + pos);
 }
