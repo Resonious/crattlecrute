@@ -32,7 +32,7 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 #define MAX_PLAYERS 20
 
 typedef struct ControlsBuffer {
-    SDL_atomic_t locked;
+    SDL_mutex* locked;
     int current_frame;
     int size;
     int pos;
@@ -101,17 +101,23 @@ void net_character_post_update(RemotePlayer* plr) {
     plr->last_frames_playback_pos = plr->controls_playback.pos;
 }
 
-void wait_for_then_use_lock(SDL_atomic_t* lock) {
+void wait_for_then_use_lock(SDL_mutex* mutex) {
+    /*
     while (SDL_AtomicGet(lock)) {}
     SDL_AtomicSet(lock, true);
+    */
+    if (SDL_LockMutex(mutex) != 0)
+        exit(1);
 }
 
 #define SET_LOCKED_STRING(var, str) \
-    wait_for_then_use_lock(&var##_locked); \
+    while (SDL_AtomicGet(&var##_locked)) {} \
+    SDL_AtomicSet(&var##_locked, true); \
     strcpy(var, str); \
     SDL_AtomicSet(&var##_locked, false);
 #define SET_LOCKED_STRING_F(var, str, ...) \
-    wait_for_then_use_lock(&var##_locked); \
+    while (SDL_AtomicGet(&var##_locked)) {} \
+    SDL_AtomicSet(&var##_locked, true); \
     SDL_snprintf(var, 512, str, __VA_ARGS__); \
     SDL_AtomicSet(&var##_locked, false);
 
@@ -212,7 +218,10 @@ RemotePlayer* allocate_new_player(int id, struct sockaddr_in* addr) {
 
     // PLAYBACK_SHIT
     memset(new_player->controls_playback.bytes, 0, sizeof(new_player->controls_playback.bytes));
-    SDL_AtomicSet(&new_player->controls_playback.locked, false);
+    new_player->controls_playback.locked = SDL_CreateMutex();
+    if (!new_player->controls_playback.locked) {
+        printf("BAD MUTEX\n");
+    }
     new_player->controls_playback.current_frame = -1;
     new_player->controls_playback.pos = 0;
     new_player->controls_playback.size = 0;
@@ -302,7 +311,7 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
     if (scene->net.buffer[pos] == 0)
         return player;
 
-    wait_for_then_use_lock(&player->controls_playback.locked);
+    wait_for_then_use_lock(player->controls_playback.locked);
     byte* new_playback_buffer = scene->net.buffer + pos;
 
     if (
@@ -402,7 +411,7 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr) 
         scene->dbg_last_action = "Reset";
     }
 
-    SDL_AtomicSet(&player->controls_playback.locked, false);
+    SDL_UnlockMutex(player->controls_playback.locked);
 
     return player;
 }
@@ -427,7 +436,7 @@ int netwrite_guy_controls(
     }
 
     if (!already_locked)
-        wait_for_then_use_lock(&controls_stream->locked);
+        wait_for_then_use_lock(controls_stream->locked);
 
     byte* buffer_to_copy_over;
     int buffer_to_copy_over_size;
@@ -465,7 +474,7 @@ int netwrite_guy_controls(
     }
 
     if (!already_locked)
-        SDL_AtomicSet(&controls_stream->locked, false);
+        SDL_UnlockMutex(controls_stream->locked);
 
     return pos;
 }
@@ -546,10 +555,10 @@ int network_server_loop(void* vdata) {
 
     struct sockaddr_in other_address;
 
-    wait_for_then_use_lock(&scene->controls_stream.locked);
+    wait_for_then_use_lock(scene->controls_stream.locked);
     scene->controls_stream.current_frame = 0;
     scene->controls_stream.pos = 1;
-    SDL_AtomicSet(&scene->controls_stream.locked, false);
+    SDL_UnlockMutex(scene->controls_stream.locked);
 
     // NOTE do not exit this scene after initializing network lol
     while (true) {
@@ -602,10 +611,10 @@ int network_server_loop(void* vdata) {
 
             RemotePlayer* new_player = netop_initialize_player(scene, &other_address);
             if (new_player) {
-                wait_for_then_use_lock(&scene->controls_stream.locked);
+                wait_for_then_use_lock(scene->controls_stream.locked);
                 new_player->local_stream_spot.pos   = scene->controls_stream.pos;
                 new_player->local_stream_spot.frame = scene->controls_stream.current_frame;
-                SDL_AtomicSet(&scene->controls_stream.locked, false);
+                SDL_UnlockMutex(scene->controls_stream.locked);
 
                 server_sendto(scene, netwrite_player_positions(scene, new_player), &other_address);
 
@@ -618,10 +627,10 @@ int network_server_loop(void* vdata) {
                     other_player->stream_spots_of[new_player->id].frame = 0;
                     other_player->stream_spots_of[new_player->id].pos   = 1;
 
-                    wait_for_then_use_lock(&other_player->controls_playback.locked);
+                    wait_for_then_use_lock(other_player->controls_playback.locked);
                     new_player->stream_spots_of[other_player->id].frame = other_player->controls_playback.bytes[0];
                     new_player->stream_spots_of[other_player->id].pos   = other_player->controls_playback.size;
-                    SDL_AtomicSet(&other_player->controls_playback.locked, false);
+                    SDL_UnlockMutex(other_player->controls_playback.locked);
 
                     server_sendto(scene, netwrite_player_positions(scene, other_player), &other_player->address);
                 }
@@ -652,7 +661,7 @@ int network_server_loop(void* vdata) {
                             continue;
 
                         ControlsBufferSpot* players_spot_of_other_player = &player->stream_spots_of[other_player->id];
-                        wait_for_then_use_lock(&other_player->controls_playback.locked);
+                        wait_for_then_use_lock(other_player->controls_playback.locked);
                         if (
                             other_player->controls_playback.size > 0 &&
                             players_spot_of_other_player->frame >= 0 &&
@@ -674,7 +683,7 @@ int network_server_loop(void* vdata) {
                         else {
                             // printf("didn't end up sending %i's controls to %i\n", other_player->id, player->id);
                         }
-                        SDL_AtomicSet(&other_player->controls_playback.locked, false);
+                        SDL_UnlockMutex(other_player->controls_playback.locked);
                     }
                 }
             }
@@ -730,10 +739,10 @@ int network_client_loop(void* vdata) {
         // CLIENT
         if (scene->net.remote_id == -1) {
             // Start updating controls, then send over the ID request.
-            wait_for_then_use_lock(&scene->controls_stream.locked);
+            wait_for_then_use_lock(scene->controls_stream.locked);
             scene->controls_stream.current_frame = 0;
             scene->controls_stream.pos = 1;
-            SDL_AtomicSet(&scene->controls_stream.locked, false);
+            SDL_UnlockMutex(scene->controls_stream.locked);
 
             scene->net.buffer[0] = NETOP_WANT_ID;
             send_result = send(
@@ -880,7 +889,10 @@ void scene_test_initialize(void* vdata, Game* game) {
 
     data->controls_stream.pos = 0;
     memset(data->controls_stream.bytes, 0, sizeof(data->controls_stream.bytes));
-    SDL_AtomicSet(&data->controls_stream.locked, false);
+    data->controls_stream.locked = SDL_CreateMutex();
+    if (!data->controls_stream.locked) {
+        printf("BAD CTRLS STREAM MUTEX\n");
+    }
 
     BENCH_START(loading_crattle1);
     default_character_animations(game, &data->guy_view);
@@ -963,7 +975,7 @@ void scene_test_update(void* vs, Game* game) {
             continue;
 
         // TODO skip to the next guy and revisit if locked!
-        wait_for_then_use_lock(&plr->controls_playback.locked);
+        wait_for_then_use_lock(plr->controls_playback.locked);
         plr->number_of_physics_updates_this_frame = 0;
 
         if (
@@ -1041,7 +1053,7 @@ void scene_test_update(void* vs, Game* game) {
                 }
             }
         }
-        SDL_AtomicSet(&plr->controls_playback.locked, false);
+        SDL_UnlockMutex(plr->controls_playback.locked);
     }
 
     // Update local player
@@ -1051,16 +1063,20 @@ void scene_test_update(void* vs, Game* game) {
     update_character_animation(&s->guy);
 
     // Follow local player with camera
-    game->camera_target.x[X] = s->guy.position.x[X] - game->window_width / 2.0f;
-    if (s->guy.grounded) {
-        game->camera_target.x[Y] = s->guy.position.x[Y] - game->window_height * 0.35f;
-        game->follow_cam_y = false;
-    }
-    else {
-        if (s->guy.position.x[Y] - game->camera_target.x[Y] < 1.5f)
-            game->follow_cam_y = true;
-        if (game->follow_cam_y)
-            game->camera_target.x[Y] = s->guy.position.x[Y] - game->window_height * 0.5f;
+    {
+        Character* guy = &s->guy; 
+
+        game->camera_target.x[X] = guy->position.x[X] - game->window_width / 2.0f;
+        if (guy->grounded) {
+            game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.35f;
+            game->follow_cam_y = false;
+        }
+        else {
+            if (guy->position.x[Y] - game->camera_target.x[Y] < 1.5f)
+                game->follow_cam_y = true;
+            if (game->follow_cam_y)
+                game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.5f;
+        }
     }
     // move cam position towards cam target
     game->camera.simd = _mm_add_ps(game->camera.simd, _mm_mul_ps(_mm_sub_ps(game->camera_target.simd, game->camera.simd), _mm_set_ps(0, 0, 0.1f, 0.1f)));
@@ -1074,7 +1090,7 @@ void scene_test_update(void* vs, Game* game) {
         game->camera.x[Y] = game->camera_target.x[Y];
 
     // Record controls! FOR NETWORK
-    wait_for_then_use_lock(&s->controls_stream.locked);
+    wait_for_then_use_lock(s->controls_stream.locked);
 
     if (s->controls_stream.current_frame >= 0) {
         // record
@@ -1132,7 +1148,7 @@ void scene_test_update(void* vs, Game* game) {
         // Can remove probably.
         s->controls_stream.current_frame += 1;
     }
-    SDL_AtomicSet(&s->controls_stream.locked, false);
+    SDL_UnlockMutex(s->controls_stream.locked);
 
     // This should happen after all entities are done interacting (riiight at the end of the frame)
     character_post_update(&s->guy);
@@ -1274,10 +1290,8 @@ void scene_test_render(void* vs, Game* game) {
     }
 
     if (s->net.status != NOT_CONNECTED) {
-        wait_for_then_use_lock(&s->net.status_message_locked);
         set_text_color(game, 100, 50, 255);
         draw_text(game, 10, game->window_height - 50, s->net.status_message);
-        SDL_AtomicSet(&s->net.status_message_locked, false);
     }
 
     draw_text_ex_f(game, game->window_width - 150, game->window_height - 40, -1, 0.7f, "Ping: %i", s->net.ping);
