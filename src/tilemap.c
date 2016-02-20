@@ -6,6 +6,7 @@
 #ifdef _DEBUG
 extern bool debug_pause;
 #endif
+#include <math.h>
 
 TileIndex tile_from_int(int raw_tile_index) {
     TileIndex result;

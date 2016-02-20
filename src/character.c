@@ -1,6 +1,7 @@
 #include "coords.h"
 #include "game.h"
 #include "character.h"
+#include <math.h>
 
 #define TERMINAL_VELOCITY 17.0f
 

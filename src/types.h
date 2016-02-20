@@ -18,6 +18,8 @@
 #endif
 #endif
 
+#include <math.h>
+
 #define IS_WHITESPACE(c) (c == ' ' || c == '\n' || c == '\t')
 
 typedef unsigned char byte;

@@ -16,6 +16,7 @@
 #include "character.h"
 #include "assets.h"
 #include "coords.h"
+#include <string.h>
 #include <stdlib.h>
 
 #ifdef _DEBUG
