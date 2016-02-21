@@ -240,7 +240,7 @@ int main(int argc, char** argv) {
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
         (int)game.window_width, (int)game.window_height,
-        0
+        SDL_WINDOW_RESIZABLE
     );
     main_window = game.window;
     game.renderer = SDL_CreateRenderer(game.window, -1, 0);
@@ -314,6 +314,15 @@ int main(int argc, char** argv) {
             case SDL_KEYUP:
                 if (!game.text_edit.text)
                     switch (event.key.keysym.scancode) { SET_CONTROL(keys_up, true) }
+                break;
+
+            case SDL_WINDOWEVENT:
+                switch (event.window.event) {
+                case SDL_WINDOWEVENT_RESIZED: case SDL_WINDOWEVENT_SIZE_CHANGED: case SDL_WINDOWEVENT_MAXIMIZED:
+                    game.window_width = (float)event.window.data1;
+                    game.window_height = (float)event.window.data2;
+                    break;
+                }
                 break;
             }
         }
