@@ -348,7 +348,7 @@ int truncate_buffer_to_lowest_spot(TestScene* scene, RemotePlayer* player) {
                 spot->frame -= change.change_in_bytes0;
                 spot->pos -= change.change_in_size;
                 SDL_assert(spot->frame >= 0);
-                SDL_assert(spot->pos > 0);
+                SDL_assert(spot->pos >= 0);
                 printf("actually truncated %i's position in %i's buffer. LOWEST: %i\n", player_of_spot->id, player->id, id_of_lowest);
             }
             else {
