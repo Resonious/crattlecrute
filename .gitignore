@@ -8,3 +8,6 @@ build/
 *.swp
 *.lnk
 .byebug_history
+.DS_Store
+
+mac/Crattlecrute/Crattlecrute.xcodeproj/xcuserdata/

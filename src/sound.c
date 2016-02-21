@@ -1,7 +1,9 @@
 #include "sound.h"
 #include "SDL.h"
 #include "assets.h"
+#ifndef __APPLE__
 #include "stb_vorbis.c"
+#endif
 
 extern SDL_Window* main_window;
 
@@ -21,7 +23,7 @@ void audio_callback(AudioQueue* queue, byte* byte_stream, int byte_stream_size) 
         int bytes_remaining_in_wave = wave->samples_size - wave->samples_pos;
 
         int bytes_to_mix_in = min(bytes_remaining_in_wave, byte_stream_size);
-        assert(bytes_to_mix_in > 0);
+        SDL_assert(bytes_to_mix_in > 0);
 
         SDL_MixAudio(
             byte_stream, wave->samples + wave->samples_pos,

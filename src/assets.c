@@ -4,6 +4,7 @@
 #include <errno.h>
 
 #ifdef __APPLE__
+#include <mach-o/getsect.h>
 #else
 #include <malloc.h>
 #endif
@@ -40,7 +41,7 @@ byte* embedded_assets;
 
 int open_assets_file() {
     unsigned long _size;
-    embedded_assets = getsectdata("assets", "assets", &_size);
+    embedded_assets = (byte*)getsectdata("assets", "assets", &_size);
     return 0;
 }
 

@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/types.h>
+#include <arpa/inet.h>
 #define WSAGetLastError() (-1)
 #define SOCKET_ERROR (-1)
 #define SOCKET int
@@ -574,7 +575,7 @@ int netwrite_player_positions(TestScene* scene, RemotePlayer* target_player) {
     return pos;
 }
 
-int server_sendto(TestScene* scene, int bytes_wrote, struct sockaddr_in* other_address) {
+void server_sendto(TestScene* scene, int bytes_wrote, struct sockaddr_in* other_address) {
     if (bytes_wrote > 0) {
         sendto(
             scene->net.local_socket,
@@ -899,13 +900,6 @@ int network_client_loop(void* vdata) {
             } break;
 
             default:
-                SET_LOCKED_STRING_F(
-                    scene->net.status_message,
-                    "Data from %s:%d -> %i",
-                    inet_ntoa(other_address.sin_addr),
-                    ntohs(other_address.sin_port),
-                    (int)scene->net.buffer[0]
-                    );
                 break;
             }
         }

@@ -1,0 +1,339 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		9AE35F271C7928CF00B758F2 /* assets.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F161C7928CF00B758F2 /* assets.c */; };
+		9AE35F281C7928CF00B758F2 /* character.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F191C7928CF00B758F2 /* character.c */; };
+		9AE35F291C7928CF00B758F2 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F1E1C7928CF00B758F2 /* main.c */; };
+		9AE35F2A1C7928CF00B758F2 /* scene_offset_viewer.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F1F1C7928CF00B758F2 /* scene_offset_viewer.c */; };
+		9AE35F2B1C7928CF00B758F2 /* scene_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F201C7928CF00B758F2 /* scene_test.c */; };
+		9AE35F2C1C7928CF00B758F2 /* sound.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F221C7928CF00B758F2 /* sound.c */; };
+		9AE35F2D1C7928CF00B758F2 /* tilemap.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F241C7928CF00B758F2 /* tilemap.c */; };
+		9AE35F301C79290900B758F2 /* stb_vorbis.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F2F1C79290900B758F2 /* stb_vorbis.c */; };
+		9AE35F3C1C793A3600B758F2 /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9AE35F3B1C793A3600B758F2 /* SDL2.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		9AE35F0A1C79288000B758F2 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		9AE35F0C1C79288000B758F2 /* Crattlecrute */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Crattlecrute; sourceTree = BUILT_PRODUCTS_DIR; };
+		9AE35F161C7928CF00B758F2 /* assets.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = assets.c; path = ../../../src/assets.c; sourceTree = "<group>"; };
+		9AE35F171C7928CF00B758F2 /* assets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = assets.h; path = ../../../src/assets.h; sourceTree = "<group>"; };
+		9AE35F181C7928CF00B758F2 /* cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cache.h; path = ../../../src/cache.h; sourceTree = "<group>"; };
+		9AE35F191C7928CF00B758F2 /* character.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = character.c; path = ../../../src/character.c; sourceTree = "<group>"; };
+		9AE35F1A1C7928CF00B758F2 /* character.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = character.h; path = ../../../src/character.h; sourceTree = "<group>"; };
+		9AE35F1B1C7928CF00B758F2 /* coords.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = coords.h; path = ../../../src/coords.h; sourceTree = "<group>"; };
+		9AE35F1C1C7928CF00B758F2 /* dxsdkver.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dxsdkver.h; path = ../../../src/dxsdkver.h; sourceTree = "<group>"; };
+		9AE35F1D1C7928CF00B758F2 /* game.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = game.h; path = ../../../src/game.h; sourceTree = "<group>"; };
+		9AE35F1E1C7928CF00B758F2 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = main.c; path = ../../../src/main.c; sourceTree = "<group>"; };
+		9AE35F1F1C7928CF00B758F2 /* scene_offset_viewer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = scene_offset_viewer.c; path = ../../../src/scene_offset_viewer.c; sourceTree = "<group>"; };
+		9AE35F201C7928CF00B758F2 /* scene_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = scene_test.c; path = ../../../src/scene_test.c; sourceTree = "<group>"; };
+		9AE35F211C7928CF00B758F2 /* scene.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = scene.h; path = ../../../src/scene.h; sourceTree = "<group>"; };
+		9AE35F221C7928CF00B758F2 /* sound.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sound.c; path = ../../../src/sound.c; sourceTree = "<group>"; };
+		9AE35F231C7928CF00B758F2 /* sound.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sound.h; path = ../../../src/sound.h; sourceTree = "<group>"; };
+		9AE35F241C7928CF00B758F2 /* tilemap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tilemap.c; path = ../../../src/tilemap.c; sourceTree = "<group>"; };
+		9AE35F251C7928CF00B758F2 /* tilemap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = tilemap.h; path = ../../../src/tilemap.h; sourceTree = "<group>"; };
+		9AE35F261C7928CF00B758F2 /* types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = types.h; path = ../../../src/types.h; sourceTree = "<group>"; };
+		9AE35F2E1C79290900B758F2 /* stb_image.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = stb_image.h; path = ../../../STB/stb_image.h; sourceTree = "<group>"; };
+		9AE35F2F1C79290900B758F2 /* stb_vorbis.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = stb_vorbis.c; path = ../../../STB/stb_vorbis.c; sourceTree = "<group>"; };
+		9AE35F3B1C793A3600B758F2 /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = ../../SDL/SDL2.framework; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9AE35F091C79288000B758F2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9AE35F3C1C793A3600B758F2 /* SDL2.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		9AE35F031C79288000B758F2 = {
+			isa = PBXGroup;
+			children = (
+				9AE35F3B1C793A3600B758F2 /* SDL2.framework */,
+				9AE35F0E1C79288000B758F2 /* Crattlecrute */,
+				9AE35F0D1C79288000B758F2 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9AE35F0D1C79288000B758F2 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9AE35F0C1C79288000B758F2 /* Crattlecrute */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9AE35F0E1C79288000B758F2 /* Crattlecrute */ = {
+			isa = PBXGroup;
+			children = (
+				9AE35F2E1C79290900B758F2 /* stb_image.h */,
+				9AE35F2F1C79290900B758F2 /* stb_vorbis.c */,
+				9AE35F161C7928CF00B758F2 /* assets.c */,
+				9AE35F171C7928CF00B758F2 /* assets.h */,
+				9AE35F181C7928CF00B758F2 /* cache.h */,
+				9AE35F191C7928CF00B758F2 /* character.c */,
+				9AE35F1A1C7928CF00B758F2 /* character.h */,
+				9AE35F1B1C7928CF00B758F2 /* coords.h */,
+				9AE35F1C1C7928CF00B758F2 /* dxsdkver.h */,
+				9AE35F1D1C7928CF00B758F2 /* game.h */,
+				9AE35F1E1C7928CF00B758F2 /* main.c */,
+				9AE35F1F1C7928CF00B758F2 /* scene_offset_viewer.c */,
+				9AE35F201C7928CF00B758F2 /* scene_test.c */,
+				9AE35F211C7928CF00B758F2 /* scene.h */,
+				9AE35F221C7928CF00B758F2 /* sound.c */,
+				9AE35F231C7928CF00B758F2 /* sound.h */,
+				9AE35F241C7928CF00B758F2 /* tilemap.c */,
+				9AE35F251C7928CF00B758F2 /* tilemap.h */,
+				9AE35F261C7928CF00B758F2 /* types.h */,
+			);
+			path = Crattlecrute;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9AE35F0B1C79288000B758F2 /* Crattlecrute */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9AE35F131C79288000B758F2 /* Build configuration list for PBXNativeTarget "Crattlecrute" */;
+			buildPhases = (
+				9AE35F081C79288000B758F2 /* Sources */,
+				9AE35F091C79288000B758F2 /* Frameworks */,
+				9AE35F0A1C79288000B758F2 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Crattlecrute;
+			productName = Crattlecrute;
+			productReference = 9AE35F0C1C79288000B758F2 /* Crattlecrute */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9AE35F041C79288000B758F2 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0720;
+				ORGANIZATIONNAME = Resonious;
+				TargetAttributes = {
+					9AE35F0B1C79288000B758F2 = {
+						CreatedOnToolsVersion = 7.2.1;
+					};
+				};
+			};
+			buildConfigurationList = 9AE35F071C79288000B758F2 /* Build configuration list for PBXProject "Crattlecrute" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 9AE35F031C79288000B758F2;
+			productRefGroup = 9AE35F0D1C79288000B758F2 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9AE35F0B1C79288000B758F2 /* Crattlecrute */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9AE35F081C79288000B758F2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9AE35F2D1C7928CF00B758F2 /* tilemap.c in Sources */,
+				9AE35F271C7928CF00B758F2 /* assets.c in Sources */,
+				9AE35F301C79290900B758F2 /* stb_vorbis.c in Sources */,
+				9AE35F281C7928CF00B758F2 /* character.c in Sources */,
+				9AE35F291C7928CF00B758F2 /* main.c in Sources */,
+				9AE35F2C1C7928CF00B758F2 /* sound.c in Sources */,
+				9AE35F2A1C7928CF00B758F2 /* scene_offset_viewer.c in Sources */,
+				9AE35F2B1C7928CF00B758F2 /* scene_test.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		9AE35F111C79288000B758F2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		9AE35F121C79288000B758F2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		9AE35F141C79288000B758F2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+				);
+				"FRAMEWORK_SEARCH_PATHS[arch=*]" = (
+					"$(inherited)",
+					"~/Downloads/crattlecrute/SDL",
+				);
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				"HEADER_SEARCH_PATHS[arch=*]" = "~/Downloads/crattlecrute/SDL/include";
+				MACH_O_TYPE = mh_execute;
+				"OTHER_CFLAGS[arch=*]" = (
+					"-D_DEBUG",
+					"-DDRAW_PING",
+					"-DDRAW_FPS",
+					"-DEMBEDDED_ASSETS",
+				);
+				OTHER_LDFLAGS = (
+					"-sectcreate",
+					assets,
+					assets,
+					../../build/crattlecrute.assets,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		9AE35F151C79288000B758F2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+					"~/Downloads/crattlecrute/SDL",
+				);
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				"HEADER_SEARCH_PATHS[arch=*]" = "~/Downloads/crattlecrute/SDL/include";
+				MACH_O_TYPE = mh_execute;
+				"OTHER_CFLAGS[arch=*]" = (
+					"-DNDEBUG",
+					"-DEMBEDDED_ASSETS",
+				);
+				OTHER_LDFLAGS = (
+					"-sectcreate",
+					assets,
+					assets,
+					build/crattlecrute.assets,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9AE35F071C79288000B758F2 /* Build configuration list for PBXProject "Crattlecrute" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9AE35F111C79288000B758F2 /* Debug */,
+				9AE35F121C79288000B758F2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9AE35F131C79288000B758F2 /* Build configuration list for PBXNativeTarget "Crattlecrute" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9AE35F141C79288000B758F2 /* Debug */,
+				9AE35F151C79288000B758F2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9AE35F041C79288000B758F2 /* Project object */;
+}

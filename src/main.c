@@ -11,6 +11,8 @@ WSADATA global_wsa;
 #include <malloc.h>
 #endif
 
+#include <time.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #define STB_IMAGE_IMPLEMENTATION
@@ -20,6 +22,7 @@ WSADATA global_wsa;
 #include "assets.h"
 #include "scene.h"
 #include "coords.h"
+#include "SDL_main.h"
 
 // Disgusting global window variable so that I can shit out message boxes
 // from wherever I want.
@@ -192,8 +195,14 @@ void handle_key_during_text_edit(Game* game, SDL_Event* event) {
     }
 }
 
+#ifdef __APPLE__
+int _assert(int expr) {
+    return 0;
+}
+#endif
+
 int main(int argc, char** argv) {
-    srand(time(0));
+    srand((unsigned int)time(0));
     ticks_per_second = SDL_GetPerformanceFrequency();
     _MM_SET_ROUNDING_MODE(_MM_ROUND_DOWN);
 
