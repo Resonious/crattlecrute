@@ -87,4 +87,18 @@ static __m128i _mm_mul_epi32_x4(__m128i a, __m128i b)
             thing = target; \
     }
 
+typedef union vec2 {
+    struct { float x, y; };
+    float v[2];
+} vec2;
+
+typedef union mat22 {
+    struct { float a11, a12,
+                   a21, a22; };
+    float a[4];
+} mat22;
+
+mat22 rotation_mat22(float angle);
+vec2 mat_mul_22(mat22* mat, vec2* vec);
+
 #endif // TYPES_H

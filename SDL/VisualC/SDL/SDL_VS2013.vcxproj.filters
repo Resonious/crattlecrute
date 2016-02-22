@@ -143,6 +143,9 @@
     <ClCompile Include="..\..\..\src\character.c">
       <Filter>game</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\types.c">
+      <Filter>game</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\dxsdkver.h" />

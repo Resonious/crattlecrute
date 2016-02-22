@@ -393,6 +393,7 @@
     <ClCompile Include="..\..\..\src\scene_test.c" />
     <ClCompile Include="..\..\..\src\sound.c" />
     <ClCompile Include="..\..\..\src\tilemap.c" />
+    <ClCompile Include="..\..\..\src\types.c" />
     <ClCompile Include="..\..\src\core\windows\SDL_windows.c" />
     <ClCompile Include="..\..\src\dynapi\SDL_dynapi.c" />
     <ClCompile Include="..\..\src\events\SDL_clipboardevents.c" />
