@@ -124,8 +124,8 @@ void world_render_copy_ex(
     float angle, vec2* center, SDL_RendererFlip flip
 ) {
     SDL_Rect dest = {
-        pos->x - game->camera.x[X],
-        game->window_height - (pos->y - game->camera.x[Y]) - height,
+        pos->x - center->x - game->camera.x[X],
+        game->window_height - (pos->y - game->camera.x[Y]) - height + center->x,
 
         width, height
     };
@@ -143,7 +143,7 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
     // DRAW GUY
     AnimationAtlas* atlas = &guy_view->animation_textures[guy->animation_state];
     const int sprite_width = 90, sprite_height = 90;
-    const int number_of_layers = 3 + 1;
+    const int number_of_layers = 3;
     SDL_Rect src = atlas->frames[guy->animation_frame];
     SDL_Rect dest = {
         guy->position.x[X] - guy->center_x - game->camera.x[X],
@@ -191,16 +191,24 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
 
     PeripheralOffset* offset = &atlas->eye_offsets[guy->animation_frame];
 
-    float eye_angle = (guy->flip == SDL_FLIP_HORIZONTAL ? 180 - offset->angle : offset->angle) - 90;
+    float eye_angle = (guy->flip == SDL_FLIP_HORIZONTAL ? 180.0f - offset->angle : offset->angle) - 90.0f;
 
-    vec2 actual_eye_offset = {
+    vec2 eye_offset = {
         (guy->flip == SDL_FLIP_HORIZONTAL ? -offset->x : offset->x),
         offset->y
     };
-    vec2 eye_pivot = { -actual_eye_offset.x, -actual_eye_offset.y };
+    vec2 eye_pivot = { 1, 0 };
+
+    // THIS is in RADIANS
+    float eye_pos_angle = (guy->ground_angle * (float)M_PI / 180.0f) + atan2f(eye_offset.y, eye_offset.x);
+    float eye_pos_magnitude = magnitude(&eye_offset);
+    vec2 actual_eye_offset = {
+        eye_pos_magnitude * cosf(eye_pos_angle),
+        eye_pos_magnitude * sinf(eye_pos_angle)
+    };
 
     // mat22 offset_rotation = rotation_mat22(guy->ground_angle);
-    // actual_eye_offset = mat_mul_22(&offset_rotation, &actual_eye_offset);
+    // eye_offset = mat_mul_22(&offset_rotation, &eye_offset);
     actual_eye_offset.x += guy->position.x[X];
     actual_eye_offset.y += guy->position.x[Y];
 
@@ -429,7 +437,7 @@ void default_character_animations(struct Game* game, CharacterView* view) {
 
             eye_offset->x = eye_bottom.x;
             eye_offset->y = eye_bottom.y;
-            eye_offset->angle = atan2f(eye_top.y - eye_bottom.y, eye_top.x - eye_bottom.x) / (float)M_PI * 180;
+            eye_offset->angle = atan2f(eye_top.y - eye_bottom.y, eye_top.x - eye_bottom.x) / (float)M_PI * 180.0f;
         }
         free_image(image);
     }

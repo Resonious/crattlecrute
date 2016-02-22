@@ -17,3 +17,11 @@ vec2 mat_mul_22(mat22* mat, vec2* vec) {
     };
     return r;
 }
+
+float dot(vec2* u, vec2* v) {
+    return u->x * v->x + u->y * v->y;
+}
+
+float magnitude(vec2* u) {
+    return sqrtf(u->x * u->x + u->y * u->y);
+}
