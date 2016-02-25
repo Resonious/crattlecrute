@@ -81,13 +81,22 @@ void draw_tilemap(struct Game* game, Tilemap* tilemap);
 void collide_character(struct Character* guy, CollisionMap* tile_collision);
 void slide_character(float gravity, struct Character* guy);
 
-typedef struct {
+typedef struct ParallaxBackground {
+    int x, y;
+    float parallax_factor;
+    int frame_height, frame_width;
+    int frame_count;
+} ParallaxBackground;
+
+typedef struct Map {
     CollisionMap tile_collision;
     int number_of_tilemaps;
     Tilemap* tilemaps;
+    int number_of_backgrounds;
+    ParallaxBackground* backgrounds;
 } Map;
 
-typedef struct {
+typedef struct CmFileHeader {
     char magic[3];
     Uint32 tiles_wide;
     Uint32 tiles_high;

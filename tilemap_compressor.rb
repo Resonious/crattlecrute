@@ -6,6 +6,14 @@ Layer = Struct.new(:name, :width, :height, :raw_data, :sublayers) do
   def collision?; name == 'collision'; end
 end
 Sublayer = Struct.new(:tileset, :data, :compressed_data)
+ImageLayer = Struct.new(:name, :filename, :x, :y, :parallax_factor, :frame_height, :frame_width, :frames)
+
+IMAGE_LAYER_DEFAULTS = {
+  parallax_factor: 1,
+  frame_width: 0,
+  frame_height: 0,
+  frames: 1
+}
 
 def ident(file)
   file.gsub(/\.\.\//, '').gsub(/[\.\s\?!\/\\-]/, '_').upcase
@@ -262,8 +270,27 @@ def read_tmx(file)
     end
   end
 
-  Struct.new(:layers, :tiles_high, :tiles_wide, :name, :filename)
-        .new( layers,  tiles_high,  tiles_wide, map_name, filename)
+  # ===== Grab imagelayers for parallax backgrounds =====
+  image_layers = []
+  map.css('imagelayer').each do |imagelayer|
+    attrs = imagelayer.attributes
+
+    struct = ImageLayer.new
+    struct.name = attrs['name']
+    struct.filename = imagelayer.css('image').first.attributes['source']
+
+    IMAGE_LAYER_DEFAULTS.each do |field, default_value|
+      unless value = imagelayer.css("properties property[name='#{field}']").first
+        value = default_value
+      end
+      struct.send("#{field}=", value)
+    end
+
+    image_layers << struct
+  end
+
+  Struct.new(:layers, :image_layers, :tiles_high, :tiles_wide, :name, :filename)
+        .new( layers, image_layers,  tiles_high,  tiles_wide, map_name, filename)
 end
 
 def write_cm(map, file_dest)
@@ -295,7 +322,7 @@ def write_cm(map, file_dest)
       sublayer_header_assetname = ident(sublayer.tileset.filename).bytes
       sublayer_header_assetname << 0 # terminating zero
       file.write(
-        # c string with terminating zero
+        # c string with terminating zero (from above)
         sublayer_header_assetname.pack(
           'C' * sublayer_header_assetname.size
         )
@@ -328,11 +355,42 @@ def write_cm(map, file_dest)
   file.write(
     [collision_sublayer.data.size].pack('L')
   )
+  # uncompressed collision data
   file.write(
     collision_sublayer.data.pack(
       'l' * collision_sublayer.data.size
     )
   )
+
+  # === Parallax Backgrounds ===
+  # number of parallax backgrounds (Uint32)
+  file.write(
+    [map.image_layers.size].pack('L')
+  )
+
+  map.image_layers.each do |image_layer|
+    bg_header_assetname = ident(image_layer.filename).bytes
+    bg_header_assetname << 0 # terminating zero
+    file.write(
+      # c string with terminating zero (from above)
+      bg_header_assetname.pack(
+        'C' * bg_header_assetname.size
+      )
+    )
+
+    # x:int32 y:int32 parallax_factor:float32 frame_width:int32 frame_height:int32 num_frames: int32
+    file.write(
+      [
+        image_layer.x,               # int32
+        image_layer.y,               # int32
+        image_layer.parallax_factor, # float32
+        image_layer.frame_width,     # int32
+        image_layer.frame_height,    # int32
+        image_layer.frames           # uint32
+      ]
+        .pack("llfllL")
+    )
+  end
 
 ensure
   file.close rescue false

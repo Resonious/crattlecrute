@@ -671,4 +671,8 @@ void load_map(const int asset, /*out*/ Map* map) {
     SDL_assert(collision_tiles_size == tiles_high * tiles_wide);
     // Again, assuming embedded assets
     map->tile_collision.tiles = (int*)(file.bytes + pos);
+    pos += collision_tiles_size * sizeof(int);
+
+    // Parallax time!
+
 }
