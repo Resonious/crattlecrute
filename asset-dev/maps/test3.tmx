@@ -253,6 +253,8 @@
    <property name="frame_width" value="740"/>
    <property name="frames" value="4"/>
    <property name="parallax_factor" value="0.1"/>
+   <property name="wrap_x" value="true"/>
+   <property name="wrap_y" value="false"/>
   </properties>
  </imagelayer>
 </map>

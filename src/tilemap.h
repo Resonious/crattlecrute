@@ -86,10 +86,15 @@ typedef struct ParallaxBackground {
     int width, height;
     int bg_asset;
     float parallax_factor;
+    int flags;
     int frame_height, frame_width;
     int frame_count;
     int frame;
 } ParallaxBackground;
+
+#define BG_WRAP_X (1 << 0)
+#define BG_WRAP_Y (1 << 1)
+void draw_parallax_background(struct Game* game, struct Map* map, struct ParallaxBackground* background);
 
 typedef struct Map {
     CollisionMap tile_collision;

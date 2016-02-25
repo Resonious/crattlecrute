@@ -6,14 +6,23 @@ Layer = Struct.new(:name, :width, :height, :raw_data, :sublayers) do
   def collision?; name == 'collision'; end
 end
 Sublayer = Struct.new(:tileset, :data, :compressed_data)
-ImageLayer = Struct.new(:name, :filename, :x, :y, :parallax_factor, :frame_height, :frame_width, :frames)
+ImageLayer = Struct.new(
+  :name, :filename, :x, :y, :parallax_factor,
+  :frame_height, :frame_width, :frames, :wrap_x, :wrap_y
+)
 
 IMAGE_LAYER_DEFAULTS = {
   parallax_factor: 1,
   frame_width: 0,
   frame_height: 0,
-  frames: 1
+  frames: 1,
+  wrap_x: 'false',
+  wrap_y: 'false'
 }
+
+def config_bool(value)
+  value.downcase == 'true' || value.to_i == 1
+end
 
 def ident(file)
   file
@@ -382,7 +391,10 @@ def write_cm(map, file_dest)
       )
     )
 
-    # x:int32 y:int32 parallax_factor:float32 frame_width:int32 frame_height:int32 num_frames: int32
+    bit_fields = 0
+    bit_fields |= 1 << 0 if config_bool(image_layer.wrap_x)
+    bit_fields |= 1 << 1 if config_bool(image_layer.wrap_y)
+
     file.write(
       [
         image_layer.x.to_i,               # int32
@@ -390,9 +402,10 @@ def write_cm(map, file_dest)
         image_layer.parallax_factor.to_f, # float32
         image_layer.frame_width.to_i,     # int32
         image_layer.frame_height.to_i,    # int32
-        image_layer.frames.to_i           # uint32
+        image_layer.frames.to_i,          # uint32
+        bit_fields                        # uint32
       ]
-        .pack("llfllL")
+        .pack("llfllLL")
     )
   end
 

@@ -425,11 +425,37 @@ void draw_parallax_background(struct Game* game, Map* map, ParallaxBackground* b
         background->x - game->camera.x[X] * background->parallax_factor,
         background->y - map->height + (need_src ? background->frame_height : background->height) + game->camera.x[Y] * background->parallax_factor,
 
-        need_src ? background->frame_width : background->width,
+        need_src ? background->frame_width  : background->width,
         need_src ? background->frame_height : background->height
     };
 
-    SDL_RenderCopy(game->renderer, texture, need_src ? &src : NULL, &dest);
+    SDL_Rect* src_ptr = need_src ? &src : NULL;
+    SDL_RenderCopy(game->renderer, texture, src_ptr, &dest);
+
+    if (background->flags & BG_WRAP_X) {
+        SDL_Rect side_dest = dest;
+        while (side_dest.x < game->window_width) {
+            side_dest.x += side_dest.w;
+            SDL_RenderCopy(game->renderer, texture, src_ptr, &side_dest);
+        }
+        side_dest.x = dest.x;
+        while (side_dest.x + side_dest.w > game->window_width) {
+            side_dest.x -= side_dest.w;
+            SDL_RenderCopy(game->renderer, texture, src_ptr, &side_dest);
+        }
+    }
+    if (background->flags & BG_WRAP_Y) {
+        SDL_Rect other_dest = dest;
+        while (other_dest.y < game->window_height) {
+            other_dest.y += other_dest.h;
+            SDL_RenderCopy(game->renderer, texture, src_ptr, &other_dest);
+        }
+        other_dest.y = dest.y;
+        while (other_dest.y + other_dest.h > game->window_height) {
+            other_dest.y -= other_dest.h;
+            SDL_RenderCopy(game->renderer, texture, src_ptr, &other_dest);
+        }
+    }
 }
 
 void draw_tilemap(struct Game* game, Tilemap* tilemap) {
@@ -474,12 +500,10 @@ void draw_tilemap(struct Game* game, Tilemap* tilemap) {
 }
 
 void draw_map(struct Game* game, Map* map) {
-    for (int i = 0; i < map->number_of_backgrounds; i++) {
+    for (int i = 0; i < map->number_of_backgrounds; i++)
         draw_parallax_background(game, map, &map->backgrounds[i]);
-    }
-    for (int i = 0; i < map->number_of_tilemaps; i++) {
+    for (int i = 0; i < map->number_of_tilemaps; i++)
         draw_tilemap(game, &map->tilemaps[i]);
-    }
 }
 
 static void do_bottom_sensors(struct Character* guy, CollisionMap* tile_collision, vec4i* tilemap_dim) {
@@ -726,7 +750,8 @@ void load_map(const int asset, /*out*/ Map* map) {
         READ(float, pfactor);
         READ(int, frame_width);
         READ(int, frame_height);
-        READ(int, frame_count);
+        READ(Uint32, frame_count);
+        READ(Uint32, flags);
 
         map->backgrounds[i].x = x;
         map->backgrounds[i].y = y;
@@ -734,6 +759,7 @@ void load_map(const int asset, /*out*/ Map* map) {
         map->backgrounds[i].frame_width     = frame_width;
         map->backgrounds[i].frame_height    = frame_height;
         map->backgrounds[i].frame_count     = frame_count;
+        map->backgrounds[i].flags = flags;
         map->backgrounds[i].bg_asset = asset_from_ident(texture_asset_ident);
         SDL_assert(map->backgrounds[i].bg_asset != -1);
         map->backgrounds[i].frame = 0;
