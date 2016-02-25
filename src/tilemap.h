@@ -83,9 +83,12 @@ void slide_character(float gravity, struct Character* guy);
 
 typedef struct ParallaxBackground {
     int x, y;
+    int width, height;
+    int bg_asset;
     float parallax_factor;
     int frame_height, frame_width;
     int frame_count;
+    int frame;
 } ParallaxBackground;
 
 typedef struct Map {
@@ -93,6 +96,7 @@ typedef struct Map {
     int number_of_tilemaps;
     Tilemap* tilemaps;
     int number_of_backgrounds;
+    int width, height;
     ParallaxBackground* backgrounds;
 } Map;
 
@@ -101,6 +105,7 @@ typedef struct CmFileHeader {
     Uint32 tiles_wide;
     Uint32 tiles_high;
     Uint8 tilemap_count;
+    Uint8 background_count;
 } CmFileHeader;
 
 CmFileHeader read_cm_file_header(const int asset);

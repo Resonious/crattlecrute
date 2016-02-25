@@ -20,7 +20,7 @@ Dir.glob("#{assets_base_dir}/asset-dev/maps/*.tmx").reject(&File.method(:directo
     write_cm(read_tmx(map_tmx_file), out_file)
   rescue StandardError => e
     puts "===================================="
-    puts "ERROR COMPILING TILEMAP #{map_tmx_file}\n#{e}"
+    puts "ERROR COMPILING TILEMAP #{map_tmx_file}\n#{e}\n#{e.backtrace.join("\n")}"
     puts "===================================="
   end
 end

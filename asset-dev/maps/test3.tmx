@@ -246,4 +246,13 @@
 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 </data>
  </layer>
+ <imagelayer name="bg" x="42" y="1820">
+  <image source="../../assets/misc/skykinda.png"/>
+  <properties>
+   <property name="frame_height" value="580"/>
+   <property name="frame_width" value="740"/>
+   <property name="frames" value="4"/>
+   <property name="parallax_factor" value="0.1"/>
+  </properties>
+ </imagelayer>
 </map>

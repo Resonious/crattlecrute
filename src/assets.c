@@ -259,7 +259,12 @@ Map* cached_map(Game* game, int asset) {
     if (cached_asset->id == ASSET_NOT_LOADED) {
         cached_asset->id = asset;
         CmFileHeader file_header = read_cm_file_header(asset);
-        size_t bytes_needed_for_map = sizeof(Map) + (size_t)file_header.tilemap_count * sizeof(Tilemap);
+
+        size_t bytes_needed_for_map =
+            sizeof(Map) +
+            (size_t)file_header.tilemap_count * sizeof(Tilemap) +
+            (size_t)file_header.background_count * sizeof(ParallaxBackground);
+
         cached_asset->map = malloc(bytes_needed_for_map);
         load_map(asset, cached_asset->map);
 
