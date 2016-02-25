@@ -432,6 +432,7 @@ void draw_parallax_background(struct Game* game, Map* map, ParallaxBackground* b
     SDL_Rect* src_ptr = need_src ? &src : NULL;
     SDL_RenderCopy(game->renderer, texture, src_ptr, &dest);
 
+    // TODO make these render a whole square (not a cross)
     if (background->flags & BG_WRAP_X) {
         SDL_Rect side_dest = dest;
         while (side_dest.x < game->window_width) {
