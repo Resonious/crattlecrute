@@ -1151,6 +1151,12 @@ void scene_test_update(void* vs, Game* game) {
         Character* guy = &s->guy; 
 
         game->camera_target.x[X] = guy->position.x[X] - game->window_width / 2.0f;
+
+        if (game->camera_target.x[X] < 0)
+            game->camera_target.x[X] = 0;
+        else if (game->camera_target.x[X] + game->window_width > s->map->width)
+            game->camera_target.x[X] = s->map->width - game->window_width;
+
         if (guy->grounded) {
             game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.35f;
             game->follow_cam_y = false;
@@ -1161,6 +1167,11 @@ void scene_test_update(void* vs, Game* game) {
             if (game->follow_cam_y)
                 game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.5f;
         }
+
+        if (game->camera_target.x[Y] < 0)
+            game->camera_target.x[Y] = 0;
+        else if (game->camera_target.x[Y] + game->window_height > s->map->height)
+            game->camera_target.x[Y] = s->map->height - game->window_height;
     }
     // move cam position towards cam target
     game->camera.simd = _mm_add_ps(game->camera.simd, _mm_mul_ps(_mm_sub_ps(game->camera_target.simd, game->camera.simd), _mm_set_ps(0, 0, 0.1f, 0.1f)));
