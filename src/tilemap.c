@@ -408,8 +408,12 @@ void draw_parallax_background(struct Game* game, Map* map, ParallaxBackground* b
     SDL_Texture* texture = cached_texture(game, background->bg_asset);
     bool need_src = !(background->frame_width == 0 || background->frame_height == 0);
     SDL_Rect src;
+    int real_width, real_height;
 
     if (need_src) {
+        real_width = background->frame_width;
+        real_height = background->frame_height;
+
         src.x = background->frame * background->frame_width;
         src.y = background->height - background->frame_height;
         src.w = background->frame_width;
@@ -423,38 +427,59 @@ void draw_parallax_background(struct Game* game, Map* map, ParallaxBackground* b
 
     SDL_Rect dest = {
         background->x - game->camera.x[X] * background->parallax_factor,
-        background->y - map->height + (need_src ? background->frame_height : background->height) + game->camera.x[Y] * background->parallax_factor,
+        background->y - map->height + real_height + game->camera.x[Y] * background->parallax_factor,
 
-        need_src ? background->frame_width  : background->width,
-        need_src ? background->frame_height : background->height
+        real_width, real_height
     };
 
     SDL_Rect* src_ptr = need_src ? &src : NULL;
-    SDL_RenderCopy(game->renderer, texture, src_ptr, &dest);
+    bool wrap_x = background->flags & BG_WRAP_X;
+    bool wrap_y = background->flags & BG_WRAP_Y;
 
-    // TODO make these render a whole square (not a cross)
-    if (background->flags & BG_WRAP_X) {
-        SDL_Rect side_dest = dest;
-        while (side_dest.x < game->window_width) {
-            side_dest.x += side_dest.w;
-            SDL_RenderCopy(game->renderer, texture, src_ptr, &side_dest);
-        }
-        side_dest.x = dest.x;
-        while (side_dest.x + side_dest.w > game->window_width) {
-            side_dest.x -= side_dest.w;
-            SDL_RenderCopy(game->renderer, texture, src_ptr, &side_dest);
+    if (wrap_x && wrap_y) {
+        while (dest.x + dest.w > game->window_width)
+            dest.x -= dest.w;
+        while (dest.y + dest.h > game->window_height)
+            dest.y -= dest.h;
+
+        int original_x = dest.x;
+
+        while (dest.y < game->window_height) {
+            dest.y += dest.h;
+            while (dest.x < game->window_width) {
+                dest.x += dest.w;
+                SDL_RenderCopy(game->renderer, texture, src_ptr, &dest);
+            }
+            dest.x = original_x;
         }
     }
-    if (background->flags & BG_WRAP_Y) {
-        SDL_Rect other_dest = dest;
-        while (other_dest.y < game->window_height) {
-            other_dest.y += other_dest.h;
-            SDL_RenderCopy(game->renderer, texture, src_ptr, &other_dest);
+    else {
+        SDL_RenderCopy(game->renderer, texture, src_ptr, &dest);
+
+        // TODO make these render a whole square (not a cross)
+        if (wrap_x) {
+            SDL_Rect side_dest = dest;
+            while (side_dest.x < game->window_width) {
+                side_dest.x += side_dest.w;
+                SDL_RenderCopy(game->renderer, texture, src_ptr, &side_dest);
+            }
+            side_dest.x = dest.x;
+            while (side_dest.x + side_dest.w > game->window_width) {
+                side_dest.x -= side_dest.w;
+                SDL_RenderCopy(game->renderer, texture, src_ptr, &side_dest);
+            }
         }
-        other_dest.y = dest.y;
-        while (other_dest.y + other_dest.h > game->window_height) {
-            other_dest.y -= other_dest.h;
-            SDL_RenderCopy(game->renderer, texture, src_ptr, &other_dest);
+        else if (wrap_y) {
+            SDL_Rect other_dest = dest;
+            while (other_dest.y < game->window_height) {
+                other_dest.y += other_dest.h;
+                SDL_RenderCopy(game->renderer, texture, src_ptr, &other_dest);
+            }
+            other_dest.y = dest.y;
+            while (other_dest.y + other_dest.h > game->window_height) {
+                other_dest.y -= other_dest.h;
+                SDL_RenderCopy(game->renderer, texture, src_ptr, &other_dest);
+            }
         }
     }
 }
