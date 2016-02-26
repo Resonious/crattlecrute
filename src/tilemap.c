@@ -171,13 +171,13 @@ TileCollision dont_call_me(CollisionMap* tilemap, SensedTile* t, struct Characte
 TileCollision left_sensor_placement(CollisionMap* tilemap, SensedTile* t, struct Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + height + 1 - guy->left_sensors.x[sensor+X]);
-    result.hit = result.new_position > guy->position.x[X] && (!guy->grounded || result.new_position <= guy->old_position.x[X]);
+    result.hit = result.new_position > guy->position.x[X] && (result.new_position <= guy->old_position.x[X]);
     return result;
 }
 TileCollision right_sensor_placement(CollisionMap* tilemap, SensedTile* t, struct Character* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + 31 - height - guy->right_sensors.x[sensor+X]);
-    result.hit = result.new_position < guy->position.x[X] && (!guy->grounded || result.new_position >= guy->old_position.x[X]);
+    result.hit = result.new_position < guy->position.x[X] && (result.new_position >= guy->old_position.x[X]);
     return result;
 }
 TileCollision top_sensor_placement(CollisionMap* tilemap, SensedTile* t, struct Character* guy, int height, const int sensor) {
