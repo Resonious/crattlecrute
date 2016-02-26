@@ -437,9 +437,9 @@ void draw_parallax_background(struct Game* game, Map* map, ParallaxBackground* b
     bool wrap_y = background->flags & BG_WRAP_Y;
 
     if (wrap_x && wrap_y) {
-        while (dest.x + dest.w > game->window_width)
+        while (dest.x + dest.w > 0)
             dest.x -= dest.w;
-        while (dest.y + dest.h > game->window_height)
+        while (dest.y + dest.h > 0)
             dest.y -= dest.h;
 
         int original_x = dest.x;

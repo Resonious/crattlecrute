@@ -254,7 +254,7 @@
    <property name="frames" value="4"/>
    <property name="parallax_factor" value="0.5"/>
    <property name="wrap_x" value="true"/>
-   <property name="wrap_y" value="true"/>
+   <property name="wrap_y" value="false"/>
   </properties>
  </imagelayer>
 </map>
