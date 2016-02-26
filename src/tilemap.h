@@ -94,7 +94,6 @@ typedef struct ParallaxBackground {
 
 #define BG_WRAP_X (1 << 0)
 #define BG_WRAP_Y (1 << 1)
-void draw_parallax_background(struct Game* game, struct Map* map, struct ParallaxBackground* background);
 
 typedef struct Map {
     CollisionMap tile_collision;
@@ -116,5 +115,6 @@ typedef struct CmFileHeader {
 CmFileHeader read_cm_file_header(const int asset);
 void load_map(const int asset, /*out*/Map* map);
 void draw_map(struct Game* game, Map* map);
+void draw_parallax_background(struct Game* game, struct Map* map, struct ParallaxBackground* background);
 
 #endif // TILEMAP_H

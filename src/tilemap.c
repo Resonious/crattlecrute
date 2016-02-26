@@ -404,7 +404,7 @@ static void draw_debug_borders(Game* game, SDL_Rect* dest, int i, int j) {
 #endif
 */
 
-void draw_parallax_background(struct Game* game, Map* map, ParallaxBackground* background) {
+void draw_parallax_background(struct Game* game, struct Map* map, struct ParallaxBackground* background) {
     SDL_Texture* texture = cached_texture(game, background->bg_asset);
     bool need_src = !(background->frame_width == 0 || background->frame_height == 0);
     SDL_Rect src;
