@@ -607,8 +607,11 @@ void collide_character(struct Character* guy, CollisionMap* tile_collision) {
     // == MIDDLE SENSORS ==
     sense_tile(&guy_new_x_position, &tilemap_dim, &guy->middle_sensors, &m_t);
 
+    // NOTE Adding '=' to these comparisons will make the collision work for moving tilemaps,
+    // but causes a bug when landing on a slope that curves up into a wall.
+
     // == LEFT SENSORS ==
-    if (guy->position.x[X] <= guy->old_position.x[X]) {
+    if (guy->position.x[X] < guy->old_position.x[X]) {
         sense_tile(&guy_new_x_position, &tilemap_dim, &guy->left_sensors, &t);
         l_collision_1 = process_side_sensor(guy, tile_collision, &t,   LEFT_SENSOR, SENSOR_1);
         l_collision_2 = process_side_sensor(guy, tile_collision, &t,   LEFT_SENSOR, SENSOR_2);
@@ -619,7 +622,7 @@ void collide_character(struct Character* guy, CollisionMap* tile_collision) {
         left_hit = false;
 
     // == RIGHT SENSORS ==
-    if (guy->position.x[X] >= guy->old_position.x[X]) {
+    if (guy->position.x[X] > guy->old_position.x[X]) {
         sense_tile(&guy_new_x_position, &tilemap_dim, &guy->right_sensors, &t);
         r_collision_1 = process_side_sensor(guy, tile_collision, &t,   RIGHT_SENSOR, SENSOR_1);
         r_collision_2 = process_side_sensor(guy, tile_collision, &t,   RIGHT_SENSOR, SENSOR_2);
@@ -630,7 +633,7 @@ void collide_character(struct Character* guy, CollisionMap* tile_collision) {
         right_hit = false;
 
     // == TOP SENSORS ==
-    if (guy->position.x[Y] >= guy->old_position.x[Y]) {
+    if (guy->position.x[Y] > guy->old_position.x[Y]) {
         sense_tile(&guy_new_y_position, &tilemap_dim, &guy->top_sensors, &t);
         t_collision_1 = process_top_sensor(guy, tile_collision, &t, SENSOR_1);
         t_collision_2 = process_top_sensor(guy, tile_collision, &t, SENSOR_2);
