@@ -153,6 +153,33 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
     };
     // Chearfully assume that center_y is right after center_x and aligned the same as SDL_Point...
     SDL_Point* center = (SDL_Point*)&guy->center_x;
+
+    // First pass to draw body shadow:
+    {
+        SDL_SetTextureColorMod(atlas->texture, 0, 0, 0);
+        SDL_SetTextureAlphaMod(atlas->texture, 135);
+        SDL_Rect outline_dest = dest;
+        SDL_Point outline_center = *center;
+        outline_center.x += 1;
+        outline_center.y -= 1;
+        outline_dest.x -= 1;
+        outline_dest.y += 1;
+        outline_dest.w += 2;
+        outline_dest.h += 2;
+        src.x += sprite_width;
+        if (src.x >= atlas->width) {
+            src.x -= atlas->width;
+            src.y -= sprite_height;
+        }
+        SDL_RenderCopyEx(game->renderer,
+            atlas->texture,
+            &src, &outline_dest,
+            360 - guy->ground_angle, &outline_center, guy->flip
+        );
+    }
+    SDL_SetTextureAlphaMod(atlas->texture, 255);
+    // Second pass: draw character with color
+    src = atlas->frames[guy->animation_frame];
     for (int i = 0; i < number_of_layers; i++) {
         SDL_Color* color;
         if (i == 1)
