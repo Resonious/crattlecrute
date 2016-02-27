@@ -148,3 +148,13 @@ void handle_key_during_text_edit(Game* game, SDL_Event* event) {
         break;
     }
 }
+
+int map_asset_for_area(int area_id) {
+    switch (area_id) {
+    case AREA_TESTZONE_ONE: return ASSET_MAPS_TEST3_CM; break;
+    case AREA_TESTZONE_TWO: return ASSET_MAPS_TEST4_CM; break;
+    default:
+        SDL_assert(!"UNKNOWN AREA!");
+        return ASSET_MAPS_TEST3_CM;
+    }
+}

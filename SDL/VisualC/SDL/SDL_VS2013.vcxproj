@@ -391,7 +391,7 @@
     <ClCompile Include="..\..\..\src\game.c" />
     <ClCompile Include="..\..\..\src\main.c" />
     <ClCompile Include="..\..\..\src\scene_offset_viewer.c" />
-    <ClCompile Include="..\..\..\src\scene_ingame.c" />
+    <ClCompile Include="..\..\..\src\scene_world.c" />
     <ClCompile Include="..\..\..\src\sound.c" />
     <ClCompile Include="..\..\..\src\tilemap.c" />
     <ClCompile Include="..\..\..\src\types.c" />

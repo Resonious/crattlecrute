@@ -44,6 +44,8 @@ Uint64 ticks_per_second;
                 case SDL_SCANCODE_A: this_frame[C_A] = to; break; \
                 case SDL_SCANCODE_D: this_frame[C_D] = to; break; \
 \
+                case SDL_SCANCODE_Z: this_frame[C_JUMP] = to; break; \
+\
                 case SDL_SCANCODE_P:           this_frame[C_PAUSE]     = to; break; \
                 case SDL_SCANCODE_SPACE:       this_frame[C_SPACE]     = to; break; \
                 case SDL_SCANCODE_F1:          this_frame[C_F1]        = to; break; \

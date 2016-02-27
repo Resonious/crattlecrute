@@ -76,6 +76,7 @@ typedef struct WorldScene {
     CharacterView guy_view;
     AudioWave* music;
     AudioWave* test_sound;
+    int current_area;
     Map* map;
     char editable_text[EDITABLE_TEXT_BUFFER_SIZE];
 
@@ -984,8 +985,9 @@ void scene_world_initialize(void* vdata, Game* game) {
     }
     BENCH_END(loading_crattle1);
 
-    BENCH_START(loading_tiles)
-    data->map = cached_map(game, ASSET_MAPS_TEST3_CM);
+    BENCH_START(loading_tiles);
+    data->current_area = AREA_TESTZONE_ONE;
+    data->map = cached_map(game, map_asset_for_area(data->current_area));
     BENCH_END(loading_tiles);
 
     BENCH_START(loading_sound);
@@ -997,11 +999,62 @@ void scene_world_initialize(void* vdata, Game* game) {
     BENCH_END(loading_sound);
 }
 
+void set_camera_target(Game* game, Map* map, Character* guy) {
+    game->camera_target.x[X] = guy->position.x[X] - game->window_width / 2.0f;
+
+    if (game->window_width > map->width) {
+        game->camera_target.x[X] = (map->width - game->window_width) / 2.0f;
+    }
+    else if (game->camera_target.x[X] < 0)
+        game->camera_target.x[X] = 0;
+    else if (game->camera_target.x[X] + game->window_width > map->width)
+        game->camera_target.x[X] = map->width - game->window_width;
+
+    if (guy->grounded) {
+        game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.35f;
+        game->follow_cam_y = false;
+    }
+    else {
+        if (guy->position.x[Y] - game->camera_target.x[Y] < 1.5f)
+            game->follow_cam_y = true;
+        if (game->follow_cam_y)
+            game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.5f;
+    }
+
+    if (game->window_height > map->height)
+        game->camera_target.x[Y] = (map->height - game->window_height) / 2.0f;
+    else if (game->camera_target.x[Y] < 0)
+        game->camera_target.x[Y] = 0;
+    else if (game->camera_target.x[Y] + game->window_height > map->height)
+        game->camera_target.x[Y] = map->height - game->window_height;
+}
+
+void local_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
+    WorldScene* s = (WorldScene*)vs;
+
+    SDL_assert(door->dest_area > -1);
+    s->current_area = door->dest_area;
+    int map_asset = map_asset_for_area(s->current_area);
+    SDL_assert(map_asset > -1);
+    s->map = cached_map(game, map_asset);
+
+    float dest_x = (float)door->dest_x;
+    float dest_y = s->map->height - (float)door->dest_y;
+
+    guy->position.x[X]     = dest_x;
+    guy->position.x[Y]     = dest_y;
+    guy->old_position.x[X] = dest_x;
+    guy->old_position.x[Y] = dest_y;
+    set_camera_target(game, s->map, &s->guy);
+    game->camera.simd = game->camera_target.simd;
+}
+
 #define PERCENT_CHANCE(percent) (rand() < RAND_MAX / (100 / percent))
 
 void scene_world_update(void* vs, Game* game) {
     WorldScene* s = (WorldScene*)vs;
 
+    // TODO PING DUDE
     // I'm only gonna count ping for first guy I don't really care right now
     {
         s->net.ping_counter += 1;
@@ -1103,6 +1156,8 @@ void scene_world_update(void* vs, Game* game) {
                 apply_character_physics(game, &plr->guy, &plr->controls, s->gravity, s->drag);
                 collide_character(&plr->guy, &s->map->tile_collision);
                 slide_character(s->gravity, &plr->guy);
+                // ============================================================= .. TODO .. =====================================================================
+                interact_character_with_world(game, &plr->guy, &plr->controls, s->map, s, NULL);
                 update_character_animation(&plr->guy);
 
                 sync_player_frame_if_should(s->net.status, plr);
@@ -1144,35 +1199,11 @@ void scene_world_update(void* vs, Game* game) {
     apply_character_physics(game, &s->guy, &game->controls, s->gravity, s->drag);
     collide_character(&s->guy, &s->map->tile_collision);
     slide_character(s->gravity, &s->guy);
+    interact_character_with_world(game, &s->guy, &game->controls, s->map, s, local_go_through_door);
     update_character_animation(&s->guy);
 
     // Follow local player with camera
-    {
-        Character* guy = &s->guy; 
-
-        game->camera_target.x[X] = guy->position.x[X] - game->window_width / 2.0f;
-
-        if (game->camera_target.x[X] < 0)
-            game->camera_target.x[X] = 0;
-        else if (game->camera_target.x[X] + game->window_width > s->map->width)
-            game->camera_target.x[X] = s->map->width - game->window_width;
-
-        if (guy->grounded) {
-            game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.35f;
-            game->follow_cam_y = false;
-        }
-        else {
-            if (guy->position.x[Y] - game->camera_target.x[Y] < 1.5f)
-                game->follow_cam_y = true;
-            if (game->follow_cam_y)
-                game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.5f;
-        }
-
-        if (game->camera_target.x[Y] < 0)
-            game->camera_target.x[Y] = 0;
-        else if (game->camera_target.x[Y] + game->window_height > s->map->height)
-            game->camera_target.x[Y] = s->map->height - game->window_height;
-    }
+    set_camera_target(game, s->map, &s->guy);
     // move cam position towards cam target
     game->camera.simd = _mm_add_ps(game->camera.simd, _mm_mul_ps(_mm_sub_ps(game->camera_target.simd, game->camera.simd), _mm_set_ps(0, 0, 0.1f, 0.1f)));
     // Snap to cam target after awhile to stop a certain amount of jerkiness.

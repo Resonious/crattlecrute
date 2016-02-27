@@ -146,7 +146,7 @@
     <ClCompile Include="..\..\..\src\game.c">
       <Filter>game</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\scene_ingame.c">
+    <ClCompile Include="..\..\..\src\scene_world.c">
       <Filter>game\scenes</Filter>
     </ClCompile>
   </ItemGroup>

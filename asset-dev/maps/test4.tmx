@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" renderorder="right-up" width="20" height="15" tilewidth="32" tileheight="32" nextobjectid="2">
+ <tileset firstgid="1" name="grass" tilewidth="32" tileheight="32" tilecount="15">
+  <image source="../../assets/terrain/testground2.png" width="160" height="96"/>
+ </tileset>
+ <tileset firstgid="16" name="collision" tilewidth="32" tileheight="32" tilecount="15">
+  <image source="../../assets/terrain/standard.collision.png" width="160" height="96"/>
+ </tileset>
+ <tileset firstgid="31" name="door" tilewidth="90" tileheight="90" tilecount="4">
+  <image source="../../assets/misc/door.png" width="180" height="180"/>
+ </tileset>
+ <objectgroup name="doors">
+  <object id="1" name="Door to other place" type="door" gid="33" x="288.25" y="191.5" width="90" height="90">
+   <properties>
+    <property name="leads_to_area" value="AREA_TESTZONE_ONE"/>
+    <property name="leads_to_x" value="25 * 32"/>
+    <property name="leads_to_y" value="64 * 32"/>
+   </properties>
+  </object>
+ </objectgroup>
+ <layer name="Tile Layer 1" width="20" height="15">
+  <data encoding="csv">
+5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
+5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
+5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
+5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
+5,0,0,0,0,0,0,10,10,10,10,0,0,0,0,0,0,0,0,5,
+5,0,0,0,0,0,7,9,9,9,9,0,0,0,0,0,0,0,0,5,
+5,0,0,0,0,8,6,5,5,5,5,0,0,0,0,0,0,0,0,5,
+5,0,0,2,3,4,5,5,5,5,5,0,0,0,0,0,0,0,0,5,
+5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
+5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
+5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,
+5,10,10,10,10,10,10,10,10,10,0,0,0,0,0,0,0,0,0,5,
+5,9,9,9,9,9,9,9,9,9,11,12,1,1,1,1,1,1,1,5,
+5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5
+</data>
+ </layer>
+ <layer name="Collision" width="20" height="15" opacity="0.4">
+  <data encoding="csv">
+16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,
+16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
+16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
+16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
+16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
+16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
+16,0,0,0,0,0,23,16,16,16,16,0,0,0,0,0,0,0,0,16,
+16,0,0,0,0,21,22,0,0,0,16,0,0,0,0,0,0,0,0,16,
+16,0,0,18,2147483667,16,16,16,16,16,16,0,0,0,0,0,0,0,0,16,
+16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
+16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
+16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
+16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
+16,16,16,16,16,16,16,16,16,16,27,28,18,18,18,18,18,18,18,16,
+16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16
+</data>
+ </layer>
+ <imagelayer name="bg" opacity="0">
+  <image source="../../assets/misc/skykinda.png"/>
+  <properties>
+   <property name="frame_height" value="580"/>
+   <property name="frame_width" value="740"/>
+   <property name="frames" value="4"/>
+   <property name="parallax_factor" value="0.5"/>
+   <property name="wrap_x" value="true"/>
+   <property name="wrap_y" value="true"/>
+  </properties>
+ </imagelayer>
+</map>

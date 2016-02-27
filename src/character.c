@@ -1,6 +1,7 @@
 #include "coords.h"
 #include "game.h"
 #include "character.h"
+#include "tilemap.h"
 #include <math.h>
 
 #define TERMINAL_VELOCITY 17.0f
@@ -8,6 +9,32 @@
 #ifdef _DEBUG
 extern bool debug_pause;
 #endif
+
+void interact_character_with_world(
+    struct Game* game,
+    struct Character* guy,
+    struct Controls* controls,
+    struct Map* map,
+    void* data,
+    void (*go_through_door)(void*, struct Game* game, struct Character*, struct Door*)
+) {
+    for (int i = 0; i < map->number_of_doors; i++) {
+        Door* door = &map->doors[i];
+
+        if (just_pressed(controls, C_UP) &&
+            guy->position.x[X] > door->x + 21 &&
+            guy->position.x[X] < door->x + 68 &&
+            guy->position.x[Y] > door->y      &&
+            guy->position.x[Y] < door->y + 90
+        ) {
+            controls->this_frame[C_UP] = false;
+            if (go_through_door == NULL)
+                printf("A character wanted to go through a door! (no callback provided)\n");
+            else
+                go_through_door(data, game, guy, door);
+        }
+    }
+}
 
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag) {
     guy->dy -= gravity; // times 1 frame
@@ -30,14 +57,14 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
         if (guy->grounded) {
             if (guy->jumped)
                 guy->jumped = false;
-            if (just_pressed(controls, C_UP)) {
+            if (just_pressed(controls, C_JUMP)) {
                 guy->grounded = false;
                 guy->jumped = true;
                 guy->just_jumped = true;
                 guy->dy = guy->jump_acceleration;
             }
         }
-        else if (just_released(controls, C_UP) && guy->jumped) {
+        else if (just_released(controls, C_JUMP) && guy->jumped) {
             const float jump_cancel_dy = 10.0f;
             if (guy->dy > jump_cancel_dy)
                 guy->dy = jump_cancel_dy;
@@ -116,22 +143,6 @@ void character_post_update(Character* guy) {
 }
 
 // ======= RENDERING =========
-
-void world_render_copy_ex(
-    Game* game,
-    SDL_Texture* tex, SDL_Rect* src,
-    vec2* pos, int width, int height,
-    float angle, vec2* center, SDL_RendererFlip flip
-) {
-    SDL_Rect dest = {
-        pos->x - center->x - game->camera.x[X],
-        game->window_height - (pos->y - game->camera.x[Y]) - height + center->x,
-
-        width, height
-    };
-    SDL_Point center_point = { (int)center->x, height - (int)center->y };
-    SDL_RenderCopyEx(game->renderer, tex, src, &dest, 360 - angle, &center_point, flip);
-}
 
 void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) {
     // Play sound effects!
