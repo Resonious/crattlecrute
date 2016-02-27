@@ -4,7 +4,7 @@
 
 #include "assets.h"
 
-#define ASSET_NOT_LOADED INT_MAX
+#define ASSET_NOT_LOADED 2147483647
 
 typedef struct {
     int id;

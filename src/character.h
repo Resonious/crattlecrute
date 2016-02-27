@@ -8,7 +8,7 @@
 struct Game;
 struct Controls;
 
-#define CHARACTER_LAYERS 3
+#define CHARACTER_LAYERS 4
 #define GUY_JUMP_SOUND_CHANNEL 0
 
 typedef struct Character {
@@ -49,27 +49,62 @@ typedef struct Character {
     int animation_frame;
     SDL_RendererFlip flip;
 
+    int eye_type;
+    SDL_Color eye_color;
     SDL_Color body_color;
     SDL_Color left_foot_color;
     SDL_Color right_foot_color;
 } Character;
+
+// So, all eyes must be the same dimensions
+#define EYE_SPRITE_WIDTH 3
+#define EYE_SPRITE_HEIGHT 6
+enum EyeFrame {
+    EYE_OPEN, EYE_CLOSED,
+    EYE_FRAME_COUNT
+};
 
 static const int DEFAULT_ASSETS_FOR_ANIMATIONS[GUY_ANIMATION_COUNT] = {
     ASSET_CRATTLECRUTE_CRATTLECRUTE_PNG,
     ASSET_CRATTLECRUTE_CRATTLECRUTE_WALK_PNG,
     ASSET_CRATTLECRUTE_CRATTLECRUTE_JUMP_PNG
 };
+static const int EYE_TYPE_ASSETS[] = {
+    ASSET_EYES_EYE_BLINK_PNG
+};
+
+typedef struct PeripheralOffset {
+    // Dimensions of bottom relative to frame center point.
+    int x, y;
+    // Angle from bottom to top in degrees as usual.
+    float angle;
+} PeripheralOffset;
 
 typedef struct AnimationAtlas {
     int width, height;
     SDL_Texture* texture;
-    SDL_Rect* frames;//[number_of_frames_in_the_texture]
+
+    //[number_of_frames_in_the_texture]
+    // Each entry is the rect of the FIRST LAYER of the frame.
+    // The rectangle must be incremented within the atlas manually
+    // to retrieve the other layers.
+    SDL_Rect* frames;
+
+    //[number_of_frames_in_the_texture]
+    PeripheralOffset* eye_offsets;
 } AnimationAtlas;
+
+#define ANIMATION_MAX_FRAMES 128
+#define ANIMATION_MAX_PERIPHERALS 128
 
 typedef struct CharacterView {
     AnimationAtlas animation_textures[GUY_ANIMATION_COUNT];
+
     // Rather than mallocing when loading animation frames, we can just use this space.
-    SDL_Rect rects_for_frames[128];
+    SDL_Rect rects_for_frames[ANIMATION_MAX_FRAMES];
+    // Rather than mallocing when loading peripheral offsets (like eyes), we can just use this space.
+    PeripheralOffset offsets_for_frames[ANIMATION_MAX_PERIPHERALS];
+
     AudioWave* jump_sound;
 } CharacterView;
 

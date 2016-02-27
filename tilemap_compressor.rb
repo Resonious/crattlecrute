@@ -6,9 +6,29 @@ Layer = Struct.new(:name, :width, :height, :raw_data, :sublayers) do
   def collision?; name == 'collision'; end
 end
 Sublayer = Struct.new(:tileset, :data, :compressed_data)
+ImageLayer = Struct.new(
+  :name, :filename, :x, :y, :parallax_factor,
+  :frame_height, :frame_width, :frames, :wrap_x, :wrap_y
+)
+
+IMAGE_LAYER_DEFAULTS = {
+  parallax_factor: 1,
+  frame_width: 0,
+  frame_height: 0,
+  frames: 1,
+  wrap_x: 'false',
+  wrap_y: 'false'
+}
+
+def config_bool(value)
+  value.downcase == 'true' || value.to_i == 1
+end
 
 def ident(file)
-  file.gsub(/\.\.\//, '').gsub(/[\.\s\?!\/\\-]/, '_').upcase
+  file
+    .gsub(/\.\.\//, '')
+    .gsub(/[\.\s\?!\/\\-]/, '_')
+    .upcase
 end
 
 def compress_tilemap_data(tilemap_data)
@@ -262,8 +282,31 @@ def read_tmx(file)
     end
   end
 
-  Struct.new(:layers, :tiles_high, :tiles_wide, :name, :filename)
-        .new( layers,  tiles_high,  tiles_wide, map_name, filename)
+  # ===== Grab imagelayers for parallax backgrounds =====
+  image_layers = []
+  map.css('imagelayer').each do |imagelayer|
+    attrs = imagelayer.attributes
+
+    struct = ImageLayer.new
+    struct.name = attrs['name'].value
+    struct.x = attrs['x'].value
+    struct.y = attrs['y'].value
+    struct.filename = imagelayer.css('image').first.attributes['source'].value
+
+    IMAGE_LAYER_DEFAULTS.each do |field, default_value|
+      if element = imagelayer.css("properties property[name='#{field}']").first
+        value = element.attributes['value'].value
+      else
+        value = default_value
+      end
+      struct.send("#{field}=", value)
+    end
+
+    image_layers << struct
+  end
+
+  Struct.new(:layers, :image_layers, :tiles_high, :tiles_wide, :name, :filename)
+        .new( layers, image_layers,  tiles_high,  tiles_wide, map_name, filename)
 end
 
 def write_cm(map, file_dest)
@@ -280,7 +323,7 @@ def write_cm(map, file_dest)
   raise "no collision layer!!" if collision_layer.nil?
   collision_sublayer = collision_layer.sublayers.values.first
 
-  file.write('CM0') # Magic (and version number I guess lol)
+  file.write('CM1') # Magic (and version number I guess lol)
   file.write(
     # Tilemap width and height (both Uint32)
     [map.tiles_wide, map.tiles_high].pack('LL')
@@ -288,6 +331,8 @@ def write_cm(map, file_dest)
 
   # Number of sublayers (tilemaps): Uint8
   file.write([number_of_sublayers].pack('C'))
+  # Number of imagelayers (parallax backgrounds): Uint8
+  file.write([map.image_layers.size].pack('C'))
 
   non_collision_layers.each do |layer|
     layer.sublayers.values.each do |sublayer|
@@ -295,7 +340,7 @@ def write_cm(map, file_dest)
       sublayer_header_assetname = ident(sublayer.tileset.filename).bytes
       sublayer_header_assetname << 0 # terminating zero
       file.write(
-        # c string with terminating zero
+        # c string with terminating zero (from above)
         sublayer_header_assetname.pack(
           'C' * sublayer_header_assetname.size
         )
@@ -328,11 +373,41 @@ def write_cm(map, file_dest)
   file.write(
     [collision_sublayer.data.size].pack('L')
   )
+  # uncompressed collision data
   file.write(
     collision_sublayer.data.pack(
       'l' * collision_sublayer.data.size
     )
   )
+
+  # === Parallax Backgrounds ===
+  map.image_layers.each do |image_layer|
+    bg_header_assetname = ident(image_layer.filename).gsub(/^ASSETS_/, '').bytes
+    bg_header_assetname << 0 # terminating zero
+    file.write(
+      # c string with terminating zero (from above)
+      bg_header_assetname.pack(
+        'C' * bg_header_assetname.size
+      )
+    )
+
+    bit_fields = 0
+    bit_fields |= 1 << 0 if config_bool(image_layer.wrap_x)
+    bit_fields |= 1 << 1 if config_bool(image_layer.wrap_y)
+
+    file.write(
+      [
+        image_layer.x.to_i,               # int32
+        image_layer.y.to_i,               # int32
+        image_layer.parallax_factor.to_f, # float32
+        image_layer.frame_width.to_i,     # int32
+        image_layer.frame_height.to_i,    # int32
+        image_layer.frames.to_i,          # uint32
+        bit_fields                        # uint32
+      ]
+        .pack("llfllLL")
+    )
+  end
 
 ensure
   file.close rescue false

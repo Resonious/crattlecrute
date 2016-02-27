@@ -274,16 +274,20 @@ RemotePlayer* player_of_id(TestScene* scene, int id, struct sockaddr_in* addr) {
 }
 
 void read_guy_info_from_buffer(byte* buffer, Character* guy, int* pos) {
-    read_from_buffer(buffer, guy->position.x, pos, sizeof(guy->position.x));
-    memcpy(guy->old_position.x, guy->position.x, sizeof(guy->position.x));
-    read_from_buffer(buffer, &guy->flip, pos, sizeof(guy->flip));
+    read_from_buffer(buffer, guy->position.x, pos,  sizeof(guy->position.x));
+    memcpy(guy->old_position.x, guy->position.x,    sizeof(guy->position.x));
+    read_from_buffer(buffer, &guy->flip, pos,       sizeof(guy->flip));
     read_from_buffer(buffer, &guy->body_color, pos, sizeof(SDL_Color) * 3);
+    read_from_buffer(buffer, &guy->eye_type,   pos, sizeof(guy->eye_type));
+    read_from_buffer(buffer, &guy->eye_color,  pos, sizeof(SDL_Color));
 }
 
 void write_guy_info_to_buffer(byte* buffer, Character* guy, int* pos) {
-    write_to_buffer(buffer, guy->position.x, pos, sizeof(guy->position.x));
-    write_to_buffer(buffer, &guy->flip, pos, sizeof(guy->flip));
+    write_to_buffer(buffer, guy->position.x,  pos, sizeof(guy->position.x));
+    write_to_buffer(buffer, &guy->flip,       pos, sizeof(guy->flip));
     write_to_buffer(buffer, &guy->body_color, pos, sizeof(guy->body_color) * 3);
+    write_to_buffer(buffer, &guy->eye_type,   pos, sizeof(guy->eye_type));
+    write_to_buffer(buffer, &guy->eye_color,  pos, sizeof(guy->eye_color));
 }
 
 // balls
@@ -966,7 +970,18 @@ void scene_test_initialize(void* vdata, Game* game) {
     data->guy.left_foot_color.r = rand() % 255;
     data->guy.left_foot_color.g = rand() % 255;
     data->guy.left_foot_color.b = rand() % 255;
-    data->guy.right_foot_color = data->guy.left_foot_color;
+    if (rand() > RAND_MAX / 5)
+        data->guy.right_foot_color = data->guy.left_foot_color;
+    else {
+        data->guy.right_foot_color.r = rand() % 255;
+        data->guy.right_foot_color.g = rand() % 255;
+        data->guy.right_foot_color.b = rand() % 255;
+    }
+    if (rand() < RAND_MAX / 5) {
+        data->guy.eye_color.r = rand() % 255;
+        data->guy.eye_color.g = rand() % 70;
+        data->guy.eye_color.b = rand() % 140;
+    }
     BENCH_END(loading_crattle1);
 
     BENCH_START(loading_tiles)
@@ -1136,6 +1151,12 @@ void scene_test_update(void* vs, Game* game) {
         Character* guy = &s->guy; 
 
         game->camera_target.x[X] = guy->position.x[X] - game->window_width / 2.0f;
+
+        if (game->camera_target.x[X] < 0)
+            game->camera_target.x[X] = 0;
+        else if (game->camera_target.x[X] + game->window_width > s->map->width)
+            game->camera_target.x[X] = s->map->width - game->window_width;
+
         if (guy->grounded) {
             game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.35f;
             game->follow_cam_y = false;
@@ -1146,6 +1167,11 @@ void scene_test_update(void* vs, Game* game) {
             if (game->follow_cam_y)
                 game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.5f;
         }
+
+        if (game->camera_target.x[Y] < 0)
+            game->camera_target.x[Y] = 0;
+        else if (game->camera_target.x[Y] + game->window_height > s->map->height)
+            game->camera_target.x[Y] = s->map->height - game->window_height;
     }
     // move cam position towards cam target
     game->camera.simd = _mm_add_ps(game->camera.simd, _mm_mul_ps(_mm_sub_ps(game->camera_target.simd, game->camera.simd), _mm_set_ps(0, 0, 0.1f, 0.1f)));

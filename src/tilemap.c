@@ -404,6 +404,86 @@ static void draw_debug_borders(Game* game, SDL_Rect* dest, int i, int j) {
 #endif
 */
 
+void draw_parallax_background(struct Game* game, struct Map* map, struct ParallaxBackground* background) {
+    SDL_Texture* texture = cached_texture(game, background->bg_asset);
+    bool need_src = !(background->frame_width == 0 || background->frame_height == 0);
+    SDL_Rect src;
+    int real_width, real_height;
+
+    if (need_src) {
+        real_width = background->frame_width;
+        real_height = background->frame_height;
+
+        src.x = background->frame * background->frame_width;
+        src.y = background->height - background->frame_height;
+        src.w = background->frame_width;
+        src.h = background->frame_height;
+
+        while (src.x >= background->width) {
+            src.x -= background->width;
+            src.y += background->frame_height;
+        }
+    }
+
+    SDL_Rect dest = {
+        background->x - game->camera.x[X] * background->parallax_factor,
+        background->y - map->height + real_height + game->camera.x[Y] * background->parallax_factor,
+
+        real_width, real_height
+    };
+
+    SDL_Rect* src_ptr = need_src ? &src : NULL;
+    bool wrap_x = background->flags & BG_WRAP_X;
+    bool wrap_y = background->flags & BG_WRAP_Y;
+
+    if (wrap_x && wrap_y) {
+        while (dest.x + dest.w > 0)
+            dest.x -= dest.w;
+        while (dest.y + dest.h > 0)
+            dest.y -= dest.h;
+
+        int original_x = dest.x;
+
+        while (dest.y < game->window_height) {
+            dest.y += dest.h;
+            while (dest.x < game->window_width) {
+                dest.x += dest.w;
+                SDL_RenderCopy(game->renderer, texture, src_ptr, &dest);
+            }
+            dest.x = original_x;
+        }
+    }
+    else {
+        SDL_RenderCopy(game->renderer, texture, src_ptr, &dest);
+
+        // TODO make these render a whole square (not a cross)
+        if (wrap_x) {
+            SDL_Rect side_dest = dest;
+            while (side_dest.x < game->window_width) {
+                side_dest.x += side_dest.w;
+                SDL_RenderCopy(game->renderer, texture, src_ptr, &side_dest);
+            }
+            side_dest.x = dest.x;
+            while (side_dest.x + side_dest.w > game->window_width) {
+                side_dest.x -= side_dest.w;
+                SDL_RenderCopy(game->renderer, texture, src_ptr, &side_dest);
+            }
+        }
+        else if (wrap_y) {
+            SDL_Rect other_dest = dest;
+            while (other_dest.y < game->window_height) {
+                other_dest.y += other_dest.h;
+                SDL_RenderCopy(game->renderer, texture, src_ptr, &other_dest);
+            }
+            other_dest.y = dest.y;
+            while (other_dest.y + other_dest.h > game->window_height) {
+                other_dest.y -= other_dest.h;
+                SDL_RenderCopy(game->renderer, texture, src_ptr, &other_dest);
+            }
+        }
+    }
+}
+
 void draw_tilemap(struct Game* game, Tilemap* tilemap) {
     int i = 0;
     vec4i dest;
@@ -425,7 +505,7 @@ void draw_tilemap(struct Game* game, Tilemap* tilemap) {
             for (int j = 0; j < tile_count; j++) {
                 draw_tile(game, tilemap, &repeated_index, &src, &dest.rect);
                 increment_tilespace(&dest, width_in_pixels, 32);
-                // NOTE this could be optimized by not repeatedly calling increment_tilespace
+                // NOTE OPTIMIZE this could be optimized by not repeatedly calling increment_tilespace
                 // on repeated -1's.
             }
 
@@ -446,9 +526,10 @@ void draw_tilemap(struct Game* game, Tilemap* tilemap) {
 }
 
 void draw_map(struct Game* game, Map* map) {
-    for (int i = 0; i < map->number_of_tilemaps; i++) {
+    for (int i = 0; i < map->number_of_backgrounds; i++)
+        draw_parallax_background(game, map, &map->backgrounds[i]);
+    for (int i = 0; i < map->number_of_tilemaps; i++)
         draw_tilemap(game, &map->tilemaps[i]);
-    }
 }
 
 static void do_bottom_sensors(struct Character* guy, CollisionMap* tile_collision, vec4i* tilemap_dim) {
@@ -526,8 +607,11 @@ void collide_character(struct Character* guy, CollisionMap* tile_collision) {
     // == MIDDLE SENSORS ==
     sense_tile(&guy_new_x_position, &tilemap_dim, &guy->middle_sensors, &m_t);
 
+    // NOTE Adding '=' to these comparisons will make the collision work for moving tilemaps,
+    // but causes a bug when landing on a slope that curves up into a wall.
+
     // == LEFT SENSORS ==
-    if (guy->position.x[X] <= guy->old_position.x[X]) {
+    if (guy->position.x[X] < guy->old_position.x[X]) {
         sense_tile(&guy_new_x_position, &tilemap_dim, &guy->left_sensors, &t);
         l_collision_1 = process_side_sensor(guy, tile_collision, &t,   LEFT_SENSOR, SENSOR_1);
         l_collision_2 = process_side_sensor(guy, tile_collision, &t,   LEFT_SENSOR, SENSOR_2);
@@ -538,7 +622,7 @@ void collide_character(struct Character* guy, CollisionMap* tile_collision) {
         left_hit = false;
 
     // == RIGHT SENSORS ==
-    if (guy->position.x[X] >= guy->old_position.x[X]) {
+    if (guy->position.x[X] > guy->old_position.x[X]) {
         sense_tile(&guy_new_x_position, &tilemap_dim, &guy->right_sensors, &t);
         r_collision_1 = process_side_sensor(guy, tile_collision, &t,   RIGHT_SENSOR, SENSOR_1);
         r_collision_2 = process_side_sensor(guy, tile_collision, &t,   RIGHT_SENSOR, SENSOR_2);
@@ -549,7 +633,7 @@ void collide_character(struct Character* guy, CollisionMap* tile_collision) {
         right_hit = false;
 
     // == TOP SENSORS ==
-    if (guy->position.x[Y] >= guy->old_position.x[Y]) {
+    if (guy->position.x[Y] > guy->old_position.x[Y]) {
         sense_tile(&guy_new_y_position, &tilemap_dim, &guy->top_sensors, &t);
         t_collision_1 = process_top_sensor(guy, tile_collision, &t, SENSOR_1);
         t_collision_2 = process_top_sensor(guy, tile_collision, &t, SENSOR_2);
@@ -623,6 +707,8 @@ CmFileHeader read_cm_file_header(const int asset) {
     pos += sizeof(Uint32);
     SDL_memcpy(&header.tilemap_count, file.bytes + pos, sizeof(Uint8));
     pos += sizeof(Uint8);
+    SDL_memcpy(&header.background_count, file.bytes + pos, sizeof(Uint8));
+    pos += sizeof(Uint8);
 
     return header;
 }
@@ -632,17 +718,21 @@ void load_map(const int asset, /*out*/ Map* map) {
     AssetFile file = load_asset(asset);
     SDL_assert(file.bytes[0] == 'C');
     SDL_assert(file.bytes[1] == 'M');
-    SDL_assert(file.bytes[2] == '0');
+    SDL_assert(file.bytes[2] == '1');
     int pos = 3;
 
     READ(Uint32, tiles_wide);
     READ(Uint32, tiles_high);
     READ(Uint8, tilemap_count);
+    READ(Uint8, background_count);
 
-    map->tile_collision.width  = (int)tiles_wide;
-    map->tile_collision.height = (int)tiles_high;
+    map->width  = tiles_wide * 32;
+    map->height = tiles_high * 32;
+    map->tile_collision.width   = (int)tiles_wide;
+    map->tile_collision.height  = (int)tiles_high;
     map->tile_collision.heights = COLLISION_TERRAIN_STANDARD;
-    map->number_of_tilemaps = (int)tilemap_count;
+    map->number_of_tilemaps     = (int)tilemap_count;
+    map->number_of_backgrounds  = (int)background_count;
     // We're gonna just put tilemap structs sequentially after the map struct
     map->tilemaps = (Tilemap*)(map + 1);
 
@@ -659,6 +749,7 @@ void load_map(const int asset, /*out*/ Map* map) {
         map->tilemaps[i].width  = (int)tiles_wide;
         map->tilemaps[i].height = (int)tiles_high;
         map->tilemaps[i].tex_asset = asset_from_ident(texture_asset_ident);
+        SDL_assert(map->tilemaps[i].tex_asset != -1);
         map->tilemaps[i].tex = NULL;
         map->tilemaps[i].tiles_per_row = (int)tiles_per_row;
         // Assuming embedded assets
@@ -671,4 +762,41 @@ void load_map(const int asset, /*out*/ Map* map) {
     SDL_assert(collision_tiles_size == tiles_high * tiles_wide);
     // Again, assuming embedded assets
     map->tile_collision.tiles = (int*)(file.bytes + pos);
+    pos += collision_tiles_size * sizeof(int);
+    SDL_assert(file.size > pos);
+
+    // Parallax time! (again assuming enough space has been allocated)
+    map->backgrounds = (ParallaxBackground*)(map->tilemaps + tilemap_count);
+    for (Uint8 i = 0; i < background_count; i++) {
+        char* texture_asset_ident = file.bytes + pos;
+        for (char* c = texture_asset_ident; *c != 0; c++)
+            pos += 1;
+        // This leaves us at the terminating 0
+        pos += 1;
+
+        READ(int, x);
+        READ(int, y);
+        READ(float, pfactor);
+        READ(int, frame_width);
+        READ(int, frame_height);
+        READ(Uint32, frame_count);
+        READ(Uint32, flags);
+
+        map->backgrounds[i].x = x;
+        map->backgrounds[i].y = y;
+        map->backgrounds[i].parallax_factor = pfactor;
+        map->backgrounds[i].frame_width     = frame_width;
+        map->backgrounds[i].frame_height    = frame_height;
+        map->backgrounds[i].frame_count     = frame_count;
+        map->backgrounds[i].flags = flags;
+        map->backgrounds[i].bg_asset = asset_from_ident(texture_asset_ident);
+        SDL_assert(map->backgrounds[i].bg_asset != -1);
+        map->backgrounds[i].frame = 0;
+
+        SDL_Surface* image = load_image(map->backgrounds[i].bg_asset);
+        map->backgrounds[i].width  = image->w;
+        map->backgrounds[i].height = image->h;
+        free_image(image);
+    }
+    SDL_assert(file.size == pos);
 }

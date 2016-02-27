@@ -318,9 +318,11 @@ int main(int argc, char** argv) {
 
             case SDL_WINDOWEVENT:
                 switch (event.window.event) {
-                case SDL_WINDOWEVENT_RESIZED: case SDL_WINDOWEVENT_SIZE_CHANGED: case SDL_WINDOWEVENT_MAXIMIZED:
+                case SDL_WINDOWEVENT_RESIZED: case SDL_WINDOWEVENT_SIZE_CHANGED:
                     game.window_width = (float)event.window.data1;
                     game.window_height = (float)event.window.data2;
+                    break;
+                case SDL_WINDOWEVENT_MAXIMIZED:
                     break;
                 }
                 break;
