@@ -95,6 +95,11 @@ typedef struct ParallaxBackground {
 #define BG_WRAP_X (1 << 0)
 #define BG_WRAP_Y (1 << 1)
 
+typedef struct Door {
+    int x, y;
+    int dest_x, dest_y, dest_area;
+} Door;
+
 typedef struct Map {
     CollisionMap tile_collision;
     int number_of_tilemaps;
@@ -102,6 +107,8 @@ typedef struct Map {
     int number_of_backgrounds;
     int width, height;
     ParallaxBackground* backgrounds;
+    int number_of_doors;
+    Door* doors;
 } Map;
 
 typedef struct CmFileHeader {
@@ -110,11 +117,27 @@ typedef struct CmFileHeader {
     Uint32 tiles_high;
     Uint8 tilemap_count;
     Uint8 background_count;
+    Uint8 door_count;
 } CmFileHeader;
+
+void world_render_copy(
+    struct Game* game,
+    SDL_Texture* tex, SDL_Rect* src,
+    vec2* pos, int width, int height,
+    vec2* center
+);
+
+void world_render_copy_ex(
+    struct Game* game,
+    SDL_Texture* tex, SDL_Rect* src,
+    vec2* pos, int width, int height,
+    float angle, vec2* center, SDL_RendererFlip flip
+);
 
 CmFileHeader read_cm_file_header(const int asset);
 void load_map(const int asset, /*out*/Map* map);
 void draw_map(struct Game* game, Map* map);
 void draw_parallax_background(struct Game* game, struct Map* map, struct ParallaxBackground* background);
+void draw_door(struct Game* game, struct Door* door);
 
 #endif // TILEMAP_H

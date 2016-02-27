@@ -263,7 +263,8 @@ Map* cached_map(Game* game, int asset) {
         size_t bytes_needed_for_map =
             sizeof(Map) +
             (size_t)file_header.tilemap_count * sizeof(Tilemap) +
-            (size_t)file_header.background_count * sizeof(ParallaxBackground);
+            (size_t)file_header.background_count * sizeof(ParallaxBackground) +
+            (size_t)file_header.door_count * sizeof(Door);
 
         cached_asset->map = malloc(bytes_needed_for_map);
         load_map(asset, cached_asset->map);

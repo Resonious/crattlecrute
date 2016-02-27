@@ -113,6 +113,17 @@ void default_character(Character* target);
 void default_character_animations(struct Game* game, CharacterView* view);
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag);
 void update_character_animation(Character* guy);
+
+// data will be passed to any of the provided callbacks when called.
+void interact_character_with_world(
+    struct Game* game,
+    struct Character* guy,
+    struct Controls* controls,
+    struct Map* map,
+    void* data,
+    void(*go_through_door)(void*, struct Game*, struct Character*, struct Door*)
+);
+
 void character_post_update(Character* guy);
 
 // === Rendering character functions === //

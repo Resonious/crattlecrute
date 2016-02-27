@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" orientation="orthogonal" renderorder="right-up" width="45" height="75" tilewidth="32" tileheight="32" nextobjectid="1">
+<map version="1.0" orientation="orthogonal" renderorder="right-up" width="45" height="75" tilewidth="32" tileheight="32" nextobjectid="2">
  <tileset firstgid="1" name="collision" tilewidth="32" tileheight="32" tilecount="15">
   <image source="../../assets/terrain/standard.collision.png" width="160" height="96"/>
  </tileset>
@@ -9,7 +9,10 @@
  <tileset firstgid="31" name="plain" tilewidth="32" tileheight="32" tilecount="15">
   <image source="../../assets/terrain/plain.png" width="160" height="96"/>
  </tileset>
- <imagelayer name="bg" x="42" y="1820">
+ <tileset firstgid="46" name="Door" tilewidth="90" tileheight="90" tilecount="4">
+  <image source="../../assets/misc/door.png" width="180" height="180"/>
+ </tileset>
+ <imagelayer name="bg" x="42" y="1974">
   <image source="../../assets/misc/skykinda.png"/>
   <properties>
    <property name="frame_height" value="580"/>
@@ -87,7 +90,7 @@
 16,0,0,0,0,0,0,0,0,0,0,20,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
 16,0,0,0,0,0,0,0,0,0,0,20,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
 16,0,0,0,0,0,0,0,0,0,0,20,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
-16,0,0,0,0,0,0,0,0,0,0,20,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
+16,0,0,0,0,0,0,0,0,0,0,20,20,0,0,0,0,0,0,0,0,0,0,0,0,18,18,18,18,18,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
 16,0,0,0,0,0,0,0,0,0,0,20,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
 16,0,0,0,0,0,0,0,0,0,0,20,20,0,0,0,0,0,0,0,0,0,0,0,0,20,20,20,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,
 16,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,0,24,0,0,0,20,20,20,20,20,20,20,20,20,20,20,20,20,0,0,0,0,0,0,16,
@@ -257,4 +260,13 @@
 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 </data>
  </layer>
+ <objectgroup name="Doors">
+  <object id="1" name="door to wherever" type="door" gid="48" x="773.939" y="2112.24" width="90" height="90">
+   <properties>
+    <property name="leads_to_area" value="AREA_TESTZONE_TWO"/>
+    <property name="leads_to_x" value="10 * 32"/>
+    <property name="leads_to_y" value="4 * 32"/>
+   </properties>
+  </object>
+ </objectgroup>
 </map>

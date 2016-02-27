@@ -10,6 +10,7 @@ ImageLayer = Struct.new(
   :name, :filename, :x, :y, :parallax_factor,
   :frame_height, :frame_width, :frames, :wrap_x, :wrap_y
 )
+MapObject = Struct.new(:id, :name, :type, :x, :y, :width, :height, :properties)
 
 IMAGE_LAYER_DEFAULTS = {
   parallax_factor: 1,
@@ -29,6 +30,27 @@ def ident(file)
     .gsub(/\.\.\//, '')
     .gsub(/[\.\s\?!\/\\-]/, '_')
     .upcase
+end
+
+# Straight up parse game.h to get IDs for area strings ... I just don't feel like
+# having a string->id table for runtime.
+def parse_area_ids(file_content)
+  result = Hash.new(-1)
+  if /enum AreaId {(?<areas>[^{}]+)}/m =~ file_content
+    i = 0
+
+    areas.split(",").each do |entry|
+      entry = entry.strip
+      next if entry.empty?
+
+      result[entry] = i
+      i += 1
+    end
+  else
+    raise "Fucked up reading game.h (or whatever this file is)!"
+  end
+
+  result
 end
 
 def compress_tilemap_data(tilemap_data)
@@ -289,8 +311,8 @@ def read_tmx(file)
 
     struct = ImageLayer.new
     struct.name = attrs['name'].value
-    struct.x = attrs['x'].value
-    struct.y = attrs['y'].value
+    struct.x = attrs['x'] ? attrs['x'].value : '0'
+    struct.y = attrs['y'] ? attrs['y'].value : '0'
     struct.filename = imagelayer.css('image').first.attributes['source'].value
 
     IMAGE_LAYER_DEFAULTS.each do |field, default_value|
@@ -305,13 +327,36 @@ def read_tmx(file)
     image_layers << struct
   end
 
-  Struct.new(:layers, :image_layers, :tiles_high, :tiles_wide, :name, :filename)
-        .new( layers, image_layers,  tiles_high,  tiles_wide, map_name, filename)
+  # ===== Grab object layers for whatever =====
+  map_height = tiles_high.to_i * 32
+  map_objects = []
+  map.css('objectgroup object').each do |object|
+    attrs = object.attributes
+
+    struct = MapObject.new
+    struct.name = attrs['name'].value
+    struct.x = (attrs['x'] ? attrs['x'].value : '0').to_i
+    struct.y = map_height - (attrs['y'] ? attrs['y'].value : '0').to_i
+    struct.type = attrs['type'].value.downcase.to_sym if attrs['type']
+    struct.properties = {}
+
+    object.css('properties property').each do |property|
+      prop_attrs = property.attributes
+      struct.properties[prop_attrs['name'].value] = prop_attrs['value'].value
+    end
+
+    map_objects << struct
+  end
+
+  # === DONE ===
+  Struct.new(:layers, :image_layers, :map_objects, :tiles_high, :tiles_wide, :name, :filename, :height)
+        .new( layers, image_layers,  map_objects,  tiles_high,  tiles_wide, map_name, filename, map_height)
 end
 
 def write_cm(map, file_dest)
   collision_layer = map.layers.find(&:collision?)
   non_collision_layers = map.layers.reject(&:collision?)
+  doors = map.map_objects.select { |o| o.type == :door }
 
   file = File.new(file_dest, 'wb')
 
@@ -329,10 +374,13 @@ def write_cm(map, file_dest)
     [map.tiles_wide, map.tiles_high].pack('LL')
   )
 
+  # ==== HEADER ====
   # Number of sublayers (tilemaps): Uint8
   file.write([number_of_sublayers].pack('C'))
   # Number of imagelayers (parallax backgrounds): Uint8
   file.write([map.image_layers.size].pack('C'))
+  # Number of doors: Uint8
+  file.write([doors.size].pack('C'))
 
   non_collision_layers.each do |layer|
     layer.sublayers.values.each do |sublayer|
@@ -406,6 +454,33 @@ def write_cm(map, file_dest)
         bit_fields                        # uint32
       ]
         .pack("llfllLL")
+    )
+  end
+
+  # === DOORS!!! ===
+  game_h = File.open(File.join(File.dirname(__FILE__), 'src/game.h'), &:read)
+  area_ids = parse_area_ids(game_h)
+
+  doors.each do |door|
+    ['leads_to_area', 'leads_to_x', 'leads_to_y'].each do |x|
+      if door.properties[x].nil?
+        raise "bad door \"#{door.name}\" is missing property: #{x}"
+      end
+    end
+
+    leads_to_area = area_ids[door.properties['leads_to_area']]
+    leads_to_x    = eval(door.properties['leads_to_x'])
+    leads_to_y    = eval(door.properties['leads_to_y'])
+
+    file.write(
+      [
+        door.x.to_i,        # int32
+        door.y.to_i,        # int32
+        leads_to_area.to_i, # int32
+        leads_to_x.to_i,    # int32
+        leads_to_y.to_i     # int32
+      ]
+        .pack("lllll")
     )
   end
 

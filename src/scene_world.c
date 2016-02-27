@@ -69,13 +69,14 @@ typedef struct RemotePlayer {
     ControlsBuffer controls_playback;
 } RemotePlayer;
 
-typedef struct TestScene {
+typedef struct WorldScene {
     float gravity;
     float drag;
     Character guy;
     CharacterView guy_view;
     AudioWave* music;
     AudioWave* test_sound;
+    int current_area;
     Map* map;
     char editable_text[EDITABLE_TEXT_BUFFER_SIZE];
 
@@ -104,7 +105,7 @@ typedef struct TestScene {
         int number_of_players;
         RemotePlayer* players[MAX_PLAYERS];
     } net;
-} TestScene;
+} WorldScene;
 
 void net_character_post_update(RemotePlayer* plr) {
     character_post_update(&plr->guy);
@@ -259,7 +260,7 @@ RemotePlayer* allocate_new_player(int id, struct sockaddr_in* addr) {
     return new_player;
 }
 
-RemotePlayer* player_of_id(TestScene* scene, int id, struct sockaddr_in* addr) {
+RemotePlayer* player_of_id(WorldScene* scene, int id, struct sockaddr_in* addr) {
     // TODO at some point we should have the player id be an index into this array
     for (int i = 0; i < scene->net.number_of_players; i++) {
         RemotePlayer* plr = scene->net.players[i];
@@ -291,7 +292,7 @@ void write_guy_info_to_buffer(byte* buffer, Character* guy, int* pos) {
 }
 
 // balls
-RemotePlayer* netop_initialize_player(TestScene* scene, struct sockaddr_in* addr) {
+RemotePlayer* netop_initialize_player(WorldScene* scene, struct sockaddr_in* addr) {
     int pos = 1;
 
     int player_count;
@@ -324,7 +325,7 @@ RemotePlayer* netop_initialize_player(TestScene* scene, struct sockaddr_in* addr
     return first_player;
 }
 
-int truncate_buffer_to_lowest_spot(TestScene* scene, RemotePlayer* player) {
+int truncate_buffer_to_lowest_spot(WorldScene* scene, RemotePlayer* player) {
     int lowest_frame = player->controls_playback.current_frame;
     int lowest_pos = player->controls_playback.pos;
     int id_of_lowest = -1;
@@ -364,7 +365,7 @@ int truncate_buffer_to_lowest_spot(TestScene* scene, RemotePlayer* player) {
     return player->controls_playback.size;
 }
 
-RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr, int bufsize) {
+RemotePlayer* netop_update_controls(WorldScene* scene, struct sockaddr_in* addr, int bufsize) {
     int pos = 1; // [0] is opcode, which we know by now
 
     RemotePlayer* first_player = NULL;
@@ -457,7 +458,7 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr, 
         }
 
         SDL_UnlockMutex(player->controls_playback.locked);
-    }//while
+    }//while (pos < bufsize)
 
     return first_player;
 }
@@ -538,7 +539,7 @@ int netwrite_guy_controls_and_position(
     return *pos;
 }
 
-int netwrite_guy_initialization(TestScene* scene) {
+int netwrite_guy_initialization(WorldScene* scene) {
     SDL_assert(scene->net.remote_id >= 0);
     SDL_assert(scene->net.remote_id < 255);
 
@@ -555,7 +556,7 @@ int netwrite_guy_initialization(TestScene* scene) {
     return pos;
 }
 
-int netwrite_player_positions(TestScene* scene, RemotePlayer* target_player) {
+int netwrite_player_positions(WorldScene* scene, RemotePlayer* target_player) {
     // Only server retains authoritative copies of all player positions.
     SDL_assert(scene->net.status == HOSTING);
 
@@ -579,7 +580,7 @@ int netwrite_player_positions(TestScene* scene, RemotePlayer* target_player) {
     return pos;
 }
 
-void server_sendto(TestScene* scene, int bytes_wrote, struct sockaddr_in* other_address) {
+void server_sendto(WorldScene* scene, int bytes_wrote, struct sockaddr_in* other_address) {
     if (bytes_wrote > 0) {
         sendto(
             scene->net.local_socket,
@@ -594,7 +595,7 @@ void server_sendto(TestScene* scene, int bytes_wrote, struct sockaddr_in* other_
 
 int network_server_loop(void* vdata) {
     int r = 0;
-    TestScene* scene = (TestScene*)vdata;
+    WorldScene* scene = (WorldScene*)vdata;
     scene->net.buffer = aligned_malloc(PACKET_SIZE);
 
     SET_LOCKED_STRING(scene->net.status_message, "Server started!");
@@ -782,7 +783,7 @@ int network_server_loop(void* vdata) {
 }
 
 int network_client_loop(void* vdata) {
-    TestScene* scene = (TestScene*)vdata;
+    WorldScene* scene = (WorldScene*)vdata;
     scene->net.buffer = aligned_malloc(PACKET_SIZE);
 
     SET_LOCKED_STRING(scene->net.status_message, "Connecting to server!");
@@ -914,8 +915,8 @@ int network_client_loop(void* vdata) {
 
 SDL_Rect text_box_rect = { 200, 200, 400, 40 };
 
-void scene_test_initialize(void* vdata, Game* game) {
-    TestScene* data = (TestScene*)vdata;
+void scene_world_initialize(void* vdata, Game* game) {
+    WorldScene* data = (WorldScene*)vdata;
     SDL_memset(data->editable_text, 0, sizeof(data->editable_text));
     SDL_strlcat(data->editable_text, "hey", EDITABLE_TEXT_BUFFER_SIZE);
 
@@ -984,8 +985,9 @@ void scene_test_initialize(void* vdata, Game* game) {
     }
     BENCH_END(loading_crattle1);
 
-    BENCH_START(loading_tiles)
-    data->map = cached_map(game, ASSET_MAPS_TEST3_CM);
+    BENCH_START(loading_tiles);
+    data->current_area = AREA_TESTZONE_ONE;
+    data->map = cached_map(game, map_asset_for_area(data->current_area));
     BENCH_END(loading_tiles);
 
     BENCH_START(loading_sound);
@@ -997,11 +999,62 @@ void scene_test_initialize(void* vdata, Game* game) {
     BENCH_END(loading_sound);
 }
 
+void set_camera_target(Game* game, Map* map, Character* guy) {
+    game->camera_target.x[X] = guy->position.x[X] - game->window_width / 2.0f;
+
+    if (game->window_width > map->width) {
+        game->camera_target.x[X] = (map->width - game->window_width) / 2.0f;
+    }
+    else if (game->camera_target.x[X] < 0)
+        game->camera_target.x[X] = 0;
+    else if (game->camera_target.x[X] + game->window_width > map->width)
+        game->camera_target.x[X] = map->width - game->window_width;
+
+    if (guy->grounded) {
+        game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.35f;
+        game->follow_cam_y = false;
+    }
+    else {
+        if (guy->position.x[Y] - game->camera_target.x[Y] < 1.5f)
+            game->follow_cam_y = true;
+        if (game->follow_cam_y)
+            game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.5f;
+    }
+
+    if (game->window_height > map->height)
+        game->camera_target.x[Y] = (map->height - game->window_height) / 2.0f;
+    else if (game->camera_target.x[Y] < 0)
+        game->camera_target.x[Y] = 0;
+    else if (game->camera_target.x[Y] + game->window_height > map->height)
+        game->camera_target.x[Y] = map->height - game->window_height;
+}
+
+void local_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
+    WorldScene* s = (WorldScene*)vs;
+
+    SDL_assert(door->dest_area > -1);
+    s->current_area = door->dest_area;
+    int map_asset = map_asset_for_area(s->current_area);
+    SDL_assert(map_asset > -1);
+    s->map = cached_map(game, map_asset);
+
+    float dest_x = (float)door->dest_x;
+    float dest_y = s->map->height - (float)door->dest_y;
+
+    guy->position.x[X]     = dest_x;
+    guy->position.x[Y]     = dest_y;
+    guy->old_position.x[X] = dest_x;
+    guy->old_position.x[Y] = dest_y;
+    set_camera_target(game, s->map, &s->guy);
+    game->camera.simd = game->camera_target.simd;
+}
+
 #define PERCENT_CHANCE(percent) (rand() < RAND_MAX / (100 / percent))
 
-void scene_test_update(void* vs, Game* game) {
-    TestScene* s = (TestScene*)vs;
+void scene_world_update(void* vs, Game* game) {
+    WorldScene* s = (WorldScene*)vs;
 
+    // TODO PING DUDE
     // I'm only gonna count ping for first guy I don't really care right now
     {
         s->net.ping_counter += 1;
@@ -1103,6 +1156,8 @@ void scene_test_update(void* vs, Game* game) {
                 apply_character_physics(game, &plr->guy, &plr->controls, s->gravity, s->drag);
                 collide_character(&plr->guy, &s->map->tile_collision);
                 slide_character(s->gravity, &plr->guy);
+                // ============================================================= .. TODO .. =====================================================================
+                interact_character_with_world(game, &plr->guy, &plr->controls, s->map, s, NULL);
                 update_character_animation(&plr->guy);
 
                 sync_player_frame_if_should(s->net.status, plr);
@@ -1144,35 +1199,11 @@ void scene_test_update(void* vs, Game* game) {
     apply_character_physics(game, &s->guy, &game->controls, s->gravity, s->drag);
     collide_character(&s->guy, &s->map->tile_collision);
     slide_character(s->gravity, &s->guy);
+    interact_character_with_world(game, &s->guy, &game->controls, s->map, s, local_go_through_door);
     update_character_animation(&s->guy);
 
     // Follow local player with camera
-    {
-        Character* guy = &s->guy; 
-
-        game->camera_target.x[X] = guy->position.x[X] - game->window_width / 2.0f;
-
-        if (game->camera_target.x[X] < 0)
-            game->camera_target.x[X] = 0;
-        else if (game->camera_target.x[X] + game->window_width > s->map->width)
-            game->camera_target.x[X] = s->map->width - game->window_width;
-
-        if (guy->grounded) {
-            game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.35f;
-            game->follow_cam_y = false;
-        }
-        else {
-            if (guy->position.x[Y] - game->camera_target.x[Y] < 1.5f)
-                game->follow_cam_y = true;
-            if (game->follow_cam_y)
-                game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.5f;
-        }
-
-        if (game->camera_target.x[Y] < 0)
-            game->camera_target.x[Y] = 0;
-        else if (game->camera_target.x[Y] + game->window_height > s->map->height)
-            game->camera_target.x[Y] = s->map->height - game->window_height;
-    }
+    set_camera_target(game, s->map, &s->guy);
     // move cam position towards cam target
     game->camera.simd = _mm_add_ps(game->camera.simd, _mm_mul_ps(_mm_sub_ps(game->camera_target.simd, game->camera.simd), _mm_set_ps(0, 0, 0.1f, 0.1f)));
     // Snap to cam target after awhile to stop a certain amount of jerkiness.
@@ -1303,8 +1334,8 @@ void draw_text_box(struct Game* game, SDL_Rect* text_box_rect, char* text) {
     SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
 }
 
-void scene_test_render(void* vs, Game* game) {
-    TestScene* s = (TestScene*)vs;
+void scene_world_render(void* vs, Game* game) {
+    WorldScene* s = (WorldScene*)vs;
     /* == Keeping this around in case I want it ==
 #ifdef _DEBUG
     if (debug_pause) {
@@ -1392,8 +1423,8 @@ void scene_test_render(void* vs, Game* game) {
     draw_text_ex_f(game, game->window_width - 150, game->window_height - 40, -1, 0.7f, "Ping: %i", s->net.ping);
 }
 
-void scene_test_cleanup(void* vdata, Game* game) {
-    TestScene* data = (TestScene*)vdata;
+void scene_world_cleanup(void* vdata, Game* game) {
+    WorldScene* data = (WorldScene*)vdata;
     game->audio.oneshot_waves[0] = NULL;
     game->audio.looped_waves[0] = NULL;
 
