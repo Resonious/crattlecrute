@@ -49,6 +49,10 @@ typedef struct Character {
     int animation_frame;
     SDL_RendererFlip flip;
 
+    // For if we want to find the remoteplayer of a character
+    int player_id;
+    bool just_went_through_door;
+
     int eye_type;
     SDL_Color eye_color;
     SDL_Color body_color;

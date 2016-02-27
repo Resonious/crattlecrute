@@ -33,7 +33,7 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 #define CONTROLS_BUFFER_SIZE (255 * NUM_CONTROLS)
 #define CONTROL_BLOCK_END NUM_CONTROLS
 #define MAX_PLAYERS 20
-#define FRAMES_BETWEEN_POSITION_SYNCS 30
+#define FRAMES_BETWEEN_POSITION_SYNCS 60
 
 typedef struct ControlsBuffer {
     SDL_mutex* locked;
@@ -61,10 +61,11 @@ typedef struct RemotePlayer {
     SDL_atomic_t poke;
 
     // Countdown until we SEND this guy's position (as server) (ALSO INDEXED BY ID)
-    SDL_atomic_t position_sync_countdown_for[MAX_PLAYERS];
+    SDL_atomic_t countdown_until_i_get_position_of[MAX_PLAYERS];
     // Position we have RECEIVED for this guy and plan to set (if we so choose) (i.e. if we are client)
     vec4 sync_position, sync_old_position;
-    SDL_atomic_t sync_on_frame;
+    int sync_flip;
+    SDL_atomic_t frames_until_sync;
 
     int last_frames_playback_pos;
     ControlsBuffer controls_playback;
@@ -123,15 +124,19 @@ void wait_for_then_use_lock(SDL_mutex* mutex) {
 }
 
 void sync_player_frame_if_should(int status, RemotePlayer* plr) {
-    if (status == JOINING) {
-        int sync_on_frame = SDL_AtomicGet(&plr->sync_on_frame);
-        if (plr->controls_playback.current_frame == sync_on_frame) {
-            plr->guy.position.simd = plr->sync_position.simd;
-            plr->guy.old_position  = plr->sync_old_position;
+    if (status != JOINING)
+        return;
+    if (SDL_AtomicGet(&plr->frames_until_sync) < 0)
+        return;
 
-            SDL_AtomicSet(&plr->sync_on_frame, -1);
-        }
+    if (SDL_AtomicGet(&plr->frames_until_sync) == 0) {
+        plr->guy.position.simd = plr->sync_position.simd;
+        plr->guy.old_position  = plr->sync_old_position;
+        plr->guy.flip          = plr->sync_flip;
+
+        printf("SYNCED POSITION OF %i\n", plr->id);
     }
+    SDL_AtomicAdd(&plr->frames_until_sync, -1);
 }
 
 #define SET_LOCKED_STRING(var, str) \
@@ -235,6 +240,7 @@ RemotePlayer* allocate_new_player(int id, struct sockaddr_in* addr) {
     SDL_AtomicSet(&new_player->area_id, -1);
 
     default_character(&new_player->guy);
+    new_player->guy.player_id = id;
     new_player->guy.position.x[X] = 0.0f;
     new_player->guy.position.x[Y] = 0.0f;
     new_player->guy.position.x[2] = 0.0f;
@@ -257,8 +263,8 @@ RemotePlayer* allocate_new_player(int id, struct sockaddr_in* addr) {
     new_player->local_stream_spot.frame = -1;
 
     for (int i = 0; i < MAX_PLAYERS; i++)
-        SDL_AtomicSet(&new_player->position_sync_countdown_for[i], 0);
-    SDL_AtomicSet(&new_player->sync_on_frame, -1);
+        SDL_AtomicSet(&new_player->countdown_until_i_get_position_of[i], 0);
+    SDL_AtomicSet(&new_player->frames_until_sync, -1);
 
     return new_player;
 }
@@ -361,7 +367,7 @@ int truncate_buffer_to_lowest_spot(WorldScene* scene, RemotePlayer* player) {
                 spot->pos -= change.change_in_size;
                 SDL_assert(spot->frame >= 0);
                 SDL_assert(spot->pos >= 0);
-                printf("actually truncated %i's position in %i's buffer. LOWEST: %i\n", player_of_spot->id, player->id, id_of_lowest);
+                // printf("actually truncated %i's position in %i's buffer. LOWEST: %i\n", player_of_spot->id, player->id, id_of_lowest);
             }
             else {
                 printf("WANTED TO TRUNC %i's position in %i's buffer. LOWEST: %i\n", player_of_spot->id, player->id, id_of_lowest);
@@ -400,7 +406,6 @@ RemotePlayer* netop_update_controls(WorldScene* scene, struct sockaddr_in* addr,
             // If it's less than zero, it actually indicates an area_id other than ours.. (-1 -> 0, -2 -> 1)
             if (new_playback_size < 0) {
                 int area_id = (new_playback_size * -1) - 1;
-                SDL_assert(scene->current_area != area_id);
                 SDL_AtomicSet(&player->area_id, area_id);
                 continue;
             }
@@ -475,7 +480,8 @@ RemotePlayer* netop_update_controls(WorldScene* scene, struct sockaddr_in* addr,
 
             read_from_buffer(scene->net.buffer, player->sync_position.x, &pos, sizeof(vec4));
             read_from_buffer(scene->net.buffer, player->sync_old_position.x, &pos, sizeof(vec4));
-            SDL_AtomicSet(&player->sync_on_frame, frame_of_position);
+            read_from_buffer(scene->net.buffer, &player->sync_flip, &pos, sizeof(int));
+            SDL_AtomicSet(&player->frames_until_sync, frame_of_position - player->controls_playback.current_frame);
 
             sync_player_frame_if_should(scene->net.status, player);
         }
@@ -488,7 +494,7 @@ RemotePlayer* netop_update_controls(WorldScene* scene, struct sockaddr_in* addr,
 
 
 #define netwrite_guy_controls(buffer, controls_stream, spot, pos, already_locked) \
-    netwrite_guy_controls_and_position(buffer, controls_stream, spot, pos, already_locked, NULL, NULL)
+    netwrite_guy_controls_and_position(buffer, controls_stream, spot, pos, already_locked, NULL, NULL, 0)
 
 int netwrite_guy_controls_and_position(
     byte*               buffer,
@@ -496,7 +502,7 @@ int netwrite_guy_controls_and_position(
     ControlsBufferSpot* spot,
     int*  pos,
     bool  already_locked,
-    vec4* position, vec4* old_position
+    vec4* position, vec4* old_position, int flip
 ) {
     if (controls_stream->current_frame < 0 || controls_stream->size <= 0) {
         int zero = 0;
@@ -550,6 +556,7 @@ int netwrite_guy_controls_and_position(
         *pos += 1;
         write_to_buffer(buffer, position->x, pos, sizeof(vec4));
         write_to_buffer(buffer, old_position->x, pos, sizeof(vec4));
+        write_to_buffer(buffer, &flip, pos, sizeof(int));
     }
     else {
         buffer[*pos] = 0;
@@ -721,6 +728,7 @@ int network_server_loop(void* vdata) {
             }
         } break;
 
+        // SERVER
         case NETOP_UPDATE_CONTROLS: {
             RemotePlayer* player = netop_update_controls(scene, &other_address, recv_len);
             if (player) {
@@ -734,18 +742,33 @@ int network_server_loop(void* vdata) {
 
                 int player_area_id = SDL_AtomicGet(&player->area_id);
                 if (scene->current_area == player_area_id) {
-                    netwrite_guy_controls(
+                    vec4* position = NULL;
+                    vec4* old_position = NULL;
+
+                    SDL_atomic_t* sync_countdown = &player->countdown_until_i_get_position_of[0];
+                    if (SDL_AtomicGet(sync_countdown) <= 0) {
+                        position     = &scene->guy.position;
+                        old_position = &scene->guy.old_position;
+                        SDL_AtomicSet(sync_countdown, FRAMES_BETWEEN_POSITION_SYNCS);
+                        printf("Sending %i my position!\n", player->id);
+                    }
+   
+                    netwrite_guy_controls_and_position(
                         scene->net.buffer,
                         &scene->controls_stream,
                         &player->local_stream_spot,
                         &pos,
-                        false
+                        false,
+                        position, old_position,
+                        scene->guy.flip
                     );
                 }
                 else {
                     int encoded_area_id = (scene->current_area * -1) - 1;
                     SDL_assert(encoded_area_id < 0);
                     write_to_buffer(scene->net.buffer, &encoded_area_id, &pos, sizeof(int));
+                    player->local_stream_spot.frame = scene->controls_stream.current_frame;
+                    player->local_stream_spot.pos   = scene->controls_stream.pos;
                 }
 
                 // If there's more than just this guy playing with us, we need to send them the controls
@@ -761,6 +784,9 @@ int network_server_loop(void* vdata) {
 
                         int other_player_area = SDL_AtomicGet(&other_player->area_id);
                         if (other_player_area != SDL_AtomicGet(&player->area_id)) {
+                            if (other_player_area < 0)
+                                goto UnlockAndContinue;
+
                             // Set spots so that they don't "fall behind"
                             players_spot_of_other_player->pos   = other_player->controls_playback.size;
                             players_spot_of_other_player->frame = other_player->controls_playback.bytes[0];
@@ -771,6 +797,7 @@ int network_server_loop(void* vdata) {
                             other_player_area = (other_player_area * -1) - 1;
                             SDL_assert(other_player_area < 0);
                             write_to_buffer(scene->net.buffer, &other_player_area, &pos, sizeof(int));
+
                             goto UnlockAndContinue;
                         }
 
@@ -781,7 +808,7 @@ int network_server_loop(void* vdata) {
                             players_spot_of_other_player->frame < other_player->controls_playback.bytes[0]
                         ) {
                             vec4* position = NULL,* old_position = NULL;
-                            SDL_atomic_t* sync_countdown = &other_player->position_sync_countdown_for[player->id];
+                            SDL_atomic_t* sync_countdown = &player->countdown_until_i_get_position_of[other_player->id];
 
                             if (SDL_AtomicGet(sync_countdown) <= 0) {
                                 position     = &other_player->guy.position;
@@ -796,7 +823,8 @@ int network_server_loop(void* vdata) {
                                 players_spot_of_other_player,
                                 &pos,
                                 true,
-                                position, old_position
+                                position, old_position,
+                                other_player->guy.flip
                             );
                         }
                         else {
@@ -1103,13 +1131,12 @@ void local_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
 
 void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     WorldScene* s = (WorldScene*)vs;
-    printf("REMOTE GO THROUGH DOOR!!!\n");
 
     RemotePlayer* player = NULL;
     for (int i = 0; i < s->net.number_of_players; i++) {
-        RemotePlayer* plr = &s->net.players[i];
-        if (plr && &plr->guy == guy) {
-            plr = player;
+        RemotePlayer* plr = s->net.players[i];
+        if (plr && plr->id == guy->player_id) {
+            player = plr;
             break;
         }
     }
@@ -1125,13 +1152,18 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     Map* map = cached_map(game, map_asset);
 
     for (int i = 0; i < s->net.number_of_players; i++) {
-        RemotePlayer* other_player = &s->net.players[i];
+        RemotePlayer* other_player = s->net.players[i];
         if (other_player && other_player->id != player->id) {
+            /*
             other_player->stream_spots_of[player->id].frame = player->controls_playback.current_frame;
             other_player->stream_spots_of[player->id].pos   = player->controls_playback.pos;
-            SDL_AtomicSet(&player->position_sync_countdown_for[player->id], 0);
+            */
+
+            SDL_AtomicSet(&player->countdown_until_i_get_position_of[other_player->id], 0);
+            SDL_AtomicSet(&other_player->countdown_until_i_get_position_of[player->id], 0);
         }
     }
+    SDL_AtomicSet(&player->countdown_until_i_get_position_of[0], 0);
 
     float dest_x = (float)door->dest_x;
     float dest_y = map->height - (float)door->dest_y;
@@ -1167,8 +1199,8 @@ void scene_world_update(void* vs, Game* game) {
         for (int i = 0; i < s->net.number_of_players; i++) {
             RemotePlayer* player = s->net.players[i];
             if (player != NULL)
-                for (int j = 0; j < s->net.number_of_players; j++)
-                SDL_AtomicAdd(&player->position_sync_countdown_for[j], -1);
+                for (int j = 0; j < MAX_PLAYERS; j++)
+                SDL_AtomicAdd(&player->countdown_until_i_get_position_of[j], -1);
         }
     }
 
@@ -1232,6 +1264,9 @@ void scene_world_update(void* vs, Game* game) {
                 if (i > 0) // After the first update, we're doing consecutive ones and we need to "end" the frame.
                     net_character_post_update(plr);
 
+                if (s->net.status == JOINING && SDL_AtomicGet(&plr->area_id) != s->current_area)
+                    break;
+
                 controls_pre_update(&plr->controls);
                 memset(plr->controls.this_frame, 0, sizeof(plr->controls.this_frame));
 
@@ -1257,8 +1292,7 @@ void scene_world_update(void* vs, Game* game) {
                 apply_character_physics(game, &plr->guy, &plr->controls, s->gravity, s->drag);
                 collide_character(&plr->guy, &map->tile_collision);
                 slide_character(s->gravity, &plr->guy);
-                // ????????????? no go through
-                interact_character_with_world(game, &plr->guy, &plr->controls, map, s, s->net.status == HOSTING ? remote_go_through_door : NULL);
+                interact_character_with_world(game, &plr->guy, &plr->controls, map, s, (s->net.status == HOSTING) ? remote_go_through_door : NULL);
                 update_character_animation(&plr->guy);
 
                 sync_player_frame_if_should(s->net.status, plr);
@@ -1294,8 +1328,9 @@ void scene_world_update(void* vs, Game* game) {
                 }
             }
         }
-        SDL_UnlockMutex(plr->controls_playback.locked); // END OF REMOTE PLAYER CONTROLS PLAYBACK
+        SDL_UnlockMutex(plr->controls_playback.locked);
     }
+    // END OF REMOTE PLAYER CONTROLS PLAYBACK
 
     // Update local player
     apply_character_physics(game, &s->guy, &game->controls, s->gravity, s->drag);
@@ -1308,8 +1343,9 @@ void scene_world_update(void* vs, Game* game) {
     set_camera_target(game, s->map, &s->guy);
     // move cam position towards cam target
     game->camera.simd = _mm_add_ps(game->camera.simd, _mm_mul_ps(_mm_sub_ps(game->camera_target.simd, game->camera.simd), _mm_set_ps(0, 0, 0.1f, 0.1f)));
+
     // Snap to cam target after awhile to stop a certain amount of jerkiness.
-    const float cam_alpha = 0.01f;
+    const float cam_alpha = 0.1f;
     vec4 cam_dist_from_target;
     cam_dist_from_target.simd = _mm_sub_ps(game->camera_target.simd, game->camera.simd);
     if (fabsf(cam_dist_from_target.x[X]) < cam_alpha)
@@ -1354,6 +1390,7 @@ void scene_world_update(void* vs, Game* game) {
                         }
                     }
                 }
+                // TODO if the lowest doesn't drop us below 255, someone has disconnected!
 
                 struct BufferChanges change = truncate_controls_buffer(&s->controls_stream, lowest_frame, lowest_pos);
 
@@ -1384,7 +1421,7 @@ void scene_world_update(void* vs, Game* game) {
     // Perform last update on all net guys
     for (int i = 0; i < s->net.number_of_players; i++) {
         RemotePlayer* plr = s->net.players[i];
-        if (plr != NULL && plr->number_of_physics_updates_this_frame > 0)
+        if (plr != NULL && plr->number_of_physics_updates_this_frame > 0 && (s->net.status == HOSTING || SDL_AtomicGet(&plr->area_id) == s->current_area))
             net_character_post_update(plr);
     }
 

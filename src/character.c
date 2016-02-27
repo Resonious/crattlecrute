@@ -21,13 +21,14 @@ void interact_character_with_world(
     for (int i = 0; i < map->number_of_doors; i++) {
         Door* door = &map->doors[i];
 
-        if (just_pressed(controls, C_UP) &&
+        if (!guy->just_went_through_door      &&
+            just_pressed(controls, C_UP)      &&
             guy->position.x[X] > door->x + 21 &&
             guy->position.x[X] < door->x + 68 &&
             guy->position.x[Y] > door->y      &&
             guy->position.x[Y] < door->y + 90
         ) {
-            controls->this_frame[C_UP] = false;
+            guy->just_went_through_door = true;
             if (go_through_door == NULL)
                 printf("A character wanted to go through a door! (no callback provided)\n");
             else
@@ -140,6 +141,7 @@ void update_character_animation(Character* guy) {
 
 void character_post_update(Character* guy) {
     guy->old_position = guy->position;
+    guy->just_went_through_door = false;
 }
 
 // ======= RENDERING =========
@@ -235,7 +237,7 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
         (guy->flip == SDL_FLIP_HORIZONTAL ? -offset->x : offset->x),
         offset->y
     };
-    vec2 eye_pivot = { 1, 0 };
+    vec2 eye_pivot = { 1, 1 };
 
     // THIS is in RADIANS
     float eye_pos_angle = (guy->ground_angle * (float)M_PI / 180.0f) + atan2f(eye_offset.y, eye_offset.x);
@@ -321,6 +323,7 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
 }
 
 void default_character(Character* target) {
+    target->player_id = -1;
     target->animation_counter = 0;
     target->width  = 90;
     target->height = 90;
@@ -371,6 +374,8 @@ void default_character(Character* target) {
     target->middle_sensors.x[S1Y] = (target->left_sensors.x[S1Y] + target->left_sensors.x[S2Y]) / 2.0f;
     target->middle_sensors.x[S2X] = target->right_sensors.x[S1X];
     target->middle_sensors.x[S2Y] = (target->right_sensors.x[S1Y] + target->right_sensors.x[S2Y]) / 2.0f;
+
+    target->just_went_through_door = false;
 
     target->body_color.r = 0;
     target->body_color.g = 210;

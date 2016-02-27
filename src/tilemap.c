@@ -36,7 +36,7 @@ void world_render_copy_ex(
 ) {
     SDL_Rect dest = {
         pos->x - center->x - game->camera.x[X],
-        game->window_height - (pos->y - game->camera.x[Y]) - height + center->x,
+        game->window_height - (pos->y - game->camera.x[Y]) - height + center->y,
 
         width, height
     };
@@ -57,7 +57,7 @@ void world_render_copy(
 
     SDL_Rect dest = {
         pos->x - center->x - game->camera.x[X],
-        game->window_height - (pos->y - game->camera.x[Y]) - height + center->x,
+        game->window_height - (pos->y - game->camera.x[Y]) - height + center->y,
 
         width, height
     };
@@ -480,7 +480,7 @@ void draw_parallax_background(struct Game* game, struct Map* map, struct Paralla
 
     SDL_Rect dest = {
         background->x - game->camera.x[X] * background->parallax_factor,
-        background->y - map->height + real_height + game->camera.x[Y] * background->parallax_factor,
+        game->window_height - ((map->height - background->y) - game->camera.x[Y] * background->parallax_factor),
 
         real_width, real_height
     };
