@@ -12,6 +12,14 @@
  <tileset firstgid="46" name="Door" tilewidth="90" tileheight="90" tilecount="4">
   <image source="../../assets/misc/door.png" width="180" height="180"/>
  </tileset>
+ <imagelayer name="sky">
+  <image source="../../assets/misc/starry-sky.png"/>
+  <properties>
+   <property name="parallax_factor" value="0.3"/>
+   <property name="wrap_x" value="true"/>
+   <property name="wrap_y" value="false"/>
+  </properties>
+ </imagelayer>
  <imagelayer name="bg" x="42" y="1974">
   <image source="../../assets/misc/skykinda.png"/>
   <properties>
@@ -261,7 +269,7 @@
 </data>
  </layer>
  <objectgroup name="Doors">
-  <object id="1" name="door to wherever" type="door" gid="48" x="773.939" y="2112.24" width="90" height="90">
+  <object id="1" name="door to wherever" type="door" gid="48" x="787.939" y="2112.24" width="90" height="90">
    <properties>
     <property name="leads_to_area" value="AREA_TESTZONE_TWO"/>
     <property name="leads_to_x" value="10 * 32"/>

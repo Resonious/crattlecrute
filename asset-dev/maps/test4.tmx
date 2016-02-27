@@ -10,10 +10,10 @@
   <image source="../../assets/misc/door.png" width="180" height="180"/>
  </tileset>
  <objectgroup name="doors">
-  <object id="1" name="Door to other place" type="door" gid="33" x="288.25" y="191.5" width="90" height="90">
+  <object id="1" name="Door to other place" type="door" gid="33" x="279.917" y="192.833" width="90" height="90">
    <properties>
     <property name="leads_to_area" value="AREA_TESTZONE_ONE"/>
-    <property name="leads_to_x" value="25 * 32"/>
+    <property name="leads_to_x" value="26 * 32"/>
     <property name="leads_to_y" value="64 * 32"/>
    </properties>
   </object>

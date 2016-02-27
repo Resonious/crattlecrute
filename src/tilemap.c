@@ -446,6 +446,9 @@ void draw_door(struct Game* game, struct Door* door) {
     SDL_Rect src = { 0, 90, 90, 90 };
     vec2 pos = { (float)door->x, (float)door->y };
     world_render_copy(game, tex, &src, &pos, 90, 90, NULL);
+    src.x += 90;
+    world_render_copy(game, tex, &src, &pos, 90, 90, NULL);
+    src.x = 0;
     src.y = 0;
     world_render_copy(game, tex, &src, &pos, 90, 90, NULL);
 }
@@ -469,6 +472,10 @@ void draw_parallax_background(struct Game* game, struct Map* map, struct Paralla
             src.x -= background->width;
             src.y += background->frame_height;
         }
+    }
+    else {
+        real_width = map->width;
+        real_height = map->height;
     }
 
     SDL_Rect dest = {
