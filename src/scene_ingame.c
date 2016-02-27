@@ -69,7 +69,7 @@ typedef struct RemotePlayer {
     ControlsBuffer controls_playback;
 } RemotePlayer;
 
-typedef struct TestScene {
+typedef struct WorldScene {
     float gravity;
     float drag;
     Character guy;
@@ -104,7 +104,7 @@ typedef struct TestScene {
         int number_of_players;
         RemotePlayer* players[MAX_PLAYERS];
     } net;
-} TestScene;
+} WorldScene;
 
 void net_character_post_update(RemotePlayer* plr) {
     character_post_update(&plr->guy);
@@ -259,7 +259,7 @@ RemotePlayer* allocate_new_player(int id, struct sockaddr_in* addr) {
     return new_player;
 }
 
-RemotePlayer* player_of_id(TestScene* scene, int id, struct sockaddr_in* addr) {
+RemotePlayer* player_of_id(WorldScene* scene, int id, struct sockaddr_in* addr) {
     // TODO at some point we should have the player id be an index into this array
     for (int i = 0; i < scene->net.number_of_players; i++) {
         RemotePlayer* plr = scene->net.players[i];
@@ -291,7 +291,7 @@ void write_guy_info_to_buffer(byte* buffer, Character* guy, int* pos) {
 }
 
 // balls
-RemotePlayer* netop_initialize_player(TestScene* scene, struct sockaddr_in* addr) {
+RemotePlayer* netop_initialize_player(WorldScene* scene, struct sockaddr_in* addr) {
     int pos = 1;
 
     int player_count;
@@ -324,7 +324,7 @@ RemotePlayer* netop_initialize_player(TestScene* scene, struct sockaddr_in* addr
     return first_player;
 }
 
-int truncate_buffer_to_lowest_spot(TestScene* scene, RemotePlayer* player) {
+int truncate_buffer_to_lowest_spot(WorldScene* scene, RemotePlayer* player) {
     int lowest_frame = player->controls_playback.current_frame;
     int lowest_pos = player->controls_playback.pos;
     int id_of_lowest = -1;
@@ -364,7 +364,7 @@ int truncate_buffer_to_lowest_spot(TestScene* scene, RemotePlayer* player) {
     return player->controls_playback.size;
 }
 
-RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr, int bufsize) {
+RemotePlayer* netop_update_controls(WorldScene* scene, struct sockaddr_in* addr, int bufsize) {
     int pos = 1; // [0] is opcode, which we know by now
 
     RemotePlayer* first_player = NULL;
@@ -457,7 +457,7 @@ RemotePlayer* netop_update_controls(TestScene* scene, struct sockaddr_in* addr, 
         }
 
         SDL_UnlockMutex(player->controls_playback.locked);
-    }//while
+    }//while (pos < bufsize)
 
     return first_player;
 }
@@ -538,7 +538,7 @@ int netwrite_guy_controls_and_position(
     return *pos;
 }
 
-int netwrite_guy_initialization(TestScene* scene) {
+int netwrite_guy_initialization(WorldScene* scene) {
     SDL_assert(scene->net.remote_id >= 0);
     SDL_assert(scene->net.remote_id < 255);
 
@@ -555,7 +555,7 @@ int netwrite_guy_initialization(TestScene* scene) {
     return pos;
 }
 
-int netwrite_player_positions(TestScene* scene, RemotePlayer* target_player) {
+int netwrite_player_positions(WorldScene* scene, RemotePlayer* target_player) {
     // Only server retains authoritative copies of all player positions.
     SDL_assert(scene->net.status == HOSTING);
 
@@ -579,7 +579,7 @@ int netwrite_player_positions(TestScene* scene, RemotePlayer* target_player) {
     return pos;
 }
 
-void server_sendto(TestScene* scene, int bytes_wrote, struct sockaddr_in* other_address) {
+void server_sendto(WorldScene* scene, int bytes_wrote, struct sockaddr_in* other_address) {
     if (bytes_wrote > 0) {
         sendto(
             scene->net.local_socket,
@@ -594,7 +594,7 @@ void server_sendto(TestScene* scene, int bytes_wrote, struct sockaddr_in* other_
 
 int network_server_loop(void* vdata) {
     int r = 0;
-    TestScene* scene = (TestScene*)vdata;
+    WorldScene* scene = (WorldScene*)vdata;
     scene->net.buffer = aligned_malloc(PACKET_SIZE);
 
     SET_LOCKED_STRING(scene->net.status_message, "Server started!");
@@ -782,7 +782,7 @@ int network_server_loop(void* vdata) {
 }
 
 int network_client_loop(void* vdata) {
-    TestScene* scene = (TestScene*)vdata;
+    WorldScene* scene = (WorldScene*)vdata;
     scene->net.buffer = aligned_malloc(PACKET_SIZE);
 
     SET_LOCKED_STRING(scene->net.status_message, "Connecting to server!");
@@ -914,8 +914,8 @@ int network_client_loop(void* vdata) {
 
 SDL_Rect text_box_rect = { 200, 200, 400, 40 };
 
-void scene_test_initialize(void* vdata, Game* game) {
-    TestScene* data = (TestScene*)vdata;
+void scene_world_initialize(void* vdata, Game* game) {
+    WorldScene* data = (WorldScene*)vdata;
     SDL_memset(data->editable_text, 0, sizeof(data->editable_text));
     SDL_strlcat(data->editable_text, "hey", EDITABLE_TEXT_BUFFER_SIZE);
 
@@ -999,8 +999,8 @@ void scene_test_initialize(void* vdata, Game* game) {
 
 #define PERCENT_CHANCE(percent) (rand() < RAND_MAX / (100 / percent))
 
-void scene_test_update(void* vs, Game* game) {
-    TestScene* s = (TestScene*)vs;
+void scene_world_update(void* vs, Game* game) {
+    WorldScene* s = (WorldScene*)vs;
 
     // I'm only gonna count ping for first guy I don't really care right now
     {
@@ -1303,8 +1303,8 @@ void draw_text_box(struct Game* game, SDL_Rect* text_box_rect, char* text) {
     SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
 }
 
-void scene_test_render(void* vs, Game* game) {
-    TestScene* s = (TestScene*)vs;
+void scene_world_render(void* vs, Game* game) {
+    WorldScene* s = (WorldScene*)vs;
     /* == Keeping this around in case I want it ==
 #ifdef _DEBUG
     if (debug_pause) {
@@ -1392,8 +1392,8 @@ void scene_test_render(void* vs, Game* game) {
     draw_text_ex_f(game, game->window_width - 150, game->window_height - 40, -1, 0.7f, "Ping: %i", s->net.ping);
 }
 
-void scene_test_cleanup(void* vdata, Game* game) {
-    TestScene* data = (TestScene*)vdata;
+void scene_world_cleanup(void* vdata, Game* game) {
+    WorldScene* data = (WorldScene*)vdata;
     game->audio.oneshot_waves[0] = NULL;
     game->audio.looped_waves[0] = NULL;
 

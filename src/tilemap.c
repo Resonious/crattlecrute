@@ -165,7 +165,7 @@ TileCollision dont_call_me(CollisionMap* tilemap, SensedTile* t, struct Characte
 #ifdef _DEBUG
     SDL_assert(false);
 #endif
-    TileCollision r;
+    TileCollision r = {false, 0};
     return r;
 }
 TileCollision left_sensor_placement(CollisionMap* tilemap, SensedTile* t, struct Character* guy, int height, const int sensor) {

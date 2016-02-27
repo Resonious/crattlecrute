@@ -131,9 +131,6 @@
     <ClCompile Include="..\..\..\src\sound.c">
       <Filter>game</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\scene_test.c">
-      <Filter>game\scenes</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\scene_offset_viewer.c">
       <Filter>game\scenes</Filter>
     </ClCompile>
@@ -145,6 +142,12 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\types.c">
       <Filter>game</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\game.c">
+      <Filter>game</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\scene_ingame.c">
+      <Filter>game\scenes</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
