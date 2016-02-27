@@ -9,11 +9,11 @@
 			<Region x="90" y="0" width="90" height="90"/>
 			<Index linear="1" collumn="1" row="0"/>
 		</Frame>
-		<Frame visible="false">
+		<Frame visible="true">
 			<Region x="0" y="90" width="90" height="90"/>
 			<Index linear="2" collumn="0" row="1"/>
 		</Frame>
-		<Frame visible="true">
+		<Frame visible="false">
 			<Region x="90" y="90" width="90" height="90"/>
 			<Index linear="3" collumn="1" row="1"/>
 		</Frame>
