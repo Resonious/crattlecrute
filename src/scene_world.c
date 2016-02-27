@@ -410,6 +410,7 @@ RemotePlayer* netop_update_controls(WorldScene* scene, struct sockaddr_in* addr,
                 continue;
             }
             // Otherwise, it is assumed that other_player is in the same area as us (the server should be correct about this!)
+            // TODO this is actually wrong for a few frames after entering a door, causing players to appear in weird positions in the new room.
             else {
                 SDL_AtomicSet(&player->area_id, scene->current_area);
             }
