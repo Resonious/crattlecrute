@@ -20,7 +20,7 @@ Dir.glob("#{assets_base_dir}/asset-dev/maps/*.tmx").reject(&File.method(:directo
     write_cm(read_tmx(map_tmx_file), out_file)
   rescue StandardError => e
     puts "===================================="
-    puts "ERROR COMPILING TILEMAP #{map_tmx_file}\n#{e}"
+    puts "ERROR COMPILING TILEMAP #{map_tmx_file}\n#{e}\n#{e.backtrace.join("\n")}"
     puts "===================================="
   end
 end
@@ -49,6 +49,27 @@ header.write("// Generated #{Time.now}\n\n")
 
 all_files = Dir.glob("#{assets_base_dir}/assets/**/*").reject(&File.method(:directory?))
 
+header.write(
+    "#if SDL_BYTEORDER == SDL_LIL_ENDIAN\n"\
+    "#define RMASK 0x000000FF\n"\
+    "#define GMASK 0x0000FF00\n"\
+    "#define BMASK 0x00FF0000\n"\
+    "#define AMASK 0xFF000000\n\n"\
+    "#define PIXEL_RED(p)   (p & RMASK)\n"\
+    "#define PIXEL_GREEN(p) ((p & GMASK) >> 8)\n"\
+    "#define PIXEL_BLUE(p)  ((p & BMASK) >> 16)\n"\
+    "#define PIXEL_ALPHA(p) ((p & AMASK) >> 24)\n"\
+    "#else\n"\
+    "#define RMASK 0xFF000000\n"\
+    "#define GMASK 0x00FF0000\n"\
+    "#define BMASK 0x0000FF00\n"\
+    "#define AMASK 0x000000FF\n\n"\
+    "#define PIXEL_RED(p)   ((p & RMASK) >> 24)\n"\
+    "#define PIXEL_GREEN(p) ((p & GMASK) >> 16)\n"\
+    "#define PIXEL_BLUE(p)  ((p & BMASK) >> 8)\n"\
+    "#define PIXEL_ALPHA(p) (p & AMASK)\n"\
+    "#endif\n\n"
+)
 header.write(
   "typedef struct AssetFile { byte* bytes; long long size; } AssetFile;\n"\
   "int open_assets_file();\n"\

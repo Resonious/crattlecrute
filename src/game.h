@@ -7,6 +7,7 @@
 
 enum Control {
     C_UP, C_DOWN, C_LEFT, C_RIGHT,
+    C_JUMP,
     C_W, C_S, C_A, C_D,
     C_PAUSE,
     C_F1, C_F2, C_SPACE,
@@ -56,6 +57,7 @@ typedef struct Game {
     bool follow_cam_y;
     vec4 camera_target;
     vec4 camera;
+    double frames_per_second;
 } Game;
 
 // Switch to a new scene (COMING SOON: fade to scene!?)
@@ -63,6 +65,14 @@ void switch_scene(Game* game, int to_scene);
 // input_rect can be null who gives a shit
 void start_editing_text(Game* game, char* text_to_edit, int buffer_size, SDL_Rect* input_rect);
 void stop_editing_text(Game* game);
+
+// === Areas ===
+enum AreaId {
+    AREA_TESTZONE_ONE,
+    AREA_TESTZONE_TWO,
+    NUMBER_OF_AREAS
+};
+int map_asset_for_area(int area_id);
 
 // === Text functions ===
 

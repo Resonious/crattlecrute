@@ -42,7 +42,7 @@ void scene_offset_viewer_update(void* vs, Game* game) {
         s->crattlecrute.left_sensors.x[0] += 1;
 
     if (just_pressed(&game->controls, C_F1))
-        switch_scene(game, SCENE_TEST);
+        switch_scene(game, SCENE_WORLD);
 }
 void scene_offset_viewer_render(void* vs, Game* game) {
     OffsetViewer* s = (OffsetViewer*)vs;

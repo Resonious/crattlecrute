@@ -36,7 +36,7 @@ AssetFile load_asset(int asset) {
     return f;
 }
 
-#elif __APPLE__
+#elif __APPLE__ // ================= MACOSX CREATESECT =====================
 byte* embedded_assets;
 
 int open_assets_file() {
@@ -53,7 +53,7 @@ AssetFile load_asset(int asset) {
     return f;
 }
 
-#else // ============================== *NIX LD EMBEDDED ASSETS =======================
+#else // ============================== LINUX LD EMBEDDED ASSETS =======================
 extern char _binary_build_crattlecrute_assets_start[];
 extern char _binary_build_crattlecrute_assets_end[];
 
@@ -103,12 +103,7 @@ AssetFile load_asset(int asset) {
 // only used within this file...
 static SDL_Surface* makesurface(byte* image, int width, int height) {
     SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
-        image, width, height, 32, width * 4,
-#if SDL_BYTEORDER == SDL_LIL_ENDIAN
-        0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000
-#else
-        0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF
-#endif
+        image, width, height, 32, width * 4, RMASK, GMASK, BMASK, AMASK
     );
 #ifdef _DEBUG
     if (surface == NULL) {
@@ -264,7 +259,13 @@ Map* cached_map(Game* game, int asset) {
     if (cached_asset->id == ASSET_NOT_LOADED) {
         cached_asset->id = asset;
         CmFileHeader file_header = read_cm_file_header(asset);
-        size_t bytes_needed_for_map = sizeof(Map) + (size_t)file_header.tilemap_count * sizeof(Tilemap);
+
+        size_t bytes_needed_for_map =
+            sizeof(Map) +
+            (size_t)file_header.tilemap_count * sizeof(Tilemap) +
+            (size_t)file_header.background_count * sizeof(ParallaxBackground) +
+            (size_t)file_header.door_count * sizeof(Door);
+
         cached_asset->map = malloc(bytes_needed_for_map);
         load_map(asset, cached_asset->map);
 
