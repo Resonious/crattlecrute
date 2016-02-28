@@ -57,6 +57,7 @@ typedef struct Game {
     bool follow_cam_y;
     vec4 camera_target;
     vec4 camera;
+    double frames_per_second;
 } Game;
 
 // Switch to a new scene (COMING SOON: fade to scene!?)

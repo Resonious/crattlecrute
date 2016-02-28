@@ -28,12 +28,13 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 */
 #endif
 
+extern SDL_Window* main_window;
+
 #define EDITABLE_TEXT_BUFFER_SIZE 255
 #define PACKET_SIZE 500
 #define CONTROLS_BUFFER_SIZE (255 * NUM_CONTROLS)
 #define CONTROL_BLOCK_END NUM_CONTROLS
 #define MAX_PLAYERS 20
-#define FRAMES_BETWEEN_POSITION_SYNCS 60
 
 typedef struct ControlsBuffer {
     SDL_mutex* locked;
@@ -59,6 +60,7 @@ typedef struct RemotePlayer {
     ControlsBufferSpot stream_spots_of[MAX_PLAYERS];
     struct sockaddr_in address;
     SOCKET socket;
+    int ping, ping_counter;
     SDL_atomic_t poke;
 
     // Countdown until we SEND this guy's position (as server) (ALSO INDEXED BY ID)
@@ -99,8 +101,6 @@ typedef struct WorldScene {
         SOCKET local_socket;
         struct sockaddr_in my_address;
         struct sockaddr_in server_address;
-        // Ping is in frames
-        int ping, ping_counter;
 
         // Array of malloced RemotePlayers
         int number_of_players;
@@ -128,6 +128,10 @@ void wait_for_then_use_lock(SDL_mutex* mutex) {
         exit(1);
 }
 
+int frames_between_position_syncs(RemotePlayer* plr) {
+    return max(2, plr->ping * 2);
+}
+
 void sync_player_frame_if_should(int status, RemotePlayer* plr) {
     if (status != JOINING)
         return;
@@ -139,7 +143,7 @@ void sync_player_frame_if_should(int status, RemotePlayer* plr) {
         plr->guy.old_position  = plr->sync_old_position;
         plr->guy.flip          = plr->sync_flip;
 
-        printf("SYNCED POSITION OF %i\n", plr->id);
+        // printf("SYNCED POSITION OF %i\n", plr->id);
     }
     SDL_AtomicAdd(&plr->frames_until_sync, -1);
 }
@@ -385,8 +389,8 @@ int truncate_buffer_to_lowest_spot(WorldScene* scene, RemotePlayer* player) {
 
 // If multiple of these flags comes in an update, their content must be in this order.
 #define NETF_CONTROLS (1 << 0)
-#define NETF_POSITION (1 << 1)
-#define NETF_AREA     (1 << 2)
+#define NETF_AREA     (1 << 1)
+#define NETF_POSITION (1 << 2)
 
 RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sockaddr_in* addr, int bufsize) {
     int pos = 1; // [0] is opcode, which we know by now
@@ -470,23 +474,38 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
         }
     DoneWithControls:;
 
-        if (flags & NETF_POSITION) {
-            byte frames_down_from_bytes0 = buffer[pos++];
-            int frame_of_position = (int)(player->controls_playback.bytes[0] - frames_down_from_bytes0);
-            SDL_assert(frame_of_position <= player->controls_playback.bytes[0]);
-
-            read_from_buffer(buffer, player->sync_position.x, &pos, sizeof(vec4));
-            read_from_buffer(buffer, player->sync_old_position.x, &pos, sizeof(vec4));
-            read_from_buffer(buffer, &player->sync_flip, &pos, sizeof(int));
-            SDL_AtomicSet(&player->frames_until_sync, frame_of_position - player->controls_playback.current_frame);
-
-            sync_player_frame_if_should(scene->net.status, player);
-        }
-
         if (flags & NETF_AREA) {
             int area_id;
             read_from_buffer(buffer, &area_id, &pos, sizeof(int));
             SDL_AtomicSet(&player->area_id, area_id);
+        }
+
+        if (flags & NETF_POSITION) {
+            signed char frames_down_from_bytes0 = (signed char)buffer[pos++];
+            int frame_of_position;
+            if (frames_down_from_bytes0 >= 0)
+                frame_of_position = (int)(player->controls_playback.bytes[0] - frames_down_from_bytes0);
+            else
+                frame_of_position = -1;
+
+            SDL_assert(frame_of_position <= player->controls_playback.bytes[0]);
+
+            if (SDL_AtomicGet(&player->area_id) != scene->current_area) {
+                read_from_buffer(buffer, player->guy.position.x, &pos, sizeof(vec4));
+                read_from_buffer(buffer, player->guy.old_position.x, &pos, sizeof(vec4));
+                read_from_buffer(buffer, &player->guy.flip, &pos, sizeof(int));
+            }
+            else {
+                read_from_buffer(buffer, player->sync_position.x, &pos, sizeof(vec4));
+                read_from_buffer(buffer, player->sync_old_position.x, &pos, sizeof(vec4));
+                read_from_buffer(buffer, &player->sync_flip, &pos, sizeof(int));
+                if (frame_of_position == -1)
+                    SDL_AtomicSet(&player->frames_until_sync, 0);
+                else
+                    SDL_AtomicSet(&player->frames_until_sync, frame_of_position - player->controls_playback.current_frame);
+
+                sync_player_frame_if_should(scene->net.status, player);
+            }
         }
 
         SDL_UnlockMutex(player->controls_playback.locked);
@@ -560,7 +579,10 @@ int netwrite_guy_controls(
 }
 
 int netwrite_guy_position(byte* buffer, ControlsBuffer* controls_stream, vec4* position, vec4* old_position, int flip, int* pos) {
-    buffer[*pos] = controls_stream->bytes[0] - (byte)controls_stream->current_frame;
+    if (controls_stream)
+        buffer[*pos] = controls_stream->bytes[0] - (byte)controls_stream->current_frame;
+    else
+        buffer[*pos] = (signed char)-1;
     *pos += 1;
     write_to_buffer(buffer, position->x, pos, sizeof(vec4));
     write_to_buffer(buffer, old_position->x, pos, sizeof(vec4));
@@ -618,7 +640,6 @@ int network_server_loop(void* vdata) {
     WorldScene* scene = loop->scene;
     byte* buffer = aligned_malloc(PACKET_SIZE);
 
-    // NOTE do not exit this scene after initializing network lol
     while (true) {
         memset(buffer, 0, PACKET_SIZE);
 
@@ -634,6 +655,12 @@ int network_server_loop(void* vdata) {
             SET_LOCKED_STRING_F(scene->net.status_message, "Failed to receive: %i", WSAGetLastError());
             scene->net.status = NOT_CONNECTED;
             r = 2; goto Done;
+        }
+        else if (recv_len == 0) {
+            // TODO actual cleanup or something
+            SET_LOCKED_STRING(scene->net.status_message, "Connection closed.");
+            scene->net.status = NOT_CONNECTED;
+            goto Done;
         }
 
         int bytes_wrote = 0;
@@ -720,10 +747,10 @@ int network_server_loop(void* vdata) {
                     if (SDL_AtomicGet(sync_countdown) <= 0) {
                         position     = &scene->guy.position;
                         old_position = &scene->guy.old_position;
-                        SDL_AtomicSet(sync_countdown, FRAMES_BETWEEN_POSITION_SYNCS);
-                        *flags |= NETF_POSITION;
+                        SDL_AtomicSet(sync_countdown, frames_between_position_syncs(player));
                         *flags |= NETF_AREA;
-                        printf("Sending %i my position!\n", player->id);
+                        *flags |= NETF_POSITION;
+                        // printf("Sending %i my position!\n", player->id);
                     }
    
                     netwrite_guy_controls(
@@ -734,13 +761,15 @@ int network_server_loop(void* vdata) {
                         false
                     );
                     if (position && old_position) {
-                        netwrite_guy_position(buffer, &scene->controls_stream, position, old_position, scene->guy.flip, &pos);
                         netwrite_guy_area(buffer, scene->current_area, &pos);
+                        netwrite_guy_position(buffer, &scene->controls_stream, position, old_position, scene->guy.flip, &pos);
                     }
                 }
                 else {
                     *flags |= NETF_AREA;
+                    *flags |= NETF_POSITION;
                     netwrite_guy_area(buffer, scene->current_area, &pos);
+                    netwrite_guy_position(buffer, &scene->controls_stream, &scene->guy.position, &scene->guy.old_position, scene->guy.flip, &pos);
 
                     player->local_stream_spot.frame = scene->controls_stream.current_frame;
                     player->local_stream_spot.pos   = scene->controls_stream.pos;
@@ -768,8 +797,9 @@ int network_server_loop(void* vdata) {
 
                             // We also need to inform player that other_player is not in their map...
                             buffer[pos++] = other_player->id;
-                            buffer[pos++] = NETF_AREA;
+                            buffer[pos++] = NETF_AREA | NETF_POSITION;
                             netwrite_guy_area(buffer, other_player_area, &pos);
+                            netwrite_guy_position(buffer, &other_player->controls_playback, &other_player->guy.position, &other_player->guy.old_position, other_player->guy.flip, &pos);
 
                             goto UnlockAndContinue;
                         }
@@ -790,9 +820,9 @@ int network_server_loop(void* vdata) {
                             if (SDL_AtomicGet(sync_countdown) <= 0) {
                                 position     = &other_player->guy.position;
                                 old_position = &other_player->guy.old_position;
-                                SDL_AtomicSet(sync_countdown, FRAMES_BETWEEN_POSITION_SYNCS);
-                                *flags |= NETF_POSITION;
+                                SDL_AtomicSet(sync_countdown, frames_between_position_syncs(player));
                                 *flags |= NETF_AREA;
+                                *flags |= NETF_POSITION;
                             }
 
                             *flags |= NETF_CONTROLS;
@@ -808,16 +838,16 @@ int network_server_loop(void* vdata) {
                                 */
                             );
                             if (position && old_position) {
+                                netwrite_guy_area(
+                                    buffer,
+                                    SDL_AtomicGet(&other_player->area_id),
+                                    &pos
+                                );
                                 netwrite_guy_position(
                                     buffer,
                                     &other_player->controls_playback,
                                     position, old_position,
                                     other_player->guy.flip,
-                                    &pos
-                                );
-                                netwrite_guy_area(
-                                    buffer,
-                                    SDL_AtomicGet(&other_player->area_id),
                                     &pos
                                 );
                             }
@@ -850,8 +880,8 @@ int network_server_loop(void* vdata) {
     }
 
     Done:
-    closesocket(scene->net.local_socket);
-    scene->net.local_socket = 0;
+    aligned_free(loop);
+    closesocket(loop->socket);
     return r;
 }
 
@@ -867,6 +897,7 @@ int network_server_listen(void* vdata) {
     if(bind(scene->net.local_socket, (struct sockaddr *)&scene->net.my_address , sizeof(scene->net.my_address)) == SOCKET_ERROR)
     {
         SET_LOCKED_STRING_F(scene->net.status_message, "Failed to bind: %i", WSAGetLastError());
+        scene->net.status = NOT_CONNECTED;
         return 1;
     }
 
@@ -883,6 +914,7 @@ int network_server_listen(void* vdata) {
     listen(scene->net.local_socket, MAX_PLAYERS);
 
     while (true) {
+        // This gets freed at the end of network_server_loop
         ServerLoop* loop = aligned_malloc(sizeof(ServerLoop));
 
         int addrlen = sizeof(loop->address);
@@ -894,7 +926,9 @@ int network_server_listen(void* vdata) {
             continue;
         }
 
-        // TODO this gets spammed at some point which is kind of worrysome (creating 1000000000000 threads...)
+        set_tcp_nodelay(new_connection);
+
+        // TODO this gets spammed at some point which is kind of worrysome (creating 1000000000000 threads... mallocing a lot)
         printf("New connection! Starting thread and waiting for handshake.\n");
         loop->socket = new_connection;
         loop->scene = scene;
@@ -912,10 +946,27 @@ int network_client_loop(void* vdata) {
 
     memset((char *) &other_address, 0, sizeof(other_address));
     other_address.sin_family = AF_INET;
-    other_address.sin_addr.s_addr = inet_addr(scene->net.textinput_ip_address);
-    other_address.sin_port = htons(atoi(scene->net.textinput_port));
+
+    char* address_input = scene->net.textinput_ip_address;
+    char* ip_address = NULL,* port = NULL;
+    for (char* c = address_input; *c != '\0'; c++) {
+        if (*c == ':') {
+            *c = '\0';
+            ip_address = address_input;
+            port = c + 1;
+            break;
+        }
+    }
+    if (!(ip_address && port)) {
+        ip_address = address_input;
+        port = "2997";
+    }
+
+    other_address.sin_addr.s_addr = inet_addr(ip_address);
+    other_address.sin_port = htons(atoi(port));
     if (connect(scene->net.local_socket, (struct sockaddr*)&other_address, sizeof(other_address)) < 0) {
         printf("COULD NOT CONNECT!!!!!!!!!\n");
+        scene->net.status = NOT_CONNECTED;
         return 0;
     }
 
@@ -1032,6 +1083,21 @@ int network_client_loop(void* vdata) {
 
 SDL_Rect text_box_rect = { 200, 200, 400, 40 };
 
+int set_tcp_nodelay(SOCKET socket) {
+    int flag = 1;
+    int result = setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int));
+    if (result < 0) {
+        SDL_ShowSimpleMessageBox(
+            0, "Socket error",
+            "Could not set TCP_NODELAY on socket. Network activity may be slow.",
+            main_window
+        );
+    }
+
+    SDL_assert(socket != SOCKET_ERROR);
+    return result;
+}
+
 void scene_world_initialize(void* vdata, Game* game) {
     WorldScene* data = (WorldScene*)vdata;
     SDL_memset(data->editable_text, 0, sizeof(data->editable_text));
@@ -1051,8 +1117,6 @@ void scene_world_initialize(void* vdata, Game* game) {
         memset(data->net.players, 0, sizeof(data->net.players));
 
         data->net.connected = false;
-        data->net.ping_counter = 0;
-        data->net.ping = 0;
         data->net.status = NOT_CONNECTED;
         SDL_AtomicSet(&data->net.status_message_locked, false);
 
@@ -1062,18 +1126,7 @@ void scene_world_initialize(void* vdata, Game* game) {
         SDL_strlcat(data->net.textinput_port, "2997", EDITABLE_TEXT_BUFFER_SIZE);
 
         data->net.local_socket = socket(AF_INET, SOCK_STREAM, 0);
-
-        int flag = 1;
-        int result = setsockopt(data->net.local_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int));
-        if (result < 0) {
-            SDL_ShowSimpleMessageBox(
-                0, "Socket error",
-                "Could not set TCP_NODELAY on socket. Network activity might be slow.",
-                game->window
-            );
-        }
-
-        SDL_assert(data->net.local_socket != SOCKET_ERROR);
+        set_tcp_nodelay(data->net.local_socket);
     }
 
     data->controls_stream.pos = 0;
@@ -1227,27 +1280,21 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
 void scene_world_update(void* vs, Game* game) {
     WorldScene* s = (WorldScene*)vs;
 
-    // TODO PING DUDE
-    // I'm only gonna count ping for first guy I don't really care right now
-    {
-        s->net.ping_counter += 1;
-        RemotePlayer* player_of_ping = s->net.players[0];
-        if (player_of_ping != NULL) {
-            if (SDL_AtomicGet(&player_of_ping->poke)) {
-                s->net.ping = s->net.ping_counter;
-                s->net.ping_counter = 0;
-                SDL_AtomicSet(&player_of_ping->poke, false);
-            }
+    // Routine network stuff:
+    for (int i = 0; i < s->net.number_of_players; i++) {
+        RemotePlayer* player = s->net.players[i];
+        if (player == NULL) continue;
+        // Calculate ping
+        player->ping_counter += 1;
+        if (SDL_AtomicGet(&player->poke)) {
+            player->ping = player->ping_counter;
+            player->ping_counter = 0;
+            SDL_AtomicSet(&player->poke, false);
         }
-    }
-    // Decrement counters
-    {
-        for (int i = 0; i < s->net.number_of_players; i++) {
-            RemotePlayer* player = s->net.players[i];
-            if (player != NULL)
-                for (int j = 0; j < MAX_PLAYERS; j++)
-                SDL_AtomicAdd(&player->countdown_until_i_get_position_of[j], -1);
-        }
+
+        // Decrement position sync counters
+        for (int j = 0; j < MAX_PLAYERS; j++)
+            SDL_AtomicAdd(&player->countdown_until_i_get_position_of[j], -1);
     }
 
     // Stupid AI
@@ -1295,9 +1342,7 @@ void scene_world_update(void* vs, Game* game) {
         ) {
             // Do 2 frames at a time if we're so many frames behind
             int frames_behind = (int)plr->controls_playback.bytes[0] - plr->controls_playback.current_frame;
-            // TODO ping for each guy >_>
-            const int total_ping = s->net.ping * s->net.number_of_players;
-            const int frames_behind_threshold = total_ping + total_ping / 2;
+            const int frames_behind_threshold = max(2, plr->ping + plr->ping / 2);
 
             if (frames_behind > frames_behind_threshold) {
                 printf("Network control sync behind by %i frames\n", frames_behind);
@@ -1477,7 +1522,7 @@ void scene_world_update(void* vs, Game* game) {
 
     if (s->net.status == NOT_CONNECTED) {
         if (just_pressed(&game->controls, C_F1)) {
-            start_editing_text(game, s->net.textinput_ip_address, EDITABLE_TEXT_BUFFER_SIZE, &text_box_rect);
+            start_editing_text(game, s->net.textinput_port, EDITABLE_TEXT_BUFFER_SIZE, &text_box_rect);
             s->net.status = HOSTING;
         }
         else if (just_pressed(&game->controls, C_F2)) {
@@ -1592,14 +1637,16 @@ void scene_world_render(void* vs, Game* game) {
     if (game->text_edit.text == s->editable_text) {
         draw_text_box(game, &text_box_rect, s->editable_text);
     }
-    else if (game->text_edit.text == s->net.textinput_ip_address) {
+    else if (game->text_edit.text == s->net.textinput_ip_address || game->text_edit.text == s->net.textinput_port) {
         set_text_color(game, 255, 255, 255);
-        if (s->net.status == HOSTING)
+        if (s->net.status == HOSTING) {
             draw_text(game, text_box_rect.x - 130, 200, "So you want to be server");
-        else
+            draw_text_box(game, &text_box_rect, s->net.textinput_port);
+        }
+        else {
             draw_text(game, text_box_rect.x - 100, 200, "So you want to be client");
-
-        draw_text_box(game, &text_box_rect, s->net.textinput_ip_address);
+            draw_text_box(game, &text_box_rect, s->net.textinput_ip_address);
+        }
     }
 
     if (s->net.status != NOT_CONNECTED) {
@@ -1607,7 +1654,23 @@ void scene_world_render(void* vs, Game* game) {
         draw_text(game, 10, game->window_height - 50, s->net.status_message);
     }
 
-    draw_text_ex_f(game, game->window_width - 150, game->window_height - 40, -1, 0.7f, "Ping: %i", s->net.ping);
+#ifdef _DEBUG
+    for (int i = 0; i < s->net.number_of_players; i++) {
+        RemotePlayer* player = s->net.players[i];
+        if (s->net.status == JOINING && player->id != 0) continue;
+        if (player == NULL) continue;
+
+        double ping_in_ms = 1000.0 * (double)player->ping / game->frames_per_second;
+
+        set_text_color(game, 255, 255, 50);
+        if (s->net.status == JOINING) {
+            draw_text_ex_f(game, game->window_width - 180, game->window_height - 60 - i * 20, -1, 0.7f, "Ping: %.1fms", player->ping);
+        }
+        else {
+            draw_text_ex_f(game, game->window_width - 200, game->window_height - 60 - i * 20, -1, 0.7f, "P%i Ping: %.1fms", player->id, player->ping);
+        }
+    }
+#endif
 }
 
 void scene_world_cleanup(void* vdata, Game* game) {

@@ -117,7 +117,7 @@ int main(int argc, char** argv) {
     Uint64 last_frame_ticks = 0;
     // For getting FPS
     double frame_count_this_second = 0;
-    double fps = 60.0;
+    game.frames_per_second = 60.0;
     double tick_second_counter = 0;
     bool keys_up[NUM_CONTROLS];
     bool keys_down[NUM_CONTROLS];
@@ -207,14 +207,14 @@ int main(int argc, char** argv) {
             draw_text_ex(&game, 32, game.window_height - 32, "FREEZE-FRAME!", 1, 0.7f);
         }
 #endif
-#if DRAW_FPS
-        set_text_color(&game, 255, 255, 20);
         if (tick_second_counter / (double)ticks_per_second >= 1.0) {
-            fps = frame_count_this_second / (tick_second_counter / (double)ticks_per_second);
+            game.frames_per_second = frame_count_this_second / (tick_second_counter / (double)ticks_per_second);
             frame_count_this_second = 0;
             tick_second_counter = 0;
         }
-        draw_text_ex_f(&game, (int)game.window_width - 150, (int)game.window_height - 20, -1, 0.7f, "FPS: %.2f", fps);
+#if DRAW_FPS
+        set_text_color(&game, 255, 255, 20);
+        draw_text_ex_f(&game, (int)game.window_width - 150, (int)game.window_height - 20, -1, 0.7f, "FPS: %.2f", game.frames_per_second);
 #endif
         SDL_RenderPresent(game.renderer);
 
