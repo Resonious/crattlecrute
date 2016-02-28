@@ -31,7 +31,7 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 extern SDL_Window* main_window;
 
 #define EDITABLE_TEXT_BUFFER_SIZE 255
-#define PACKET_SIZE 500
+#define PACKET_SIZE 2000
 #define CONTROLS_BUFFER_SIZE (255 * NUM_CONTROLS)
 #define CONTROL_BLOCK_END NUM_CONTROLS
 #define MAX_PLAYERS 20
@@ -48,6 +48,14 @@ typedef struct ControlsBufferSpot {
     int pos;
     int frame;
 } ControlsBufferSpot;
+
+typedef struct PhysicsState {
+    vec4 position;
+    vec4 old_position;
+    int flip;
+    float dy;
+    float ground_speed;
+} PhysicsState;
 
 typedef struct RemotePlayer {
     int id;
@@ -66,8 +74,7 @@ typedef struct RemotePlayer {
     // Countdown until we SEND this guy's position (as server) (ALSO INDEXED BY ID)
     SDL_atomic_t countdown_until_i_get_position_of[MAX_PLAYERS];
     // Position we have RECEIVED for this guy and plan to set (if we so choose) (i.e. if we are client)
-    vec4 sync_position, sync_old_position;
-    int sync_flip;
+    PhysicsState sync;
     SDL_atomic_t frames_until_sync;
 
     int last_frames_playback_pos;
@@ -129,7 +136,7 @@ void wait_for_then_use_lock(SDL_mutex* mutex) {
 }
 
 int frames_between_position_syncs(RemotePlayer* plr) {
-    return max(2, plr->ping * 2);
+    return max(10, plr->ping + plr->ping / 2);
 }
 
 void sync_player_frame_if_should(int status, RemotePlayer* plr) {
@@ -139,9 +146,11 @@ void sync_player_frame_if_should(int status, RemotePlayer* plr) {
         return;
 
     if (SDL_AtomicGet(&plr->frames_until_sync) == 0) {
-        plr->guy.position.simd = plr->sync_position.simd;
-        plr->guy.old_position  = plr->sync_old_position;
-        plr->guy.flip          = plr->sync_flip;
+        plr->guy.position.simd = plr->sync.position.simd;
+        plr->guy.old_position  = plr->sync.old_position;
+        plr->guy.flip          = plr->sync.flip;
+        plr->guy.dy            = plr->sync.dy;
+        plr->guy.ground_speed  = plr->sync.ground_speed;
 
         // printf("SYNCED POSITION OF %i\n", plr->id);
     }
@@ -490,22 +499,17 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
 
             SDL_assert(frame_of_position <= player->controls_playback.bytes[0]);
 
-            if (SDL_AtomicGet(&player->area_id) != scene->current_area) {
-                read_from_buffer(buffer, player->guy.position.x, &pos, sizeof(vec4));
-                read_from_buffer(buffer, player->guy.old_position.x, &pos, sizeof(vec4));
-                read_from_buffer(buffer, &player->guy.flip, &pos, sizeof(int));
-            }
-            else {
-                read_from_buffer(buffer, player->sync_position.x, &pos, sizeof(vec4));
-                read_from_buffer(buffer, player->sync_old_position.x, &pos, sizeof(vec4));
-                read_from_buffer(buffer, &player->sync_flip, &pos, sizeof(int));
-                if (frame_of_position == -1)
-                    SDL_AtomicSet(&player->frames_until_sync, 0);
-                else
-                    SDL_AtomicSet(&player->frames_until_sync, frame_of_position - player->controls_playback.current_frame);
+            read_from_buffer(buffer, player->sync.position.x, &pos, sizeof(vec4));
+            read_from_buffer(buffer, player->sync.old_position.x, &pos, sizeof(vec4));
+            read_from_buffer(buffer, &player->sync.flip, &pos, sizeof(int));
+            read_from_buffer(buffer, &player->sync.dy, &pos, sizeof(float));
+            read_from_buffer(buffer, &player->sync.ground_speed, &pos, sizeof(int));
+            if (frame_of_position == -1)
+                SDL_AtomicSet(&player->frames_until_sync, 0);
+            else
+                SDL_AtomicSet(&player->frames_until_sync, frame_of_position - player->controls_playback.current_frame);
 
-                sync_player_frame_if_should(scene->net.status, player);
-            }
+            sync_player_frame_if_should(scene->net.status, player);
         }
 
         SDL_UnlockMutex(player->controls_playback.locked);
@@ -513,12 +517,6 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
 
     return first_player;
 }
-
-
-/*
-#define netwrite_guy_controls(buffer, controls_stream, spot, pos, already_locked) \
-    netwrite_guy_controls_and_position(buffer, controls_stream, spot, pos, already_locked, NULL, NULL, 0)
-*/
 
 int netwrite_guy_controls(
     byte*               buffer,
@@ -578,15 +576,17 @@ int netwrite_guy_controls(
     return *pos;
 }
 
-int netwrite_guy_position(byte* buffer, ControlsBuffer* controls_stream, vec4* position, vec4* old_position, int flip, int* pos) {
+int netwrite_guy_position(byte* buffer, ControlsBuffer* controls_stream, Character* guy, int* pos) {
     if (controls_stream)
         buffer[*pos] = controls_stream->bytes[0] - (byte)controls_stream->current_frame;
     else
         buffer[*pos] = (signed char)-1;
     *pos += 1;
-    write_to_buffer(buffer, position->x, pos, sizeof(vec4));
-    write_to_buffer(buffer, old_position->x, pos, sizeof(vec4));
-    write_to_buffer(buffer, &flip, pos, sizeof(int));
+    write_to_buffer(buffer, guy->position.x, pos, sizeof(vec4));
+    write_to_buffer(buffer, guy->old_position.x, pos, sizeof(vec4));
+    write_to_buffer(buffer, &guy->flip, pos, sizeof(int));
+    write_to_buffer(buffer, &guy->dy, pos, sizeof(float));
+    write_to_buffer(buffer, &guy->ground_speed, pos, sizeof(float));
 }
 
 int netwrite_guy_area(byte* buffer, int area_id, int* pos) {
@@ -738,15 +738,13 @@ int network_server_loop(void* vdata) {
 
                 int player_area_id = SDL_AtomicGet(&player->area_id);
                 if (scene->current_area == player_area_id) {
-                    vec4* position = NULL;
-                    vec4* old_position = NULL;
+                    bool send_physics_state = false;
 
                     *flags |= NETF_CONTROLS;
 
                     SDL_atomic_t* sync_countdown = &player->countdown_until_i_get_position_of[0];
                     if (SDL_AtomicGet(sync_countdown) <= 0) {
-                        position     = &scene->guy.position;
-                        old_position = &scene->guy.old_position;
+                        send_physics_state = true;
                         SDL_AtomicSet(sync_countdown, frames_between_position_syncs(player));
                         *flags |= NETF_AREA;
                         *flags |= NETF_POSITION;
@@ -760,16 +758,16 @@ int network_server_loop(void* vdata) {
                         &pos,
                         false
                     );
-                    if (position && old_position) {
+                    if (send_physics_state) {
                         netwrite_guy_area(buffer, scene->current_area, &pos);
-                        netwrite_guy_position(buffer, &scene->controls_stream, position, old_position, scene->guy.flip, &pos);
+                        netwrite_guy_position(buffer, &scene->controls_stream, &scene->guy, &pos);
                     }
                 }
                 else {
                     *flags |= NETF_AREA;
                     *flags |= NETF_POSITION;
                     netwrite_guy_area(buffer, scene->current_area, &pos);
-                    netwrite_guy_position(buffer, &scene->controls_stream, &scene->guy.position, &scene->guy.old_position, scene->guy.flip, &pos);
+                    netwrite_guy_position(buffer, &scene->controls_stream, &scene->guy, &pos);
 
                     player->local_stream_spot.frame = scene->controls_stream.current_frame;
                     player->local_stream_spot.pos   = scene->controls_stream.pos;
@@ -799,7 +797,7 @@ int network_server_loop(void* vdata) {
                             buffer[pos++] = other_player->id;
                             buffer[pos++] = NETF_AREA | NETF_POSITION;
                             netwrite_guy_area(buffer, other_player_area, &pos);
-                            netwrite_guy_position(buffer, &other_player->controls_playback, &other_player->guy.position, &other_player->guy.old_position, other_player->guy.flip, &pos);
+                            netwrite_guy_position(buffer, &other_player->controls_playback, &other_player->guy, &pos);
 
                             goto UnlockAndContinue;
                         }
@@ -846,8 +844,7 @@ int network_server_loop(void* vdata) {
                                 netwrite_guy_position(
                                     buffer,
                                     &other_player->controls_playback,
-                                    position, old_position,
-                                    other_player->guy.flip,
+                                    &other_player->guy,
                                     &pos
                                 );
                             }
