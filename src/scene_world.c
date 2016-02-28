@@ -108,6 +108,12 @@ typedef struct WorldScene {
     } net;
 } WorldScene;
 
+typedef struct ServerLoop {
+    SOCKET socket;
+    struct sockaddr_in address;
+    WorldScene* scene;
+} ServerLoop;
+
 void net_character_post_update(RemotePlayer* plr) {
     character_post_update(&plr->guy);
     plr->last_frames_playback_pos = plr->controls_playback.pos;
@@ -610,85 +616,22 @@ int netwrite_player_positions(WorldScene* scene, byte* buffer, RemotePlayer* tar
     return pos;
 }
 
-void server_sendto(WorldScene* scene, byte* buffer, int bytes_wrote, struct sockaddr_in* other_address) {
-    if (bytes_wrote > 0) {
-        sendto(
-            scene->net.local_socket,
-            buffer,
-            bytes_wrote,
-            0,
-            (struct sockaddr*)other_address,
-            sizeof(struct sockaddr_in)
-        );
-    }
-}
-
-// TODO WIP
-int network_server_listen(void* vdata) {
-    WorldScene* scene = (WorldScene*)vdata;
-
-    memset((char *) &scene->net.my_address, 0, sizeof(scene->net.my_address));
-    scene->net.my_address.sin_family = AF_INET;
-    scene->net.my_address.sin_addr.s_addr = INADDR_ANY;
-    scene->net.my_address.sin_port = htons(atoi(scene->net.textinput_port));
-    if(bind(scene->net.local_socket, (struct sockaddr *)&scene->net.my_address , sizeof(scene->net.my_address)) == SOCKET_ERROR)
-    {
-        SET_LOCKED_STRING_F(scene->net.status_message, "Failed to bind: %i", WSAGetLastError());
-        return 1;
-    }
-
-    scene->net.remote_id = 0;
-    scene->net.next_id = 1;
-
-    struct sockaddr_in other_address;
-
-    wait_for_then_use_lock(scene->controls_stream.locked);
-    scene->controls_stream.current_frame = 0;
-    scene->controls_stream.pos = 1;
-    SDL_UnlockMutex(scene->controls_stream.locked);
-}
-
 int network_server_loop(void* vdata) {
     int r = 0;
-    WorldScene* scene = (WorldScene*)vdata;
+    ServerLoop* loop = (ServerLoop*)vdata;
+    WorldScene* scene = loop->scene;
     byte* buffer = aligned_malloc(PACKET_SIZE);
-
-    SET_LOCKED_STRING(scene->net.status_message, "Server started!");
-
-    // TODO most of this initialization stuff is being moved into network_server_listen
-    // --- this method will be launched in a thread by that method...
-    memset((char *) &scene->net.my_address, 0, sizeof(scene->net.my_address));
-    scene->net.my_address.sin_family = AF_INET;
-    scene->net.my_address.sin_addr.s_addr = INADDR_ANY;
-    scene->net.my_address.sin_port = htons(atoi(scene->net.textinput_port));
-    if(bind(scene->net.local_socket, (struct sockaddr *)&scene->net.my_address , sizeof(scene->net.my_address)) == SOCKET_ERROR)
-    {
-        SET_LOCKED_STRING_F(scene->net.status_message, "Failed to bind: %i", WSAGetLastError());
-        return 1;
-    }
-    // Server gets id = 0
-    scene->net.remote_id = 0;
-    scene->net.next_id = 1;
-
-    struct sockaddr_in other_address;
-
-    wait_for_then_use_lock(scene->controls_stream.locked);
-    scene->controls_stream.current_frame = 0;
-    scene->controls_stream.pos = 1;
-    SDL_UnlockMutex(scene->controls_stream.locked);
 
     // NOTE do not exit this scene after initializing network lol
     while (true) {
         memset(buffer, 0, PACKET_SIZE);
 
-        int other_addr_len = sizeof(other_address);
-        int recv_len = recvfrom(
-            scene->net.local_socket,
+        int other_addr_len = sizeof(loop->address);
+        int recv_len = recv(
+            loop->socket,
             buffer,
             PACKET_SIZE,
-            0,
-            (struct sockaddr*)&other_address,
-            &other_addr_len
+            0
         );
 
         if (recv_len == SOCKET_ERROR) {
@@ -707,7 +650,7 @@ int network_server_loop(void* vdata) {
         case NETOP_WANT_ID: {
             SDL_assert(scene->net.next_id < 255);
             int new_id = scene->net.next_id++;
-            RemotePlayer* player = allocate_new_player(new_id, &other_address);
+            RemotePlayer* player = allocate_new_player(new_id, &loop->address);
 
             int pos = 0;
             buffer[pos++] = NETOP_HERES_YOUR_ID;
@@ -715,7 +658,7 @@ int network_server_loop(void* vdata) {
             for (int i = 0; i < scene->net.number_of_players; i++)
                 buffer[pos++] = (byte)scene->net.players[i]->id;
 
-            server_sendto(scene, buffer, pos, &other_address);
+            send(loop->socket, buffer, pos, 0);
             scene->net.players[scene->net.number_of_players++] = player;
         } break;
 
@@ -726,14 +669,15 @@ int network_server_loop(void* vdata) {
                 */
             scene->net.connected = true;
 
-            RemotePlayer* new_player = netop_initialize_player(scene, buffer, &other_address);
+            RemotePlayer* new_player = netop_initialize_player(scene, buffer, &loop->address);
             if (new_player) {
                 wait_for_then_use_lock(scene->controls_stream.locked);
                 new_player->local_stream_spot.pos   = scene->controls_stream.pos;
                 new_player->local_stream_spot.frame = scene->controls_stream.current_frame;
                 SDL_UnlockMutex(scene->controls_stream.locked);
 
-                server_sendto(scene, buffer, netwrite_player_positions(scene, buffer, new_player), &other_address);
+                new_player->socket = loop->socket;
+                send(loop->socket, buffer, netwrite_player_positions(scene, buffer, new_player), 0);
 
                 // Gotta tell those other players that this guy is joining... And set stream positions.
                 for (int i = 0; i < scene->net.number_of_players; i++) {
@@ -749,15 +693,15 @@ int network_server_loop(void* vdata) {
                     new_player->stream_spots_of[other_player->id].pos   = other_player->controls_playback.size;
                     SDL_UnlockMutex(other_player->controls_playback.locked);
 
-                    // TODO sending extra packets to clients considered harmful?????????
-                    server_sendto(scene, buffer, netwrite_player_positions(scene, buffer, other_player), &other_player->address);
+                    // HAHA! TCP
+                    send(other_player->socket, buffer, netwrite_player_positions(scene, buffer, other_player), 0);
                 }
             }
         } break;
 
         // SERVER
         case NETOP_UPDATE_CONTROLS: {
-            RemotePlayer* player = netop_update_controls(scene, buffer, &other_address, recv_len);
+            RemotePlayer* player = netop_update_controls(scene, buffer, &loop->address, recv_len);
             if (player) {
                 SDL_AtomicSet(&player->poke, true);
 
@@ -861,7 +805,7 @@ int network_server_loop(void* vdata) {
                         SDL_UnlockMutex(other_player->controls_playback.locked);
                     }
                 }
-                server_sendto(scene, buffer, pos, &other_address);
+                send(loop->socket, buffer, pos, 0);
             }
         } break;
 
@@ -872,13 +816,11 @@ int network_server_loop(void* vdata) {
 
         // Now use the buffer to send to the client
         if (bytes_wrote > 0) {
-            sendto(
-                scene->net.local_socket,
+            send(
+                loop->socket,
                 buffer,
                 bytes_wrote,
-                0,
-                (struct sockaddr*)&other_address,
-                sizeof(other_address)
+                0
             );
         }
     }
@@ -887,6 +829,52 @@ int network_server_loop(void* vdata) {
     closesocket(scene->net.local_socket);
     scene->net.local_socket = 0;
     return r;
+}
+
+int network_server_listen(void* vdata) {
+    WorldScene* scene = (WorldScene*)vdata;
+
+    SET_LOCKED_STRING(scene->net.status_message, "Server started!");
+
+    memset((char *) &scene->net.my_address, 0, sizeof(scene->net.my_address));
+    scene->net.my_address.sin_family = AF_INET;
+    scene->net.my_address.sin_addr.s_addr = INADDR_ANY;
+    scene->net.my_address.sin_port = htons(atoi(scene->net.textinput_port));
+    if(bind(scene->net.local_socket, (struct sockaddr *)&scene->net.my_address , sizeof(scene->net.my_address)) == SOCKET_ERROR)
+    {
+        SET_LOCKED_STRING_F(scene->net.status_message, "Failed to bind: %i", WSAGetLastError());
+        return 1;
+    }
+
+    scene->net.remote_id = 0;
+    scene->net.next_id = 1;
+
+    struct sockaddr_in other_address;
+
+    wait_for_then_use_lock(scene->controls_stream.locked);
+    scene->controls_stream.current_frame = 0;
+    scene->controls_stream.pos = 1;
+    SDL_UnlockMutex(scene->controls_stream.locked);
+
+    listen(scene->net.local_socket, MAX_PLAYERS);
+
+    while (true) {
+        ServerLoop* loop = aligned_malloc(sizeof(ServerLoop));
+
+        int addrlen = sizeof(loop->address);
+        SOCKET new_connection = accept(scene->net.local_socket, (struct sockaddr*)&loop->address, &addrlen);
+
+        if (new_connection < 0) {
+            printf("Bad TCP connection?\n");
+            aligned_free(loop);
+            continue;
+        }
+
+        printf("New connection! Starting thread and waiting for handshake.\n");
+        loop->socket = new_connection;
+        loop->scene = scene;
+        SDL_CreateThread(network_server_loop, "Network server loop", loop);
+    }
 }
 
 int network_client_loop(void* vdata) {
@@ -901,7 +889,10 @@ int network_client_loop(void* vdata) {
     other_address.sin_family = AF_INET;
     other_address.sin_addr.s_addr = inet_addr(scene->net.textinput_ip_address);
     other_address.sin_port = htons(atoi(scene->net.textinput_port));
-    connect(scene->net.local_socket, (struct sockaddr*)&other_address, sizeof(other_address));
+    if (connect(scene->net.local_socket, (struct sockaddr*)&other_address, sizeof(other_address)) < 0) {
+        printf("COULD NOT CONNECT!!!!!!!!!\n");
+        return 0;
+    }
 
     scene->net.server_address = other_address;
 
@@ -969,14 +960,7 @@ int network_client_loop(void* vdata) {
         Receive:
         {
             int other_addr_len = sizeof(other_address);
-            int recv_len = recvfrom(
-                scene->net.local_socket,
-                buffer,
-                PACKET_SIZE,
-                0,
-                (struct sockaddr*)&other_address,
-                &other_addr_len
-                );
+            int recv_len = recv(scene->net.local_socket, buffer, PACKET_SIZE, 0);
             if (recv_len == SOCKET_ERROR) {
                 SET_LOCKED_STRING_F(scene->net.status_message, "Failed to receive: %i", WSAGetLastError());
                 scene->net.status = NOT_CONNECTED;
@@ -1051,9 +1035,8 @@ void scene_world_initialize(void* vdata, Game* game) {
         SDL_memset(data->net.textinput_port, 0, sizeof(data->net.textinput_port));
         SDL_strlcat(data->net.textinput_port, "2997", EDITABLE_TEXT_BUFFER_SIZE);
 
-        data->net.local_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        data->net.local_socket = socket(AF_INET, SOCK_STREAM, 0);
 
-        /*
         int flag = 1;
         int result = setsockopt(data->net.local_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int));
         if (result < 0) {
@@ -1063,7 +1046,6 @@ void scene_world_initialize(void* vdata, Game* game) {
                 game->window
             );
         }
-        */
 
         SDL_assert(data->net.local_socket != SOCKET_ERROR);
     }
@@ -1438,8 +1420,8 @@ void scene_world_update(void* vs, Game* game) {
                         if (player->local_stream_spot.frame >= 0) {
                             player->local_stream_spot.frame -= change.change_in_bytes0;
                             player->local_stream_spot.pos   -= change.change_in_size;
-                            SDL_assert(player->local_stream_spot.frame >= 0);
-                            SDL_assert(player->local_stream_spot.pos > 0);
+                            // SDL_assert(player->local_stream_spot.frame >= 0);
+                            // SDL_assert(player->local_stream_spot.pos > 0);
                         }
                     }
                 }
@@ -1485,7 +1467,7 @@ void scene_world_update(void* vs, Game* game) {
             stop_editing_text(game);
             switch (s->net.status) {
             case HOSTING:
-                SDL_CreateThread(network_server_loop, "Network server loop", s);
+                SDL_CreateThread(network_server_listen, "Network server listen", s);
                 break;
             case JOINING:
                 SDL_CreateThread(network_client_loop, "Network client loop", s);
