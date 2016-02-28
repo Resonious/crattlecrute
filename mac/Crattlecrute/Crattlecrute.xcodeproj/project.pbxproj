@@ -7,14 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		9AE35F271C7928CF00B758F2 /* assets.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F161C7928CF00B758F2 /* assets.c */; };
-		9AE35F281C7928CF00B758F2 /* character.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F191C7928CF00B758F2 /* character.c */; };
-		9AE35F291C7928CF00B758F2 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F1E1C7928CF00B758F2 /* main.c */; };
-		9AE35F2A1C7928CF00B758F2 /* scene_offset_viewer.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F1F1C7928CF00B758F2 /* scene_offset_viewer.c */; };
-		9AE35F2B1C7928CF00B758F2 /* scene_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F201C7928CF00B758F2 /* scene_test.c */; };
-		9AE35F2C1C7928CF00B758F2 /* sound.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F221C7928CF00B758F2 /* sound.c */; };
-		9AE35F2D1C7928CF00B758F2 /* tilemap.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F241C7928CF00B758F2 /* tilemap.c */; };
-		9AE35F301C79290900B758F2 /* stb_vorbis.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AE35F2F1C79290900B758F2 /* stb_vorbis.c */; };
+		9A4388821C839230006CF111 /* assets.c in Sources */ = {isa = PBXBuildFile; fileRef = 9A43886F1C839230006CF111 /* assets.c */; };
+		9A4388851C839230006CF111 /* character.c in Sources */ = {isa = PBXBuildFile; fileRef = 9A4388721C839230006CF111 /* character.c */; };
+		9A4388891C839230006CF111 /* game.c in Sources */ = {isa = PBXBuildFile; fileRef = 9A4388761C839230006CF111 /* game.c */; };
+		9A43888B1C839230006CF111 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 9A4388781C839230006CF111 /* main.c */; };
+		9A43888C1C839230006CF111 /* scene_offset_viewer.c in Sources */ = {isa = PBXBuildFile; fileRef = 9A4388791C839230006CF111 /* scene_offset_viewer.c */; };
+		9A43888D1C839230006CF111 /* scene_world.c in Sources */ = {isa = PBXBuildFile; fileRef = 9A43887A1C839230006CF111 /* scene_world.c */; };
+		9A43888F1C839230006CF111 /* sound.c in Sources */ = {isa = PBXBuildFile; fileRef = 9A43887C1C839230006CF111 /* sound.c */; };
+		9A4388911C839230006CF111 /* tilemap.c in Sources */ = {isa = PBXBuildFile; fileRef = 9A43887E1C839230006CF111 /* tilemap.c */; };
+		9A4388931C839230006CF111 /* types.c in Sources */ = {isa = PBXBuildFile; fileRef = 9A4388801C839230006CF111 /* types.c */; };
+		9A4388991C83934B006CF111 /* stb_vorbis.c in Sources */ = {isa = PBXBuildFile; fileRef = 9A4388961C83923F006CF111 /* stb_vorbis.c */; };
 		9AE35F3C1C793A3600B758F2 /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9AE35F3B1C793A3600B758F2 /* SDL2.framework */; };
 /* End PBXBuildFile section */
 
@@ -31,6 +33,27 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		9A43886F1C839230006CF111 /* assets.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = assets.c; path = ../../src/assets.c; sourceTree = "<group>"; };
+		9A4388701C839230006CF111 /* assets.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = assets.h; path = ../../src/assets.h; sourceTree = "<group>"; };
+		9A4388711C839230006CF111 /* cache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = cache.h; path = ../../src/cache.h; sourceTree = "<group>"; };
+		9A4388721C839230006CF111 /* character.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = character.c; path = ../../src/character.c; sourceTree = "<group>"; };
+		9A4388731C839230006CF111 /* character.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = character.h; path = ../../src/character.h; sourceTree = "<group>"; };
+		9A4388741C839230006CF111 /* coords.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = coords.h; path = ../../src/coords.h; sourceTree = "<group>"; };
+		9A4388751C839230006CF111 /* dxsdkver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = dxsdkver.h; path = ../../src/dxsdkver.h; sourceTree = "<group>"; };
+		9A4388761C839230006CF111 /* game.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = game.c; path = ../../src/game.c; sourceTree = "<group>"; };
+		9A4388771C839230006CF111 /* game.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = game.h; path = ../../src/game.h; sourceTree = "<group>"; };
+		9A4388781C839230006CF111 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = main.c; path = ../../src/main.c; sourceTree = "<group>"; };
+		9A4388791C839230006CF111 /* scene_offset_viewer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = scene_offset_viewer.c; path = ../../src/scene_offset_viewer.c; sourceTree = "<group>"; };
+		9A43887A1C839230006CF111 /* scene_world.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = scene_world.c; path = ../../src/scene_world.c; sourceTree = "<group>"; };
+		9A43887B1C839230006CF111 /* scene.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = scene.h; path = ../../src/scene.h; sourceTree = "<group>"; };
+		9A43887C1C839230006CF111 /* sound.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = sound.c; path = ../../src/sound.c; sourceTree = "<group>"; };
+		9A43887D1C839230006CF111 /* sound.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = sound.h; path = ../../src/sound.h; sourceTree = "<group>"; };
+		9A43887E1C839230006CF111 /* tilemap.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = tilemap.c; path = ../../src/tilemap.c; sourceTree = "<group>"; };
+		9A43887F1C839230006CF111 /* tilemap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = tilemap.h; path = ../../src/tilemap.h; sourceTree = "<group>"; };
+		9A4388801C839230006CF111 /* types.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = types.c; path = ../../src/types.c; sourceTree = "<group>"; };
+		9A4388811C839230006CF111 /* types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = types.h; path = ../../src/types.h; sourceTree = "<group>"; };
+		9A4388951C83923F006CF111 /* stb_image.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = stb_image.h; path = ../../STB/stb_image.h; sourceTree = "<group>"; };
+		9A4388961C83923F006CF111 /* stb_vorbis.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = stb_vorbis.c; path = ../../STB/stb_vorbis.c; sourceTree = "<group>"; };
 		9AE35F0C1C79288000B758F2 /* Crattlecrute */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Crattlecrute; sourceTree = BUILT_PRODUCTS_DIR; };
 		9AE35F161C7928CF00B758F2 /* assets.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = assets.c; path = ../../../src/assets.c; sourceTree = "<group>"; };
 		9AE35F171C7928CF00B758F2 /* assets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = assets.h; path = ../../../src/assets.h; sourceTree = "<group>"; };
@@ -69,6 +92,27 @@
 		9AE35F031C79288000B758F2 = {
 			isa = PBXGroup;
 			children = (
+				9A4388951C83923F006CF111 /* stb_image.h */,
+				9A4388961C83923F006CF111 /* stb_vorbis.c */,
+				9A43886F1C839230006CF111 /* assets.c */,
+				9A4388701C839230006CF111 /* assets.h */,
+				9A4388711C839230006CF111 /* cache.h */,
+				9A4388721C839230006CF111 /* character.c */,
+				9A4388731C839230006CF111 /* character.h */,
+				9A4388741C839230006CF111 /* coords.h */,
+				9A4388751C839230006CF111 /* dxsdkver.h */,
+				9A4388761C839230006CF111 /* game.c */,
+				9A4388771C839230006CF111 /* game.h */,
+				9A4388781C839230006CF111 /* main.c */,
+				9A4388791C839230006CF111 /* scene_offset_viewer.c */,
+				9A43887A1C839230006CF111 /* scene_world.c */,
+				9A43887B1C839230006CF111 /* scene.h */,
+				9A43887C1C839230006CF111 /* sound.c */,
+				9A43887D1C839230006CF111 /* sound.h */,
+				9A43887E1C839230006CF111 /* tilemap.c */,
+				9A43887F1C839230006CF111 /* tilemap.h */,
+				9A4388801C839230006CF111 /* types.c */,
+				9A4388811C839230006CF111 /* types.h */,
 				9AE35F3B1C793A3600B758F2 /* SDL2.framework */,
 				9AE35F0E1C79288000B758F2 /* Crattlecrute */,
 				9AE35F0D1C79288000B758F2 /* Products */,
@@ -165,14 +209,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9AE35F2D1C7928CF00B758F2 /* tilemap.c in Sources */,
-				9AE35F271C7928CF00B758F2 /* assets.c in Sources */,
-				9AE35F301C79290900B758F2 /* stb_vorbis.c in Sources */,
-				9AE35F281C7928CF00B758F2 /* character.c in Sources */,
-				9AE35F291C7928CF00B758F2 /* main.c in Sources */,
-				9AE35F2C1C7928CF00B758F2 /* sound.c in Sources */,
-				9AE35F2A1C7928CF00B758F2 /* scene_offset_viewer.c in Sources */,
-				9AE35F2B1C7928CF00B758F2 /* scene_test.c in Sources */,
+				9A4388991C83934B006CF111 /* stb_vorbis.c in Sources */,
+				9A4388821C839230006CF111 /* assets.c in Sources */,
+				9A4388851C839230006CF111 /* character.c in Sources */,
+				9A4388891C839230006CF111 /* game.c in Sources */,
+				9A43888B1C839230006CF111 /* main.c in Sources */,
+				9A43888C1C839230006CF111 /* scene_offset_viewer.c in Sources */,
+				9A43888D1C839230006CF111 /* scene_world.c in Sources */,
+				9A43888F1C839230006CF111 /* sound.c in Sources */,
+				9A4388911C839230006CF111 /* tilemap.c in Sources */,
+				9A4388931C839230006CF111 /* types.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -332,6 +378,7 @@
 				9AE35F151C79288000B758F2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

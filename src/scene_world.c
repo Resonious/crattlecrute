@@ -4,6 +4,7 @@
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
 #define WSAGetLastError() (-1)
@@ -587,10 +588,12 @@ int netwrite_guy_position(byte* buffer, ControlsBuffer* controls_stream, Charact
     write_to_buffer(buffer, &guy->flip, pos, sizeof(int));
     write_to_buffer(buffer, &guy->dy, pos, sizeof(float));
     write_to_buffer(buffer, &guy->ground_speed, pos, sizeof(float));
+    return *pos;
 }
 
 int netwrite_guy_area(byte* buffer, int area_id, int* pos) {
     write_to_buffer(buffer, &area_id, pos, sizeof(int));
+    return *pos;
 }
 
 int netwrite_guy_initialization(WorldScene* scene, byte* buffer) {
