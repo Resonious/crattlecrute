@@ -1,4 +1,5 @@
 #ifdef _WIN32
+#include "resource.h"
 #include <WinSock2.h>
 // Stupid...
 WSADATA global_wsa;
@@ -22,7 +23,10 @@ WSADATA global_wsa;
 #include "assets.h"
 #include "scene.h"
 #include "coords.h"
+#ifdef __APPLE__
 #include "SDL_main.h"
+#endif
+#include "SDL_syswm.h"
 
 // Disgusting global window variable so that I can shit out message boxes
 // from wherever I want.
@@ -100,9 +104,27 @@ int main(int argc, char** argv) {
 
     game.font = load_texture(game.renderer, ASSET_FONT_FONT_PNG);
 
-    SDL_Surface* icon = load_image(ASSET_ICON_PNG);
-    SDL_SetWindowIcon(game.window, icon);
-    free_image(icon);
+    // Gotta be a tad more aggressive about the icon on windows
+    {
+#ifdef _WIN32
+        HINSTANCE hinst = GetModuleHandle(NULL);
+        HICON icon = LoadIcon(hinst, MAKEINTRESOURCE(IDI_ICON1));
+        if (icon != NULL) {
+            SDL_SysWMinfo wminfo;
+            SDL_VERSION(&wminfo.version);
+            int result = SDL_GetWindowWMInfo(game.window, &wminfo);
+            if (result == 1) {
+                HWND hwnd = wminfo.info.win.window;
+                SetClassLongPtr(hwnd, -14, (LONG)icon);
+                SetClassLongPtr(hwnd, -34, (LONG)icon);
+            }
+        }
+#else
+        SDL_Surface* icon = load_image(ASSET_ICON_PNG);
+        SDL_SetWindowIcon(game.window, icon);
+        free_image(icon);
+#endif
+    }
 
     int key_count;
     const Uint8* keys = SDL_GetKeyboardState(&key_count);
