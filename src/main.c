@@ -108,21 +108,22 @@ int main(int argc, char** argv) {
     {
 #ifdef _WIN32
         HINSTANCE hinst = GetModuleHandle(NULL);
-        HICON win_icon = LoadIcon(hinst, MAKEINTRESOURCE(IDI_ICON1));
-        if (win_icon != NULL) {
+        HICON icon = LoadIcon(hinst, MAKEINTRESOURCE(IDI_ICON1));
+        if (icon != NULL) {
             SDL_SysWMinfo wminfo;
             SDL_VERSION(&wminfo.version);
             int result = SDL_GetWindowWMInfo(game.window, &wminfo);
             if (result == 1) {
                 HWND hwnd = wminfo.info.win.window;
-                SetClassLongPtr(hwnd, -14, (LONG)win_icon);
-                SetClassLongPtr(hwnd, -34, (LONG)win_icon);
+                SetClassLongPtr(hwnd, -14, (LONG)icon);
+                SetClassLongPtr(hwnd, -34, (LONG)icon);
             }
         }
-#endif
+#else
         SDL_Surface* icon = load_image(ASSET_ICON_PNG);
         SDL_SetWindowIcon(game.window, icon);
         free_image(icon);
+#endif
     }
 
     int key_count;
