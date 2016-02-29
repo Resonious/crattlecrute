@@ -100,6 +100,10 @@ int main(int argc, char** argv) {
 
     game.font = load_texture(game.renderer, ASSET_FONT_FONT_PNG);
 
+    SDL_Surface* icon = load_image(ASSET_ICON_PNG);
+    SDL_SetWindowIcon(game.window, icon);
+    free_image(icon);
+
     int key_count;
     const Uint8* keys = SDL_GetKeyboardState(&key_count);
 

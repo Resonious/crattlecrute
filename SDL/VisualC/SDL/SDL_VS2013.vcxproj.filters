@@ -333,9 +333,11 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\src\main\windows\bitmap1.bmp" />
+    <Image Include="..\..\src\main\windows\icon1.ico" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\build\crattlecrute.assets" />
     <None Include="..\..\..\build\crattlecrute.assets" />
+    <None Include="ClassDiagram.cd" />
   </ItemGroup>
 </Project>

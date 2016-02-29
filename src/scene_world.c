@@ -419,6 +419,8 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
 
         byte flags = buffer[pos++];
 
+        wait_for_then_use_lock(player->controls_playback.locked);
+
         if (flags & NETF_CONTROLS) {
             int new_playback_size;
             read_from_buffer(buffer, &new_playback_size, &pos, sizeof(new_playback_size));
@@ -428,7 +430,6 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
             if (new_playback_size <= 0)
                 goto DoneWithControls;
 
-            wait_for_then_use_lock(player->controls_playback.locked);
             byte* new_playback_buffer = buffer + pos;
 
             if (
