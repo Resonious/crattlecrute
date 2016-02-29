@@ -1390,9 +1390,7 @@ void scene_world_update(void* vs, Game* game) {
                 sync_player_frame_if_should(s->net.status, plr);
 
                 if (plr->controls_playback.current_frame >= plr->controls_playback.bytes[0]) {
-                    // TODO TODO TODO THIS GETS TRIPPED SOMETIMES!!!!!!!!!!!!
-                    // SDL_assert(plr->controls_playback.pos == plr->controls_playback.size);
-                    // I think it is handled, however ........
+                    // This is a tricky situation. Happens rarely and don't know why.
                     if (plr->controls_playback.pos != plr->controls_playback.size) {
                         // uhhhh
                         int original_size = plr->controls_playback.size;
@@ -1404,14 +1402,24 @@ void scene_world_update(void* vs, Game* game) {
 
                             for (int i = 0; i < s->net.number_of_players; i++) {
                                 RemotePlayer* player_of_spot = s->net.players[i];
-                                if (player_of_spot != NULL && player_of_spot->id != plr->id) {
-                                    ControlsBufferSpot* spot = &player_of_spot->stream_spots_of[plr->id];
-                                    if (spot->frame >= 0) {
-                                        spot->pos   -= change_in_size;
-                                        SDL_assert(spot->frame >= 0);
-                                        // Worth noting that this got tripped once when I disconnected a dude...
-                                        SDL_assert(spot->pos > 0);
-                                    }
+                                if (player_of_spot == NULL || player_of_spot->id == plr->id)
+                                    continue;
+
+                                ControlsBufferSpot* spot = &player_of_spot->stream_spots_of[plr->id];
+                                if (spot->frame < 0)
+                                    continue;
+
+                                spot->pos -= change_in_size;
+                                /*
+                                // Worth noting that this got tripped once when I disconnected a dude...
+                                SDL_assert(spot->frame >= 0);
+                                SDL_assert(spot->pos > 0);
+                                */
+                                if (spot->frame < 0 || spot->pos <= 0) {
+                                    spot->frame = plr->controls_playback.current_frame;
+                                    spot->pos = plr->controls_playback.pos;
+                                    SDL_AtomicSet(&player_of_spot->countdown_until_i_get_position_of[plr->id], 0);
+                                    printf("Inaccurate playback screwed up %i's spot in %i's buffer!!!", player_of_spot->id, plr->id);
                                 }
                             }
                         }
