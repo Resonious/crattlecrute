@@ -137,7 +137,7 @@ void wait_for_then_use_lock(SDL_mutex* mutex) {
 }
 
 int frames_between_position_syncs(RemotePlayer* plr) {
-    return max(10, plr->ping + plr->ping / 2);
+    return max(60, plr->ping + plr->ping / 2);
 }
 
 void sync_player_frame_if_should(int status, RemotePlayer* plr) {
