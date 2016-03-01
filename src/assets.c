@@ -6,10 +6,17 @@
 #ifdef __APPLE__
 #include <mach-o/getsect.h>
 #else
+#ifndef __FreeBSD__
 #include <malloc.h>
 #endif
+#endif
 
+#ifdef __FreeBSD__
+#include "SDL2/SDL.h"
+#else
 #include "SDL.h"
+#endif
+
 #include "stb_image.h"
 
 extern SDL_Window* main_window;

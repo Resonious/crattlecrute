@@ -1122,7 +1122,7 @@ void scene_world_initialize(void* vdata, Game* game) {
         SDL_AtomicSet(&data->net.status_message_locked, false);
 
         SDL_memset(data->net.textinput_ip_address, 0, sizeof(data->net.textinput_ip_address));
-        SDL_strlcat(data->net.textinput_ip_address, "127.0.0.1", EDITABLE_TEXT_BUFFER_SIZE);
+        SDL_strlcat(data->net.textinput_ip_address, "0.0.0.0", EDITABLE_TEXT_BUFFER_SIZE);
         SDL_memset(data->net.textinput_port, 0, sizeof(data->net.textinput_port));
         SDL_strlcat(data->net.textinput_port, "2997", EDITABLE_TEXT_BUFFER_SIZE);
 
@@ -1177,6 +1177,13 @@ void scene_world_initialize(void* vdata, Game* game) {
     data->test_sound = cached_sound(game, ASSET_SOUNDS_JUMP_OGG);
     data->guy_view.jump_sound = data->test_sound;
     BENCH_END(loading_sound);
+
+
+    if (game->argc > 0) {
+      printf("Starting server now!!!\n");
+      data->net.status = HOSTING;
+      SDL_CreateThread(network_server_listen, "Network server listen", data);
+    }
 }
 
 void set_camera_target(Game* game, Map* map, Character* guy) {

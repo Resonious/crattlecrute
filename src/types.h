@@ -4,7 +4,11 @@
 #include <xmmintrin.h>
 #include <emmintrin.h>
 
+#ifdef __FreeBSD__
+#include "SDL2/SDL.h"
+#else
 #include "SDL.h"
+#endif
 
 #ifndef _WIN32
 #define bool int

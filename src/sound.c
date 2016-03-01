@@ -1,5 +1,9 @@
 #include "sound.h"
+#ifdef __FreeBSD__
+#include "SDL2/SDL.h"
+#else
 #include "SDL.h"
+#endif
 #include "assets.h"
 #ifndef __APPLE__
 #include "stb_vorbis.c"
