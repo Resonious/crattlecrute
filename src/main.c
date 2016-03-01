@@ -9,7 +9,9 @@ WSADATA global_wsa;
 
 #ifdef __APPLE__
 #else
+#ifndef __FreeBSD__
 #include <malloc.h>
+#endif
 #endif
 
 #include <time.h>
@@ -63,6 +65,8 @@ int main(int argc, char** argv) {
 
     Game game;
     memset(&game, 0, sizeof(Game));
+    game.argc = argc;
+    game.argv = argv;
     game.window_width = 640.0f;
     game.window_height = 480.0f;
     for (int i = 0; i < NUMBER_OF_ASSETS; i++) {

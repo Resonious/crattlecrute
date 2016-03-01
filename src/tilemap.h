@@ -1,7 +1,11 @@
 #ifndef TILEMAP_H
 #define TILEMAP_H
 
+#ifdef __FreeBSD__
+#include "SDL2/SDL.h"
+#else
 #include "SDL.h"
+#endif
 #include "types.h"
 #define TILE_HEIGHT_FOR_SENSOR(heights, tile_index, sensor_dir) \
   ((int*)(&heights[tile_index.index]) + (sensor_dir * 32))

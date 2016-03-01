@@ -1,6 +1,10 @@
 #ifndef GAME_H
 #define GAME_H
+#ifdef __FreeBSD__
+#include "SDL2/SDL.h"
+#else
 #include "SDL.h"
+#endif
 #include "types.h"
 #include "sound.h"
 #include "cache.h"
@@ -44,6 +48,8 @@ typedef struct Game {
         bool enter_pressed;
         bool canceled;
     } text_edit;
+    int argc;
+    char** argv;
     AssetCache asset_cache;
     AudioQueue audio;
     Controls controls;
