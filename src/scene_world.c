@@ -1179,10 +1179,12 @@ void scene_world_initialize(void* vdata, Game* game) {
     BENCH_END(loading_sound);
 
 
-    if (game->argc > 0) {
-      printf("Starting server now!!!\n");
-      data->net.status = HOSTING;
-      SDL_CreateThread(network_server_listen, "Network server listen", data);
+    for (int i = 0; i < game->argc; i++) {
+        if (strcmp(game->argv[i], "-h") == 0 || strcmp(game->argv[i], "--host") == 0) {
+            printf("Starting server now!!!\n");
+            data->net.status = HOSTING;
+            SDL_CreateThread(network_server_listen, "Network server listen", data);
+        }
     }
 }
 
