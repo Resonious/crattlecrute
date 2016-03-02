@@ -1178,7 +1178,6 @@ void scene_world_initialize(void* vdata, Game* game) {
     data->guy_view.jump_sound = data->test_sound;
     BENCH_END(loading_sound);
 
-
     for (int i = 0; i < game->argc; i++) {
         if (strcmp(game->argv[i], "-h") == 0 || strcmp(game->argv[i], "--host") == 0) {
             printf("Starting server now!!!\n");

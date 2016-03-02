@@ -11,6 +11,7 @@ ImageLayer = Struct.new(
   :frame_height, :frame_width, :frames, :wrap_x, :wrap_y
 )
 MapObject = Struct.new(:id, :name, :type, :x, :y, :width, :height, :properties)
+SpawnSquare = Struct.new(:id, :x, :y, :width, :height)
 
 IMAGE_LAYER_DEFAULTS = {
   parallax_factor: 1,
@@ -34,12 +35,12 @@ end
 
 # Straight up parse game.h to get IDs for area strings ... I just don't feel like
 # having a string->id table for runtime.
-def parse_area_ids(file_content)
+def parse_enum(enum, file_content)
   result = Hash.new(-1)
-  if /enum AreaId {(?<areas>[^{}]+)}/m =~ file_content
+  if /enum #{enum} {(?<entries>[^{}]+)}/m =~ file_content
     i = 0
 
-    areas.split(",").each do |entry|
+    entries.split(",").each do |entry|
       entry = entry.strip
       next if entry.empty?
 
@@ -459,7 +460,7 @@ def write_cm(map, file_dest)
 
   # === DOORS!!! ===
   game_h = File.open(File.join(File.dirname(__FILE__), 'src/game.h'), &:read)
-  area_ids = parse_area_ids(game_h)
+  area_ids = parse_enum('AreaId', game_h)
 
   doors.each do |door|
     ['leads_to_area', 'leads_to_x', 'leads_to_y'].each do |x|

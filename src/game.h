@@ -72,13 +72,18 @@ void switch_scene(Game* game, int to_scene);
 void start_editing_text(Game* game, char* text_to_edit, int buffer_size, SDL_Rect* input_rect);
 void stop_editing_text(Game* game);
 
-// === Areas ===
+// === Areas === (THIS ENUM IS READ BY A RUBY SCRIPT AT COMPILE TIME)
 enum AreaId {
     AREA_TESTZONE_ONE,
     AREA_TESTZONE_TWO,
     NUMBER_OF_AREAS
 };
 int map_asset_for_area(int area_id);
+
+// === Mobs === (THIS ENUM IS READ BY A RUBY SCRIPT AT COMPILE TIME)
+enum MobId {
+    MOB_PON
+};
 
 // === Text functions ===
 
