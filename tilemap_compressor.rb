@@ -37,10 +37,10 @@ end
 # having a string->id table for runtime.
 def parse_enum(enum, file_content)
   result = Hash.new(-1)
-  if /enum #{enum} {(?<entries>[^{}]+)}/m =~ file_content
+  if match = /enum #{enum} {(?<entries>[^{}]+)}/m.match(file_content)
     i = 0
 
-    entries.split(",").each do |entry|
+    match[:entries].split(",").each do |entry|
       entry = entry.strip
       next if entry.empty?
 
@@ -335,7 +335,7 @@ def read_tmx(file)
     attrs = object.attributes
 
     struct = MapObject.new
-    struct.name = attrs['name'].value
+    struct.name = attrs['name'] ? attrs['name'].value : '<unnamed>'
     struct.x = (attrs['x'] ? attrs['x'].value : '0').to_i
     struct.y = map_height - (attrs['y'] ? attrs['y'].value : '0').to_i
     struct.type = attrs['type'].value.downcase.to_sym if attrs['type']
