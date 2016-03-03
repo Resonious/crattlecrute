@@ -278,6 +278,10 @@
   </object>
  </objectgroup>
  <objectgroup name="Pon Spawns">
-  <object id="6" x="715.333" y="2212" width="606" height="157.333"/>
+  <object id="6" type="spawn" x="715.333" y="2212" width="606" height="157.333">
+   <properties>
+    <property name="MOB_PON" value="100%"/>
+   </properties>
+  </object>
  </objectgroup>
 </map>

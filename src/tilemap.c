@@ -776,6 +776,9 @@ void slide_character(float gravity, struct Character* guy) {
     }
 }
 
+void update_map(Map* map) {
+}
+
 #define READ(type, dest) \
     type dest; \
     SDL_memcpy(&dest, file.bytes + pos, sizeof(type)); \
@@ -799,6 +802,10 @@ CmFileHeader read_cm_file_header(const int asset) {
     pos += sizeof(Uint8);
     SDL_memcpy(&header.door_count, file.bytes + pos, sizeof(Uint8));
     pos += sizeof(Uint8);
+    SDL_memcpy(&header.total_spawn_rate_count, file.bytes + pos, sizeof(Uint16));
+    pos += sizeof(Uint16);
+    SDL_memcpy(&header.spawn_zone_count, file.bytes + pos, sizeof(Uint8));
+    pos += sizeof(Uint8);
 
     return header;
 }
@@ -816,6 +823,8 @@ void load_map(const int asset, /*out*/ Map* map) {
     READ(Uint8, tilemap_count);
     READ(Uint8, background_count);
     READ(Uint8, door_count);
+    READ(Uint16, total_spawn_rate_count);
+    READ(Uint8, spawn_zone_count);
 
     map->width  = tiles_wide * 32;
     map->height = tiles_high * 32;
@@ -825,6 +834,7 @@ void load_map(const int asset, /*out*/ Map* map) {
     map->number_of_tilemaps     = (int)tilemap_count;
     map->number_of_backgrounds  = (int)background_count;
     map->number_of_doors        = (int)door_count;
+    map->number_of_spawn_zones  = (int)spawn_zone_count;
     // We're gonna just put tilemap structs sequentially after the map struct
     map->tilemaps = (Tilemap*)(map + 1);
 
@@ -905,6 +915,33 @@ void load_map(const int asset, /*out*/ Map* map) {
         map->doors[i].dest_area = area_id;
         map->doors[i].dest_x = dest_x;
         map->doors[i].dest_y = dest_y;
+    }
+
+    MobSpawnRate* next_spawn_rate = (MobSpawnRate*)(map->doors + door_count);
+    map->spawn_zones = (MobSpawnZone*)(next_spawn_rate + total_spawn_rate_count);
+    for (int i = 0; i < spawn_zone_count; i++) {
+        READ(int, x);
+        READ(int, y);
+        READ(int, width);
+        READ(int, height);
+        READ(byte, spawn_rate_count);
+
+        map->spawn_zones[i].x = x;
+        map->spawn_zones[i].y = y;
+        map->spawn_zones[i].width  = width;
+        map->spawn_zones[i].height = height;
+        map->spawn_zones[i].number_of_spawns = spawn_rate_count;
+
+        map->spawn_zones[i].spawns = next_spawn_rate;
+        next_spawn_rate += spawn_rate_count;
+
+        for (int j = 0; j < spawn_rate_count; j++) {
+            READ(int, mob_id);
+            READ(int, percentage);
+
+            map->spawn_zones[i].spawns[j].mob_id     = mob_id;
+            map->spawn_zones[i].spawns[j].percentage = percentage;
+        }
     }
 
     SDL_assert(file.size == pos);

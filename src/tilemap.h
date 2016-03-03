@@ -104,15 +104,32 @@ typedef struct Door {
     int dest_x, dest_y, dest_area;
 } Door;
 
+typedef struct MobSpawnRate {
+    int mob_id;
+    int percentage;
+} MobSpawnRate;
+
+typedef struct MobSpawnZone {
+    int x, y, width, height;
+    int number_of_spawns;
+    MobSpawnRate* spawns;
+} MobSpawnZone;
+
 typedef struct Map {
     CollisionMap tile_collision;
+
     int number_of_tilemaps;
     Tilemap* tilemaps;
+
     int number_of_backgrounds;
     int width, height;
     ParallaxBackground* backgrounds;
+
     int number_of_doors;
     Door* doors;
+
+    int number_of_spawn_zones;
+    MobSpawnZone* spawn_zones;
 } Map;
 
 typedef struct CmFileHeader {
@@ -122,6 +139,8 @@ typedef struct CmFileHeader {
     Uint8 tilemap_count;
     Uint8 background_count;
     Uint8 door_count;
+    Uint8 spawn_zone_count;
+    Uint16 total_spawn_rate_count;
 } CmFileHeader;
 
 void world_render_copy(
