@@ -520,10 +520,10 @@ def write_cm(map, file_dest)
     # x,y,w,h all int32
     file.write(
       [
-        mob_spawnzone.x.to_i,     # int32
-        mob_spawnzone.y.to_i,     # int32
-        mob_spawnzone.width.to_i, # int32
-        mob_spawnzone.height.to_i # int32
+        mob_spawnzone.x,                        # int32
+        mob_spawnzone.y - mob_spawnzone.height, # int32
+        mob_spawnzone.width,                    # int32
+        mob_spawnzone.height                    # int32
       ]
         .pack("llll")
     )

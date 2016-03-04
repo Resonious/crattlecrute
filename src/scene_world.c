@@ -1168,6 +1168,7 @@ void scene_world_initialize(void* vdata, Game* game) {
     BENCH_START(loading_tiles);
     data->current_area = AREA_TESTZONE_ONE;
     data->map = cached_map(game, map_asset_for_area(data->current_area));
+    data->map->area_id = data->current_area;
     BENCH_END(loading_tiles);
 
     BENCH_START(loading_sound);
@@ -1225,6 +1226,7 @@ void local_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     int map_asset = map_asset_for_area(s->current_area);
     SDL_assert(map_asset > -1);
     s->map = cached_map(game, map_asset);
+    s->map->area_id = s->current_area;
 
     float dest_x = (float)door->dest_x;
     float dest_y = s->map->height - (float)door->dest_y;
@@ -1258,6 +1260,7 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     int map_asset = map_asset_for_area(area_id);
     SDL_assert(map_asset > -1);
     Map* map = cached_map(game, map_asset);
+    s->map->area_id = area_id;
 
     for (int i = 0; i < s->net.number_of_players; i++) {
         RemotePlayer* other_player = s->net.players[i];
@@ -1446,6 +1449,24 @@ void scene_world_update(void* vs, Game* game) {
     slide_character(s->gravity, &s->guy);
     interact_character_with_world(game, &s->guy, &game->controls, s->map, s, local_go_through_door);
     update_character_animation(&s->guy);
+
+    // Update everything else on the map(s)
+    update_map(s->map);
+    if (s->net.status == HOSTING) {
+        int updated_maps[NUMBER_OF_AREAS];
+        memset(updated_maps, 0, sizeof(updated_maps));
+        updated_maps[s->current_area] = true;
+
+        for (int i = 0; i < s->net.number_of_players; i++) {
+            RemotePlayer* player = s->net.players[i];
+            if (player == NULL) continue;
+            int area_id = SDL_AtomicGet(&player->area_id);
+            if (updated_maps[area_id]) continue;
+
+            update_map(s->map);
+            updated_maps[area_id] = true;
+        }
+    }
 
     // Follow local player with camera
     set_camera_target(game, s->map, &s->guy);

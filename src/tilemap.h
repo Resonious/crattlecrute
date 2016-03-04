@@ -104,18 +104,31 @@ typedef struct Door {
     int dest_x, dest_y, dest_area;
 } Door;
 
+typedef struct MobPon {
+    bool exists;
+    int x, y;
+    int frame;
+    int frame_counter;
+    int frame_inc;
+    SDL_Color color;
+} MobPon;
+
 typedef struct MobSpawnRate {
     int mob_id;
     int percentage;
 } MobSpawnRate;
 
 typedef struct MobSpawnZone {
+    MobPon pon; // For now we assume a pon is all we can spawn.
+
     int x, y, width, height;
     int number_of_spawns;
     MobSpawnRate* spawns;
 } MobSpawnZone;
 
 typedef struct Map {
+    int area_id;
+    int asset_id;
     CollisionMap tile_collision;
 
     int number_of_tilemaps;
@@ -143,6 +156,8 @@ typedef struct CmFileHeader {
     Uint16 total_spawn_rate_count;
 } CmFileHeader;
 
+void increment_src_rect(SDL_Rect* src, int n, int image_width, int image_height);
+
 void world_render_copy(
     struct Game* game,
     SDL_Texture* tex, SDL_Rect* src,
@@ -162,5 +177,6 @@ void load_map(const int asset, /*out*/Map* map);
 void draw_map(struct Game* game, Map* map);
 void draw_parallax_background(struct Game* game, struct Map* map, struct ParallaxBackground* background);
 void draw_door(struct Game* game, struct Door* door);
+void update_map(Map* map);
 
 #endif // TILEMAP_H

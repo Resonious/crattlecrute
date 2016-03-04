@@ -578,6 +578,14 @@ void draw_tilemap(struct Game* game, Tilemap* tilemap) {
     }// while (dest.y < height)
 }
 
+void increment_src_rect(SDL_Rect* src, int n, int image_width, int image_height) {
+    src->x += src->w * n;
+    while (src->x >= image_width) {
+        src->x -= image_width;
+        src->y -= src->h;
+    }
+}
+
 void draw_map(struct Game* game, Map* map) {
     for (int i = 0; i < map->number_of_backgrounds; i++)
         draw_parallax_background(game, map, &map->backgrounds[i]);
@@ -617,6 +625,21 @@ void draw_map(struct Game* game, Map* map) {
 
         SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
         SDL_RenderFillRects(game->renderer, topbot_borders, 2);
+    }
+
+    for (int i = 0; i < map->number_of_spawn_zones; i++) {
+        MobSpawnZone* zone = &map->spawn_zones[i];
+        if (zone->pon.exists) {
+            SDL_Texture* pon_tex = cached_texture(game, ASSET_MOB_PON_PNG);
+            SDL_Rect src = {0, 90, 90, 90};
+            vec2 center = {90 / 2, 90 / 2};
+            increment_src_rect(&src, zone->pon.frame, 180, 180);
+
+            vec2 pos = {zone->pon.x, zone->pon.y};
+            SDL_SetTextureColorMod(pon_tex, zone->pon.color.r, zone->pon.color.g, zone->pon.color.b);
+            SDL_SetTextureAlphaMod(pon_tex, zone->pon.color.a);
+            world_render_copy(game, pon_tex, &src, &pos, 90, 90, &center);
+        }
     }
 }
 
@@ -777,6 +800,31 @@ void slide_character(float gravity, struct Character* guy) {
 }
 
 void update_map(Map* map) {
+    for (int i = 0; i < map->number_of_spawn_zones; i++) {
+        MobSpawnZone* zone = &map->spawn_zones[i];
+        if (zone->pon.exists) {
+            zone->pon.frame_counter += 1;
+            if (zone->pon.frame_counter % 7 == 0) {
+                zone->pon.frame += zone->pon.frame_inc;
+                if (zone->pon.frame == 2 || zone->pon.frame == 0)
+                    zone->pon.frame_inc *= -1;
+            }
+        }
+        else {
+            if (rand() % 100 == 1) {
+                printf("SPAWNING PON\n");
+                SDL_memset(&zone->pon, 0, sizeof(zone->pon));
+                zone->pon.exists = true;
+                zone->pon.x = zone->x + (rand() % zone->width);
+                zone->pon.y = zone->y + (rand() % zone->height);
+                zone->pon.frame_inc = 1;
+                zone->pon.color.r = 135;
+                zone->pon.color.g = 135;
+                zone->pon.color.b = 135;
+                zone->pon.color.a = 255;
+            }
+        }
+    }
 }
 
 #define READ(type, dest) \
@@ -826,6 +874,7 @@ void load_map(const int asset, /*out*/ Map* map) {
     READ(Uint16, total_spawn_rate_count);
     READ(Uint8, spawn_zone_count);
 
+    map->asset_id = asset;
     map->width  = tiles_wide * 32;
     map->height = tiles_high * 32;
     map->tile_collision.width   = (int)tiles_wide;
@@ -934,6 +983,8 @@ void load_map(const int asset, /*out*/ Map* map) {
 
         map->spawn_zones[i].spawns = next_spawn_rate;
         next_spawn_rate += spawn_rate_count;
+
+        map->spawn_zones[i].pon.exists = false;
 
         for (int j = 0; j < spawn_rate_count; j++) {
             READ(int, mob_id);
