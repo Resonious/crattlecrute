@@ -1,3 +1,9 @@
+require 'os'
+
+if OS.windows?
+  system('C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat')
+end
+
 MRuby::Build.new do |conf|
   # load specific toolchain settings
 
@@ -8,7 +14,9 @@ MRuby::Build.new do |conf|
     toolchain :gcc
   end
 
-  enable_debug
+  conf.disable_cxx_exception
+
+  # enable_debug
 
   # Use mrbgems
   # conf.gem 'examples/mrbgems/ruby_extension_example'
@@ -107,6 +115,7 @@ MRuby::Build.new('host-debug') do |conf|
   # conf.enable_bintest
 end
 
+=begin
 MRuby::Build.new('test') do |conf|
   # Gets set by the VS command prompts.
   if ENV['VisualStudioVersion'] || ENV['VSINSTALLDIR']
@@ -121,6 +130,17 @@ MRuby::Build.new('test') do |conf|
 
   conf.gembox 'default'
 end
+=end
+
+=begin
+Mruby::CrossBuild.new('32bit') do |conf|
+  if ENV['VisualStudioVersion'] || ENV['VSINSTALLDIR']
+    toolchain :visualcpp
+  else
+    toolchain :gcc
+  end
+end
+=end
 
 # Define cross build settings
 # MRuby::CrossBuild.new('32bit') do |conf|

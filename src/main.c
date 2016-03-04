@@ -30,6 +30,9 @@ WSADATA global_wsa;
 #endif
 #include "SDL_syswm.h"
 
+#include <mruby.h>
+#include <mruby/compile.h>
+
 // Disgusting global window variable so that I can shit out message boxes
 // from wherever I want.
 SDL_Window* main_window;
@@ -137,6 +140,14 @@ int main(int argc, char** argv) {
     if (WSAStartup(MAKEWORD(2,2),&global_wsa) != 0)
         SDL_ShowSimpleMessageBox(0, "Uh oh", "Couldn't initialize Windows networking", game.window);
 #endif
+
+    // MRB ????
+    game.mrb = mrb_open();
+    if (game.mrb == NULL) {
+        SDL_ShowSimpleMessageBox(0, "NO MRUBY?", "ARE YOU KIDDING ME", game.window);
+        return 0;
+    }
+    mrb_load_string(game.mrb, "puts 'EYYYYYYYYYYYYYYYYYYYYYYY'");
 
     // Main loop bitch
     SDL_Event event;

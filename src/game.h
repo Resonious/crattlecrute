@@ -8,6 +8,7 @@
 #include "types.h"
 #include "sound.h"
 #include "cache.h"
+#include <mruby.h>
 
 enum Control {
     C_UP, C_DOWN, C_LEFT, C_RIGHT,
@@ -39,6 +40,7 @@ struct Scene;
 typedef struct Game {
     SDL_Window* window;
     SDL_Renderer* renderer;
+    mrb_state* mrb;
     struct {
         int text_buf_size;
         char* text;
