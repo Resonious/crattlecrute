@@ -94,6 +94,8 @@ void draw_text_ex_caret(Game* game, int x, int y, char* text, int padding, float
 void draw_text_ex(Game* game, int x, int y, char* text, int padding, float scale);
 void draw_text_caret(Game* game, int x, int y, char* text, int caret);
 void draw_text(Game* game, int x, int y, char* text);
+void input_text(Game* game, char* text);
+void handle_key_during_text_edit(Game* game, SDL_Event* event);
 #define draw_text_ex_f(game, x, y, padding, scale, fmttext, ...)\
     {\
         char _strbuf[sizeof(fmttext) * 2];\

@@ -23,7 +23,7 @@ void scene_offset_viewer_update(void* data, Game* game);
 void scene_offset_viewer_render(void* data, Game* game);
 void scene_offset_viewer_cleanup(void* data, Game* game);
 
-const static Scene SCENES[] = {
+static Scene SCENES[] = {
     {
         SCENE_WORLD,
     scene_world_initialize,

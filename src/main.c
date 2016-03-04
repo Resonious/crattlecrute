@@ -32,6 +32,7 @@ WSADATA global_wsa;
 
 #include <mruby.h>
 #include <mruby/compile.h>
+#include <mruby/class.h>
 
 // Disgusting global window variable so that I can shit out message boxes
 // from wherever I want.
@@ -60,6 +61,21 @@ Uint64 ticks_per_second;
                 case SDL_SCANCODE_F1:          this_frame[C_F1]        = to; break; \
                 case SDL_SCANCODE_F2:          this_frame[C_F2]        = to; break; \
                 case SDL_SCANCODE_LEFTBRACKET: this_frame[C_DEBUG_ADV] = to; break;
+
+struct RClass* ruby_controls_class;
+
+mrb_value mrb_controls_init(mrb_state* mrb, mrb_value self) {
+    // TODO ? malloc? mrb_data_init?
+}
+
+void script_init(struct Game* game) {
+    ruby_controls_class = mrb_define_class(game->mrb, "Controls", game->mrb->object_class);
+    MRB_SET_INSTANCE_TT(ruby_controls_class, MRB_TT_DATA);
+    mrb_define_class_method(
+        game->mrb, ruby_controls_class,
+        "initialize", mrb_controls_init, MRB_ARGS_NONE()
+    );
+}
 
 int main(int argc, char** argv) {
     srand((unsigned int)time(0));
@@ -147,7 +163,8 @@ int main(int argc, char** argv) {
         SDL_ShowSimpleMessageBox(0, "NO MRUBY?", "ARE YOU KIDDING ME", game.window);
         return 0;
     }
-    mrb_load_string(game.mrb, "puts 'EYYYYYYYYYYYYYYYYYYYYYYY'");
+    mrb_load_string(game.mrb, "puts 'RUBY READY TO RUMBLE'");
+    script_init(&game);
 
     // Main loop bitch
     SDL_Event event;
