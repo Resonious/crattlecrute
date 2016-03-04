@@ -1,6 +1,7 @@
 # We do keep the solution and projects in the repository though.
 SDL
 STB
+MRuby
 
 src/assets.h
 build/
