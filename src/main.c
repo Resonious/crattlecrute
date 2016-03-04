@@ -33,6 +33,9 @@ WSADATA global_wsa;
 #include <mruby.h>
 #include <mruby/compile.h>
 #include <mruby/class.h>
+#include <mruby/variable.h>
+#include <mruby/data.h>
+#include <mruby/string.h>
 
 // Disgusting global window variable so that I can shit out message boxes
 // from wherever I want.
@@ -62,19 +65,103 @@ Uint64 ticks_per_second;
                 case SDL_SCANCODE_F2:          this_frame[C_F2]        = to; break; \
                 case SDL_SCANCODE_LEFTBRACKET: this_frame[C_DEBUG_ADV] = to; break;
 
-struct RClass* ruby_controls_class;
+void mrb_free_game(mrb_state* mrb, void* p) { }
+
+static const struct mrb_data_type mrb_controls_type = { "Controls", mrb_free };
+static const struct mrb_data_type mrb_game_type = { "Game", mrb_free_game };
+struct RClass* ruby_controls_class,* ruby_game_class;
 
 mrb_value mrb_controls_init(mrb_state* mrb, mrb_value self) {
-    // TODO ? malloc? mrb_data_init?
+    Controls* new_controls;
+    if (DATA_PTR(self) != NULL)
+        new_controls = DATA_PTR(self);
+    else
+        mrb_malloc(mrb, sizeof(Controls));
+
+    memset(new_controls, 0, sizeof(Controls));
+    mrb_data_init(self, new_controls, &mrb_controls_type);
+
+    return self;
+}
+
+mrb_value mrb_controls_just_pressed(mrb_state* mrb, mrb_value self) {
+    Controls* controls = DATA_PTR(self);
+
+    mrb_int arg;
+    mrb_get_args(mrb, "i", &arg);
+
+    return mrb_bool_value(just_pressed(controls, arg));
+}
+
+#define RUBY_CONST_CTRL(ctrl, rctrl)\
+    mrb_const_set(\
+        game->mrb, mrb_obj_value(ruby_controls_class),\
+        mrb_intern_lit(game->mrb, #rctrl), mrb_fixnum_value(ctrl)\
+    )
+
+mrb_value mrb_game(Game* game) {
+    mrb_value val;
+    mrb_data_init(val, game, &mrb_game_type);
+    return val;
+}
+
+mrb_value mrb_game_controls(mrb_state* mrb, mrb_value self) {
+    Game* game = DATA_PTR(self);
+
+    mrb_value controls;
+    mrb_data_init(controls, &game->controls, &mrb_controls_type);
+
+    return controls;
 }
 
 void script_init(struct Game* game) {
+    // ==================================== class Controls =============================
     ruby_controls_class = mrb_define_class(game->mrb, "Controls", game->mrb->object_class);
     MRB_SET_INSTANCE_TT(ruby_controls_class, MRB_TT_DATA);
-    mrb_define_class_method(
-        game->mrb, ruby_controls_class,
-        "initialize", mrb_controls_init, MRB_ARGS_NONE()
-    );
+
+    RUBY_CONST_CTRL(C_UP, UP);
+    RUBY_CONST_CTRL(C_DOWN, DOWN);
+    RUBY_CONST_CTRL(C_LEFT, LEFT);
+    RUBY_CONST_CTRL(C_RIGHT, RIGHT);
+    RUBY_CONST_CTRL(C_JUMP, JUMP);
+    RUBY_CONST_CTRL(C_W, W);
+    RUBY_CONST_CTRL(C_S, S);
+    RUBY_CONST_CTRL(C_A, A);
+    RUBY_CONST_CTRL(C_D, D);
+    RUBY_CONST_CTRL(C_PAUSE, PAUSE);
+    RUBY_CONST_CTRL(C_F1, F1);
+    RUBY_CONST_CTRL(C_F2, F2);
+    RUBY_CONST_CTRL(C_SPACE, SPACE);
+    RUBY_CONST_CTRL(C_DEBUG_ADV, ADV);
+
+    mrb_define_method(game->mrb, ruby_controls_class, "initialize", mrb_controls_init, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, ruby_controls_class, "just_pressed", mrb_controls_just_pressed, MRB_ARGS_REQ(1));
+
+    // ==================================== class Game ================================
+    ruby_game_class = mrb_define_class(game->mrb, "Game", game->mrb->object_class);
+    MRB_SET_INSTANCE_TT(ruby_game_class, MRB_TT_DATA);
+
+    mrb_define_method(game->mrb, ruby_game_class, "controls", mrb_game_controls, MRB_ARGS_NONE());
+}
+static void
+ruby_p(mrb_state *mrb, mrb_value obj, int prompt)
+{
+  mrb_value val;
+
+  val = mrb_funcall(mrb, obj, "inspect", 0);
+  if (prompt) {
+    if (!mrb->exc) {
+      fputs(" => ", stdout);
+    }
+    else {
+      val = mrb_funcall(mrb, mrb_obj_value(mrb->exc), "inspect", 0);
+    }
+  }
+  if (!mrb_string_p(val)) {
+    val = mrb_obj_as_string(mrb, obj);
+  }
+  fwrite(RSTRING_PTR(val), RSTRING_LEN(val), 1, stdout);
+  putc('\n', stdout);
 }
 
 int main(int argc, char** argv) {
@@ -166,6 +253,14 @@ int main(int argc, char** argv) {
     mrb_load_string(game.mrb, "puts 'RUBY READY TO RUMBLE'");
     script_init(&game);
 
+    mrb_value ruby_context = mrb_load_string(
+        game.mrb,
+        "def update(game)\n"
+        "  puts 'OMG!!' if game.controls.just_pressed(Controls::A)\n"
+        "end\nself\n"
+    );
+    ruby_p(game.mrb, ruby_context, 0);
+
     // Main loop bitch
     SDL_Event event;
     bool running = true;
@@ -248,6 +343,13 @@ int main(int argc, char** argv) {
                 printf("KEY %i IS DOWN AND UP!!!!\n", i);
             }
         }
+
+        // Check for exception and print the details if necessary
+        if (game.mrb->exc) {
+            ruby_p(game.mrb, mrb_obj_value(game.mrb->exc), 0);
+            game.mrb->exc = 0;
+        }
+        mrb_funcall(game.mrb, ruby_context, "update", 1, mrb_ptr_to_str(game.mrb, "waiojfeaw"));
 
 #if _DEBUG
         if (just_pressed(&game.controls, C_PAUSE))
