@@ -42,6 +42,11 @@ typedef struct Game {
     SDL_Renderer* renderer;
     mrb_state* mrb;
     struct {
+        mrb_sym sym_atcontrols;
+        struct RClass* controls_class;
+        struct RClass* game_class;
+    } ruby;
+    struct {
         int text_buf_size;
         char* text;
         char* composition;

@@ -69,17 +69,25 @@ void mrb_free_game(mrb_state* mrb, void* p) { }
 
 static const struct mrb_data_type mrb_controls_type = { "Controls", mrb_free };
 static const struct mrb_data_type mrb_game_type = { "Game", mrb_free_game };
-struct RClass* ruby_controls_class,* ruby_game_class;
 
 mrb_value mrb_controls_init(mrb_state* mrb, mrb_value self) {
-    Controls* new_controls;
-    if (DATA_PTR(self) != NULL)
-        new_controls = DATA_PTR(self);
-    else
-        mrb_malloc(mrb, sizeof(Controls));
+    mrb_bool dont_allocate;
+    mrb_get_args(mrb, "|b", &dont_allocate);
 
-    memset(new_controls, 0, sizeof(Controls));
-    mrb_data_init(self, new_controls, &mrb_controls_type);
+    if (!dont_allocate) {
+        Controls* new_controls;
+
+        if (DATA_PTR(self) != NULL)
+            new_controls = DATA_PTR(self);
+        else
+            mrb_malloc(mrb, sizeof(Controls));
+
+        memset(new_controls, 0, sizeof(Controls));
+        mrb_data_init(self, new_controls, &mrb_controls_type);
+    }
+    else {
+        mrb_data_init(self, NULL, &mrb_controls_type);
+    }
 
     return self;
 }
@@ -93,31 +101,51 @@ mrb_value mrb_controls_just_pressed(mrb_state* mrb, mrb_value self) {
     return mrb_bool_value(just_pressed(controls, arg));
 }
 
+mrb_value mrb_controls_just_released(mrb_state* mrb, mrb_value self) {
+    Controls* controls = DATA_PTR(self);
+
+    mrb_int arg;
+    mrb_get_args(mrb, "i", &arg);
+
+    return mrb_bool_value(just_released(controls, arg));
+}
+
 #define RUBY_CONST_CTRL(ctrl, rctrl)\
     mrb_const_set(\
-        game->mrb, mrb_obj_value(ruby_controls_class),\
+        game->mrb, mrb_obj_value(game->ruby.controls_class),\
         mrb_intern_lit(game->mrb, #rctrl), mrb_fixnum_value(ctrl)\
     )
 
-mrb_value mrb_game(Game* game) {
-    mrb_value val;
-    mrb_data_init(val, game, &mrb_game_type);
-    return val;
+mrb_value mrb_game_init(mrb_state* mrb, mrb_value self) {
+    mrb_data_init(self, NULL, &mrb_game_type);
+    return self;
 }
 
 mrb_value mrb_game_controls(mrb_state* mrb, mrb_value self) {
     Game* game = DATA_PTR(self);
 
-    mrb_value controls;
-    mrb_data_init(controls, &game->controls, &mrb_controls_type);
+    mrb_value rcontrols;
 
-    return controls;
+    mrb_iv_check(mrb, game->ruby.sym_atcontrols);
+    if (!mrb_iv_defined(mrb, self, game->ruby.sym_atcontrols)) {
+        mrb_value rtrue = mrb_true_value();
+        rcontrols = mrb_class_new_instance(mrb, 1, &rtrue, game->ruby.controls_class);
+        mrb_data_init(rcontrols, &game->controls, &mrb_controls_type);
+        mrb_iv_set(game->mrb, self, game->ruby.sym_atcontrols, rcontrols);
+    }
+    else {
+        rcontrols = mrb_iv_get(mrb, self, game->ruby.sym_atcontrols);
+    }
+
+    return rcontrols;
 }
 
 void script_init(struct Game* game) {
+    game->ruby.sym_atcontrols = mrb_intern_lit(game->mrb, "@controls");
+
     // ==================================== class Controls =============================
-    ruby_controls_class = mrb_define_class(game->mrb, "Controls", game->mrb->object_class);
-    MRB_SET_INSTANCE_TT(ruby_controls_class, MRB_TT_DATA);
+    game->ruby.controls_class = mrb_define_class(game->mrb, "Controls", game->mrb->object_class);
+    MRB_SET_INSTANCE_TT(game->ruby.controls_class, MRB_TT_DATA);
 
     RUBY_CONST_CTRL(C_UP, UP);
     RUBY_CONST_CTRL(C_DOWN, DOWN);
@@ -134,14 +162,16 @@ void script_init(struct Game* game) {
     RUBY_CONST_CTRL(C_SPACE, SPACE);
     RUBY_CONST_CTRL(C_DEBUG_ADV, ADV);
 
-    mrb_define_method(game->mrb, ruby_controls_class, "initialize", mrb_controls_init, MRB_ARGS_NONE());
-    mrb_define_method(game->mrb, ruby_controls_class, "just_pressed", mrb_controls_just_pressed, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.controls_class, "initialize", mrb_controls_init, MRB_ARGS_OPT(1));
+    mrb_define_method(game->mrb, game->ruby.controls_class, "just_pressed", mrb_controls_just_pressed, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.controls_class, "just_released", mrb_controls_just_released, MRB_ARGS_REQ(1));
 
     // ==================================== class Game ================================
-    ruby_game_class = mrb_define_class(game->mrb, "Game", game->mrb->object_class);
-    MRB_SET_INSTANCE_TT(ruby_game_class, MRB_TT_DATA);
+    game->ruby.game_class = mrb_define_class(game->mrb, "Game", game->mrb->object_class);
+    MRB_SET_INSTANCE_TT(game->ruby.game_class, MRB_TT_DATA);
 
-    mrb_define_method(game->mrb, ruby_game_class, "controls", mrb_game_controls, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.game_class, "initialize", mrb_game_init, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.game_class, "controls", mrb_game_controls, MRB_ARGS_NONE());
 }
 static void
 ruby_p(mrb_state *mrb, mrb_value obj, int prompt)
@@ -253,13 +283,18 @@ int main(int argc, char** argv) {
     mrb_load_string(game.mrb, "puts 'RUBY READY TO RUMBLE'");
     script_init(&game);
 
-    mrb_value ruby_context = mrb_load_string(
+    mrb_value ruby_context = mrb_obj_value(game.mrb->top_self);
+    mrb_load_string(
         game.mrb,
         "def update(game)\n"
         "  puts 'OMG!!' if game.controls.just_pressed(Controls::A)\n"
-        "end\nself\n"
+        "end\n"
     );
+    // TODO mrb->top_self should also give the ruby context
     ruby_p(game.mrb, ruby_context, 0);
+
+    mrb_value rgame = mrb_class_new_instance(game.mrb, 0, NULL, game.ruby.game_class);
+    DATA_PTR(rgame) = &game;
 
     // Main loop bitch
     SDL_Event event;
@@ -349,7 +384,7 @@ int main(int argc, char** argv) {
             ruby_p(game.mrb, mrb_obj_value(game.mrb->exc), 0);
             game.mrb->exc = 0;
         }
-        mrb_funcall(game.mrb, ruby_context, "update", 1, mrb_ptr_to_str(game.mrb, "waiojfeaw"));
+        mrb_funcall(game.mrb, ruby_context, "update", 1, rgame);
 
 #if _DEBUG
         if (just_pressed(&game.controls, C_PAUSE))

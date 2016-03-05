@@ -79,18 +79,20 @@ ensure
   FileUtils.rm zip_file unless options[:keep_temp]
 end
 
-# Grab STB libs
-FileUtils.mkdir_p File.join(destination_path, "STB")
-download(
-  URI("https://raw.githubusercontent.com/nothings/stb/master/stb_image.h"),
-  File.join(destination_path, "STB", "stb_image.h"),
-  "Downloading stb_image"
-)
-download(
-  URI("https://raw.githubusercontent.com/nothings/stb/master/stb_vorbis.c"),
-  File.join(destination_path, "STB", "stb_vorbis.c"),
-  "Downloading stb_vorbis"
-)
+unless ARGV.include?('--no-stb')
+  # Grab STB libs
+  FileUtils.mkdir_p File.join(destination_path, "STB")
+  download(
+    URI("https://raw.githubusercontent.com/nothings/stb/master/stb_image.h"),
+    File.join(destination_path, "STB", "stb_image.h"),
+    "Downloading stb_image"
+  )
+  download(
+    URI("https://raw.githubusercontent.com/nothings/stb/master/stb_vorbis.c"),
+    File.join(destination_path, "STB", "stb_vorbis.c"),
+    "Downloading stb_vorbis"
+  )
+end
 
 unless ARGV.include?('--no-sdl')
   # Actually download SDL
