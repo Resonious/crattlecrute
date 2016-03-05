@@ -13,6 +13,8 @@ typedef struct MobType {
     void(*initialize)(void* mob, struct Game* game, struct Map* map, vec2 pos);
     void(*update)(void* mob, struct Game* game, struct Map* map);
     void(*render)(void* mob, struct Game* game, struct Map* map);
+    void(*save)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
+    void(*load)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
 } MobType;
 
 #define MOB_FIELDS int id, mob_type_id;
@@ -56,6 +58,8 @@ typedef struct MobPon {
 void mob_pon_initialize(void* pon, struct Game* game, struct Map* map, vec2 pos);
 void mob_pon_update(void* pon, struct Game* game, struct Map* map);
 void mob_pon_render(void* pon, struct Game* game, struct Map* map);
+void mob_pon_save(void* pon, struct Game* game, struct Map* map, byte* buffer, int* pos);
+void mob_pon_load(void* pon, struct Game* game, struct Map* map, byte* buffer, int* pos);
 
 static MobType mob_registry[] = {
     {
@@ -63,7 +67,9 @@ static MobType mob_registry[] = {
         SMALL,
         mob_pon_initialize,
         mob_pon_update,
-        mob_pon_render
+        mob_pon_render,
+        mob_pon_save,
+        mob_pon_load
     }
 };
 

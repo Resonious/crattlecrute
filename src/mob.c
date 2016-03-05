@@ -13,9 +13,16 @@ void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos
     pon->frame = 0;
     pon->frame_counter = 0;
     pon->frame_inc = 1;
-    pon->color.r = 135;
-    pon->color.g = 135;
-    pon->color.b = 135;
+    if (rand() % 30 == 1) {
+        pon->color.r = 255;
+        pon->color.g = 198;
+        pon->color.b = 30;
+    }
+    else {
+        pon->color.r = 135;
+        pon->color.g = 135;
+        pon->color.b = 135;
+    }
     pon->color.a = 255;
 }
 void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
@@ -39,4 +46,14 @@ void mob_pon_render(void* vpon, struct Game* game, struct Map* map) {
     SDL_SetTextureColorMod(pon_tex, pon->color.r, pon->color.g, pon->color.b);
     SDL_SetTextureAlphaMod(pon_tex, pon->color.a);
     world_render_copy(game, pon_tex, &src, &pon->pos, 90, 90, &center);
+}
+void mob_pon_save(void* vpon, struct Game* game, struct Map* map, byte* buffer, int* pos) {
+    MobPon* pon = (MobPon*)vpon;
+    write_to_buffer(buffer, &pon->pos, pos, sizeof(vec2));
+    write_to_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));
+}
+void mob_pon_load(void* vpon, struct Game* game, struct Map* map, byte* buffer, int* pos) {
+    MobPon* pon = (MobPon*)vpon;
+    read_from_buffer(buffer, &pon->pos, pos, sizeof(vec2));
+    read_from_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));
 }

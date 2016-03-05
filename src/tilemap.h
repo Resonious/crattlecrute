@@ -181,6 +181,6 @@ void load_map(const int asset, /*out*/Map* map);
 void draw_map(struct Game* game, Map* map);
 void draw_parallax_background(struct Game* game, struct Map* map, struct ParallaxBackground* background);
 void draw_door(struct Game* game, struct Door* door);
-void update_map(Map* map);
+void update_map(Map* map, struct Game* game);
 
 #endif // TILEMAP_H

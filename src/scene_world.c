@@ -174,17 +174,6 @@ void sync_player_frame_if_should(int status, RemotePlayer* plr) {
 #define NETOP_INITIALIZE_PLAYER 10
 #define NETOP_UPDATE_CONTROLS 11
 
-void write_to_buffer(byte* buffer, void* src, int* pos, int size) {
-    SDL_assert(size >= 0);
-    memcpy(buffer + *pos, src, size);
-    *pos += size;
-}
-
-void read_from_buffer(byte* buffer, void* dest, int* pos, int size) {
-    memcpy(dest, buffer + *pos, size);
-    *pos += size;
-}
-
 int simple_truncate_controls_buffer(ControlsBuffer* buffer, int to_frame, int to_pos) {
     SDL_assert(to_pos > 0 /*0 is reserved for # frames identifier :(*/);
     int frames_remaining = buffer->bytes[0] - buffer->current_frame;

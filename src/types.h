@@ -61,6 +61,9 @@ extern Uint64 ticks_per_second;
 #define ALIGN_16
 #endif
 
+void write_to_buffer(byte* buffer, void* src, int* pos, int size);
+void read_from_buffer(byte* buffer, void* dest, int* pos, int size);
+
 typedef union vec4 {
     __m128 simd;
     float ALIGN_16 x[4];

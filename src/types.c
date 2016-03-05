@@ -1,5 +1,17 @@
 #include "types.h"
+#include <stdlib.h>
 #include <math.h>
+
+void write_to_buffer(byte* buffer, void* src, int* pos, int size) {
+    SDL_assert(size >= 0);
+    memcpy(buffer + *pos, src, size);
+    *pos += size;
+}
+
+void read_from_buffer(byte* buffer, void* dest, int* pos, int size) {
+    memcpy(dest, buffer + *pos, size);
+    *pos += size;
+}
 
 mat22 rotation_mat22(float angle) {
     float rads = angle * (float)M_PI / 180;
