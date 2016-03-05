@@ -152,6 +152,9 @@
     <ClCompile Include="..\..\..\src\mob.c">
       <Filter>game\mobs</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\script.c">
+      <Filter>game</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\dxsdkver.h" />
@@ -320,6 +323,9 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\mob.h">
       <Filter>game\mobs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\script.h">
+      <Filter>game</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
