@@ -195,6 +195,7 @@ ruby_p(mrb_state *mrb, mrb_value obj, int prompt)
 }
 
 int main(int argc, char** argv) {
+    BENCH_START(total_initialization);
     srand((unsigned int)time(0));
     ticks_per_second = SDL_GetPerformanceFrequency();
     _MM_SET_ROUNDING_MODE(_MM_ROUND_DOWN);
@@ -225,11 +226,14 @@ int main(int argc, char** argv) {
     game.camera_target.simd = _mm_set1_ps(0.0f);
     game.follow_cam_y = false;
 
+    BENCH_START(loading_sdl);
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
     open_assets_file();
     initialize_sound(&game.audio);
     memset(&game.controls, 0, sizeof(game.controls));
+    BENCH_END(loading_sdl);
 
+    BENCH_START(loading_window);
     game.window = SDL_CreateWindow(
         "Crattlecrute",
         SDL_WINDOWPOS_UNDEFINED,
@@ -241,6 +245,7 @@ int main(int argc, char** argv) {
     game.renderer = SDL_CreateRenderer(game.window, -1, 0);
     if (game.renderer == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), game.window);
     SDL_SetRenderDrawColor(game.renderer, 20, 20, 20, 255);
+    BENCH_END(loading_window);
 
     game.font = load_texture(game.renderer, ASSET_FONT_FONT_PNG);
 
@@ -275,6 +280,7 @@ int main(int argc, char** argv) {
 #endif
 
     // MRB ????
+    BENCH_START(loading_ruby);
     game.mrb = mrb_open();
     if (game.mrb == NULL) {
         SDL_ShowSimpleMessageBox(0, "NO MRUBY?", "ARE YOU KIDDING ME", game.window);
@@ -295,6 +301,7 @@ int main(int argc, char** argv) {
 
     mrb_value rgame = mrb_class_new_instance(game.mrb, 0, NULL, game.ruby.game_class);
     DATA_PTR(rgame) = &game;
+    BENCH_END(loading_ruby);
 
     // Main loop bitch
     SDL_Event event;
@@ -311,6 +318,8 @@ int main(int argc, char** argv) {
     bool keys_down[NUM_CONTROLS];
 
     game.current_scene->initialize(game.current_scene_data, &game);
+
+    BENCH_END(total_initialization);
 
     while (running) {
         frame_start = SDL_GetPerformanceCounter();
