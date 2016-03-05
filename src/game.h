@@ -87,11 +87,6 @@ enum AreaId {
 };
 int map_asset_for_area(int area_id);
 
-// === Mobs === (THIS ENUM IS READ BY A RUBY SCRIPT AT COMPILE TIME)
-enum MobId {
-    MOB_PON
-};
-
 // === Text functions ===
 
 #define set_text_color(game, r, g, b) SDL_SetTextureColorMod((game)->font, (r), (g), (b));

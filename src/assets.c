@@ -273,7 +273,8 @@ Map* cached_map(Game* game, int asset) {
             (size_t)file_header.background_count       * sizeof(ParallaxBackground) +
             (size_t)file_header.door_count             * sizeof(Door) +
             (size_t)file_header.total_spawn_rate_count * sizeof(MobSpawnRate) +
-            (size_t)file_header.spawn_zone_count       * sizeof(MobSpawnZone);
+            (size_t)file_header.spawn_zone_count       * sizeof(MobSpawnZone) +
+            sizeof(MapState);
 
         cached_asset->map = malloc(bytes_needed_for_map);
         load_map(asset, cached_asset->map);

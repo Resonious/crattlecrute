@@ -1451,7 +1451,7 @@ void scene_world_update(void* vs, Game* game) {
     update_character_animation(&s->guy);
 
     // Update everything else on the map(s)
-    update_map(s->map);
+    update_map(s->map, game);
     if (s->net.status == HOSTING) {
         int updated_maps[NUMBER_OF_AREAS];
         memset(updated_maps, 0, sizeof(updated_maps));

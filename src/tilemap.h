@@ -7,6 +7,7 @@
 #include "SDL.h"
 #endif
 #include "types.h"
+#include "mob.h"
 #define TILE_HEIGHT_FOR_SENSOR(heights, tile_index, sensor_dir) \
   ((int*)(&heights[tile_index.index]) + (sensor_dir * 32))
 
@@ -104,27 +105,28 @@ typedef struct Door {
     int dest_x, dest_y, dest_area;
 } Door;
 
-typedef struct MobPon {
-    bool exists;
-    int x, y;
-    int frame;
-    int frame_counter;
-    int frame_inc;
-    SDL_Color color;
-} MobPon;
-
 typedef struct MobSpawnRate {
-    int mob_id;
+    int mob_type_id;
     int percentage;
 } MobSpawnRate;
 
 typedef struct MobSpawnZone {
-    MobPon pon; // For now we assume a pon is all we can spawn.
+    int countdown_until_next_spawn_attempt;
 
     int x, y, width, height;
     int number_of_spawns;
     MobSpawnRate* spawns;
 } MobSpawnZone;
+
+// TODO SAVE AND LOAD.
+#define MAP_STATE_MAX_SMALL_MOBS 10
+#define MAP_STATE_MAX_MEDIUM_MOBS 5
+#define MAP_STATE_MAX_LARGE_MOBS 2
+typedef struct MapState {
+    SmallMob  small_mobs[MAP_STATE_MAX_SMALL_MOBS];
+    MediumMob medium_mobs[MAP_STATE_MAX_MEDIUM_MOBS];
+    LargeMob  large_mobs[MAP_STATE_MAX_LARGE_MOBS];
+} MapState;
 
 typedef struct Map {
     int area_id;
@@ -143,6 +145,8 @@ typedef struct Map {
 
     int number_of_spawn_zones;
     MobSpawnZone* spawn_zones;
+
+    MapState* state;
 } Map;
 
 typedef struct CmFileHeader {

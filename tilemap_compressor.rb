@@ -514,7 +514,8 @@ def write_cm(map, file_dest)
   end
 
   # === MOBS!!! ===
-  mob_ids = parse_enum('MobId', game_h)
+  mob_h = File.open(File.join(File.dirname(__FILE__), 'src/mob.h'), &:read)
+  mob_ids = parse_enum('MobId', mob_h)
 
   mob_zones.each do |mob_spawnzone|
     # x,y,w,h all int32

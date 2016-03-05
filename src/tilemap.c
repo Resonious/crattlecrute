@@ -3,6 +3,7 @@
 #include "game.h"
 #include "assets.h"
 #include "coords.h"
+#include "mob.h"
 #ifdef _DEBUG
 extern bool debug_pause;
 #endif
@@ -627,19 +628,20 @@ void draw_map(struct Game* game, Map* map) {
         SDL_RenderFillRects(game->renderer, topbot_borders, 2);
     }
 
-    for (int i = 0; i < map->number_of_spawn_zones; i++) {
-        MobSpawnZone* zone = &map->spawn_zones[i];
-        if (zone->pon.exists) {
-            SDL_Texture* pon_tex = cached_texture(game, ASSET_MOB_PON_PNG);
-            SDL_Rect src = {0, 90, 90, 90};
-            vec2 center = {90 / 2, 90 / 2};
-            increment_src_rect(&src, zone->pon.frame, 180, 180);
-
-            vec2 pos = {zone->pon.x, zone->pon.y};
-            SDL_SetTextureColorMod(pon_tex, zone->pon.color.r, zone->pon.color.g, zone->pon.color.b);
-            SDL_SetTextureAlphaMod(pon_tex, zone->pon.color.a);
-            world_render_copy(game, pon_tex, &src, &pos, 90, 90, &center);
-        }
+    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
+        MobCommon* mob = &map->state->small_mobs[i];
+        if (mob->mob_type_id != -1)
+            mob_registry[mob->mob_type_id].render(mob, game, map);
+    }
+    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
+        MobCommon* mob = &map->state->medium_mobs[i];
+        if (mob->mob_type_id != -1)
+            mob_registry[mob->mob_type_id].render(mob, game, map);
+    }
+    for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++) {
+        MobCommon* mob = &map->state->large_mobs[i];
+        if (mob->mob_type_id != -1)
+            mob_registry[mob->mob_type_id].render(mob, game, map);
     }
 }
 
@@ -799,31 +801,89 @@ void slide_character(float gravity, struct Character* guy) {
     }
 }
 
-void update_map(Map* map) {
+
+#define FIND_SPAWN_SLOT(size, mob_list)\
+    case size:\
+        for (int k = 0; k < MAP_STATE_MAX_##size##_MOBS ; k++) {\
+            if (map->state->mob_list[k].mob_type_id == -1) {\
+                mob_data = (MobCommon*)&map->state->mob_list[k];\
+                mob_data->id = k;\
+                goto spawn_it;\
+            }\
+        } goto done;
+
+void update_map(Map* map, Game* game) {
+    // Spawn mobs when needed.
     for (int i = 0; i < map->number_of_spawn_zones; i++) {
         MobSpawnZone* zone = &map->spawn_zones[i];
-        if (zone->pon.exists) {
-            zone->pon.frame_counter += 1;
-            if (zone->pon.frame_counter % 7 == 0) {
-                zone->pon.frame += zone->pon.frame_inc;
-                if (zone->pon.frame == 2 || zone->pon.frame == 0)
-                    zone->pon.frame_inc *= -1;
-            }
+
+        if (zone->countdown_until_next_spawn_attempt >= 0) {
+            zone->countdown_until_next_spawn_attempt -= 1;
         }
         else {
-            if (rand() % 100 == 1) {
-                printf("SPAWNING PON\n");
-                SDL_memset(&zone->pon, 0, sizeof(zone->pon));
-                zone->pon.exists = true;
-                zone->pon.x = zone->x + (rand() % zone->width);
-                zone->pon.y = zone->y + (rand() % zone->height);
-                zone->pon.frame_inc = 1;
-                zone->pon.color.r = 135;
-                zone->pon.color.g = 135;
-                zone->pon.color.b = 135;
-                zone->pon.color.a = 255;
+            int random = rand() % 100;
+
+            for (int j = 0; j < zone->number_of_spawns; j++) {
+                MobSpawnRate* spawn = &zone->spawns[j];
+                if (spawn->percentage != 0 && random <= spawn->percentage) {
+                    MobType* mob_to_spawn = &mob_registry[spawn->mob_type_id];
+                    SDL_assert(mob_to_spawn->id == spawn->mob_type_id);
+
+                    MobCommon* mob_data;
+                    switch (mob_to_spawn->size_class) {
+                        FIND_SPAWN_SLOT(SMALL,  small_mobs)
+                        FIND_SPAWN_SLOT(MEDIUM, medium_mobs)
+                        FIND_SPAWN_SLOT(LARGE,  large_mobs)
+                    default:
+                        printf("UNKNOWN SIZE CLASS. mob_type_id: %i, spawn class: %i", mob_to_spawn->id, mob_to_spawn->size_class);
+                        goto done;
+                    }
+
+                spawn_it:
+                    mob_data->mob_type_id = spawn->mob_type_id;
+                    mob_to_spawn->initialize(
+                        (void*)mob_data,
+                        map, game,
+                        (vec2) {
+                            zone->x + (rand() % zone->width),
+                            zone->y + (rand() % zone->height)
+                        }
+                    );
+
+                done:
+                    // TODO add spawn frequency or something to maps.
+                    zone->countdown_until_next_spawn_attempt = 60 * 10;
+                    break;
+                }
             }
         }
+    }
+
+    /*
+#define UPDATE_MOBS(size, mob_list)\
+    for (int i = 0; i < MAP_STATE_MAX_##size##_MOBS; i++) {\
+        MobCommon* mob = &map->state->mob_list[i];\
+        if (mob->mob_type_id != -1)\
+            mob_registry[mob->mob_type_id].update(mob, game, map);\
+    }
+    UPDATE_MOBS(SMALL,  small_mobs);
+    UPDATE_MOBS(MEDIUM, medium_mobs);
+    UPDATE_MOBS(LARGE,  large_mobs);
+    */
+    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
+        MobCommon* mob = &map->state->small_mobs[i];
+        if (mob->mob_type_id != -1)
+            mob_registry[mob->mob_type_id].update(mob, game, map);
+    }
+    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
+        MobCommon* mob = &map->state->medium_mobs[i];
+        if (mob->mob_type_id != -1)
+            mob_registry[mob->mob_type_id].update(mob, game, map);
+    }
+    for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++) {
+        MobCommon* mob = &map->state->large_mobs[i];
+        if (mob->mob_type_id != -1)
+            mob_registry[mob->mob_type_id].update(mob, game, map);
     }
 }
 
@@ -859,6 +919,7 @@ CmFileHeader read_cm_file_header(const int asset) {
 }
 
 // Here we're assuming map is just some empty chunk of memory with enough size lol...
+// Enough memory can be allocated ahead of time by reading the file header. (like in assets.c)
 void load_map(const int asset, /*out*/ Map* map) {
     AssetFile file = load_asset(asset);
     SDL_assert(file.bytes[0] == 'C');
@@ -980,20 +1041,28 @@ void load_map(const int asset, /*out*/ Map* map) {
         map->spawn_zones[i].width  = width;
         map->spawn_zones[i].height = height;
         map->spawn_zones[i].number_of_spawns = spawn_rate_count;
+        map->spawn_zones[i].countdown_until_next_spawn_attempt = 60 * 2;
 
         map->spawn_zones[i].spawns = next_spawn_rate;
         next_spawn_rate += spawn_rate_count;
 
-        map->spawn_zones[i].pon.exists = false;
-
         for (int j = 0; j < spawn_rate_count; j++) {
-            READ(int, mob_id);
+            READ(int, mob_type_id);
             READ(int, percentage);
 
-            map->spawn_zones[i].spawns[j].mob_id     = mob_id;
-            map->spawn_zones[i].spawns[j].percentage = percentage;
+            map->spawn_zones[i].spawns[j].mob_type_id = mob_type_id;
+            map->spawn_zones[i].spawns[j].percentage  = percentage;
         }
     }
 
+    // DONE reading the file - now just initializing map state.
     SDL_assert(file.size == pos);
+
+    map->state = (MapState*)(map->spawn_zones + spawn_zone_count);
+    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++)
+        map->state->small_mobs[i].mob_type_id = -1;
+    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++)
+        map->state->medium_mobs[i].mob_type_id = -1;
+    for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++)
+        map->state->large_mobs[i].mob_type_id = -1;
 }
