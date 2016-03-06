@@ -64,6 +64,7 @@ typedef struct RemotePlayer {
     Controls controls;
     int number_of_physics_updates_this_frame;
     SDL_atomic_t area_id;
+    SDL_atomic_t just_switched_maps;
     Character guy;
     ControlsBufferSpot local_stream_spot;
     // NOTE this IS indexed by player ID - scene.net.players is not.
@@ -79,10 +80,10 @@ typedef struct RemotePlayer {
     PhysicsState sync;
     SDL_atomic_t frames_until_sync;
 
-    SDL_mutex* mob_spawn_buffer_locked;
-    byte mob_spawn_buffer[256];
-    int mob_spawn_buffer_pos;
-    int mob_spawn_count;
+    SDL_mutex* mob_event_buffer_locked;
+    byte mob_event_buffer[256];
+    int mob_event_buffer_pos;
+    int mob_event_count;
 
     int last_frames_playback_pos;
     ControlsBuffer controls_playback;
@@ -244,6 +245,7 @@ RemotePlayer* allocate_new_player(int id, struct sockaddr_in* addr) {
     new_player->id = id;
     new_player->address = *addr;
     SDL_AtomicSet(&new_player->area_id, -1);
+    SDL_AtomicSet(&new_player->just_switched_maps, false);
 
     default_character(&new_player->guy);
     new_player->guy.player_id = id;
@@ -268,10 +270,10 @@ RemotePlayer* allocate_new_player(int id, struct sockaddr_in* addr) {
     new_player->local_stream_spot.pos = -1;
     new_player->local_stream_spot.frame = -1;
 
-    new_player->mob_spawn_buffer_pos = 0;
-    new_player->mob_spawn_count = 0;
-    new_player->mob_spawn_buffer_locked = SDL_CreateMutex();
-    if (!new_player->mob_spawn_buffer_locked) {
+    new_player->mob_event_buffer_pos = 0;
+    new_player->mob_event_count = 0;
+    new_player->mob_event_buffer_locked = SDL_CreateMutex();
+    if (!new_player->mob_event_buffer_locked) {
         printf("BAD MUTEX\n");
     }
 
@@ -360,6 +362,7 @@ RemotePlayer* netop_initialize_state(WorldScene* scene, byte* buffer, struct soc
         int map_asset = map_asset_for_area(area_id);
         SDL_assert(map_asset >= 0);
         Map* map = cached_map(scene->game, map_asset);
+        map->area_id = area_id;
 
         clear_map_state(map);
         read_map_state(map, buffer, &pos);
@@ -412,7 +415,11 @@ int truncate_buffer_to_lowest_spot(WorldScene* scene, RemotePlayer* player) {
 #define NETF_CONTROLS (1 << 0)
 #define NETF_AREA     (1 << 1)
 #define NETF_POSITION (1 << 2)
-#define NETF_MOBSPAWN (1 << 3)
+#define NETF_MAPSTATE (1 << 3)
+#define NETF_MOBEVENT (1 << 4)
+
+#define NETF_MOBEVENT_SPAWN 0
+#define NETF_MOBEVENT_UPDATE 1
 
 RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sockaddr_in* addr, int bufsize) {
     int pos = 1; // [0] is opcode, which we know by now
@@ -528,37 +535,66 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
 
         SDL_UnlockMutex(player->controls_playback.locked);
 
-        if (flags & NETF_MOBSPAWN) {
+        if (flags & NETF_MAPSTATE) {
             wait_for_then_use_lock(scene->map->locked);
-
-            int number_of_spawns;
-            read_from_buffer(buffer, &number_of_spawns, &pos, sizeof(int));
             int area_id;
             read_from_buffer(buffer, &area_id, &pos, sizeof(int));
 
             if (area_id == scene->current_area) {
-                for (int i = 0; i < number_of_spawns; i++) {
-                    int mob_type;
-                    read_from_buffer(buffer, &mob_type, &pos, sizeof(int));
+                clear_map_state(scene->map);
+                read_map_state(scene->map, buffer, &pos);
+            }
+            else {
+                printf("ERROR: Got map state for wrong area???\n");
+            }
 
-                    vec2 position;
-                    read_from_buffer(buffer, &position, &pos, sizeof(vec2));
+            SDL_UnlockMutex(scene->map->locked);
+        }
 
-                    int m_id;
-                    read_from_buffer(buffer, &m_id, &pos, sizeof(int));
+        if (flags & NETF_MOBEVENT) {
+            wait_for_then_use_lock(scene->map->locked);
 
-                    // mob = spawn_mob(scene->map, scene->game, mob_type, position);
-                    // TODO TODO TODO something is wrong with this. Probably to do with ID generating.
-                    MobCommon* mob = mob_from_id(scene->map, m_id);
-                    MobType*   reg = &mob_registry[mob_type];
-                    mob->mob_type_id = mob_type;
-                    mob->index       = index_from_mob_id(m_id);
-                    reg->initialize(mob, scene->game, scene->map, position);
-                    reg->load(mob, scene->map, buffer, &pos);
+            int number_of_events;
+            read_from_buffer(buffer, &number_of_events, &pos, sizeof(int));
+            int total_size_of_events;
+            read_from_buffer(buffer, &total_size_of_events, &pos, sizeof(int));
+            int area_id;
+            read_from_buffer(buffer, &area_id, &pos, sizeof(int));
+
+            if (area_id == scene->current_area) {
+                for (int i = 0; i < number_of_events; i++) {
+                    byte event_type = buffer[pos++];
+                    switch (event_type) {
+                    case NETF_MOBEVENT_SPAWN: {
+                        int mob_type;
+                        read_from_buffer(buffer, &mob_type, &pos, sizeof(int));
+
+                        vec2 position;
+                        read_from_buffer(buffer, &position, &pos, sizeof(vec2));
+
+                        int m_id;
+                        read_from_buffer(buffer, &m_id, &pos, sizeof(int));
+
+                        MobCommon* mob = mob_from_id(scene->map, m_id);
+                        MobType*   reg = &mob_registry[mob_type];
+                        mob->mob_type_id = mob_type;
+                        mob->index = index_from_mob_id(m_id);
+                        reg->initialize(mob, scene->game, scene->map, position);
+                        reg->load(mob, scene->map, buffer, &pos);
+                    } break;
+
+                    case NETF_MOBEVENT_UPDATE: {
+                        // TODO TODO TODO TODO TODO TODO
+                    } break;
+
+                    default:
+                        printf("WARNING: UNKNOWN MOB EVENT %i\n", (int)event_type);
+                    }
                 }
             }
             else {
-                printf("Got mob spawns for the wrong area woops!!!!\n");
+                printf("Got mob events for the wrong area woops!!!! Draining buffer...\n");
+                buffer += total_size_of_events;
             }
 
             SDL_UnlockMutex(scene->map->locked);
@@ -645,18 +681,29 @@ int netwrite_guy_area(byte* buffer, int area_id, int* pos) {
     return *pos;
 }
 
-int netwrite_guy_mob_spawns(byte* buffer, RemotePlayer* player, int* pos) {
+int netwrite_guy_mobevents(byte* buffer, RemotePlayer* player, int* pos) {
     int area_id = SDL_AtomicGet(&player->area_id);
-    wait_for_then_use_lock(player->mob_spawn_buffer_locked);
+    wait_for_then_use_lock(player->mob_event_buffer_locked);
 
-    write_to_buffer(buffer, &player->mob_spawn_count, pos, sizeof(int));
+    write_to_buffer(buffer, &player->mob_event_count, pos, sizeof(int));
+    write_to_buffer(buffer, &player->mob_event_buffer_pos, pos, sizeof(int));
     write_to_buffer(buffer, &area_id, pos, sizeof(int));
-    write_to_buffer(buffer, player->mob_spawn_buffer, pos, player->mob_spawn_buffer_pos);
+    write_to_buffer(buffer, player->mob_event_buffer, pos, player->mob_event_buffer_pos);
 
-    player->mob_spawn_buffer_pos = 0;
-    player->mob_spawn_count = 0;
+    player->mob_event_buffer_pos = 0;
+    player->mob_event_count = 0;
 
-    SDL_UnlockMutex(player->mob_spawn_buffer_locked);
+    SDL_UnlockMutex(player->mob_event_buffer_locked);
+    return *pos;
+}
+
+int netwrite_guy_mapstate(byte* buffer, Map* map, int* pos) {
+    wait_for_then_use_lock(map->locked);
+
+    write_to_buffer(buffer, &map->area_id, pos, sizeof(int));
+    write_map_state(map, buffer, pos);
+
+    SDL_UnlockMutex(map->locked);
 }
 
 int netwrite_guy_initialization(WorldScene* scene, byte* buffer) {
@@ -856,9 +903,20 @@ int network_server_loop(void* vdata) {
                     player->local_stream_spot.pos   = scene->controls_stream.pos;
                 }
 
-                if (player->mob_spawn_count > 0) {
-                    *flags |= NETF_MOBSPAWN;
-                    netwrite_guy_mob_spawns(buffer, player, &pos);
+                if (SDL_AtomicGet(&player->just_switched_maps)) {
+                    *flags |= NETF_MAPSTATE;
+
+                    int area_id = SDL_AtomicGet(&player->area_id);
+                    Map* map = cached_map(scene->game, map_asset_for_area(area_id));
+                    map->area_id = area_id;
+                    netwrite_guy_mapstate(buffer, map, &pos);
+
+                    SDL_AtomicSet(&player->just_switched_maps, false);
+                }
+
+                if (player->mob_event_count > 0) {
+                    *flags |= NETF_MOBEVENT;
+                    netwrite_guy_mobevents(buffer, player, &pos);
                 }
 
                 // If there's more than just this guy playing with us, we need to send them the controls
@@ -1340,6 +1398,9 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
         return;
     }
 
+    wait_for_then_use_lock(player->mob_event_buffer_locked);
+    player->mob_event_count = 0;
+
     SDL_assert(door->dest_area > -1);
     int area_id = door->dest_area;
     int map_asset = map_asset_for_area(area_id);
@@ -1370,6 +1431,9 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     guy->old_position.x[Y] = dest_y;
 
     SDL_AtomicSet(&player->area_id, area_id);
+    SDL_AtomicSet(&player->just_switched_maps, true);
+
+    SDL_UnlockMutex(player->mob_event_buffer_locked);
 }
 
 void local_spawn_mob(void* vs, Map* map, struct Game* game, int mobtype, vec2 pos) {
@@ -1391,16 +1455,17 @@ void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id,
 
             int m_id = mob_id(map, mob);
 
-            wait_for_then_use_lock(player->mob_spawn_buffer_locked);
+            wait_for_then_use_lock(player->mob_event_buffer_locked);
 
-            write_to_buffer(player->mob_spawn_buffer, &mob_type_id, &player->mob_spawn_buffer_pos, sizeof(int));
-            write_to_buffer(player->mob_spawn_buffer, &pos, &player->mob_spawn_buffer_pos, sizeof(vec2));
-            write_to_buffer(player->mob_spawn_buffer, &m_id, &player->mob_spawn_buffer_pos, sizeof(int));
-            mob_type->save(mob, map, player->mob_spawn_buffer, &player->mob_spawn_buffer_pos);
+            player->mob_event_buffer[player->mob_event_buffer_pos++] = NETF_MOBEVENT_SPAWN;
+            write_to_buffer(player->mob_event_buffer, &mob_type_id, &player->mob_event_buffer_pos, sizeof(int));
+            write_to_buffer(player->mob_event_buffer, &pos,         &player->mob_event_buffer_pos, sizeof(vec2));
+            write_to_buffer(player->mob_event_buffer, &m_id,        &player->mob_event_buffer_pos, sizeof(int));
+            mob_type->save(mob, map, player->mob_event_buffer,      &player->mob_event_buffer_pos);
 
-            player->mob_spawn_count += 1;
+            player->mob_event_count += 1;
 
-            SDL_UnlockMutex(player->mob_spawn_buffer_locked);
+            SDL_UnlockMutex(player->mob_event_buffer_locked);
         }
     }
 }
@@ -1523,6 +1588,7 @@ void scene_world_update(void* vs, Game* game) {
 
                 int area_id = SDL_AtomicGet(&plr->area_id);
                 Map* map = cached_map(game, map_asset_for_area(area_id));
+                map->area_id = area_id;
 
                 apply_character_physics(game, &plr->guy, &plr->controls, s->gravity, s->drag);
                 collide_character(&plr->guy, &map->tile_collision);

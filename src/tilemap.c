@@ -628,11 +628,16 @@ void draw_map(struct Game* game, Map* map) {
         SDL_RenderFillRects(game->renderer, topbot_borders, 2);
     }
 
+    BENCH_START(small_mobs);
     for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
         MobCommon* mob = &map->state->small_mobs[i];
-        if (mob->mob_type_id != -1)
+        if (mob->mob_type_id != -1) {
+            SDL_assert(mob->mob_type_id >= 0);
             mob_registry[mob->mob_type_id].render(mob, game, map);
+        }
     }
+    BENCH_END(small_mobs);
+    SDL_assert(small_mobs_seconds < 0.01);
     for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
         MobCommon* mob = &map->state->medium_mobs[i];
         if (mob->mob_type_id != -1)
@@ -843,7 +848,7 @@ int mob_id(Map* map, MobCommon* mob) {
         break;
     default:
         SDL_assert(false);
-        return;
+        return -1;
     }
     return offset + mob->index;
 }
@@ -1132,28 +1137,25 @@ void clear_map_state(Map* map) {
     }
 }
 
-// TODO .......vvvv....... (the v arrows don't mean anything specifically)
-// #define SYNC_MAP_STATE(size, mob_list, buffer_op, mob_op)\
+#define SYNC_MAP_STATE(size, mob_list, buffer_op, mob_op, ...)\
+    for (int i = 0; i < MAP_STATE_MAX_##size##_MOBS; i++) {\
+        MobCommon* mob = &map->state->mob_list[i];\
+        buffer_op(buffer, &mob->mob_type_id, pos, sizeof(int));\
+\
+        if (mob->mob_type_id != -1) {\
+            mob->index = i;\
+            __VA_ARGS__;\
+            mob_registry[mob->mob_type_id].mob_op(mob, map, buffer, pos);\
+        }\
+    }
 
 void write_map_state(Map* map, byte* buffer, int* pos) {
-    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
-        MobCommon* mob = &map->state->small_mobs[i];
-        write_to_buffer(buffer, &mob->mob_type_id, pos, sizeof(int));
-
-        if (mob->mob_type_id != -1) {
-            mob_registry[mob->mob_type_id].save(mob, map, buffer, pos);
-        }
-    }
-    // TODO TODO copypaste or macro in medium and large :[ ......^
+    SYNC_MAP_STATE(SMALL,  small_mobs,  write_to_buffer, save);
+    SYNC_MAP_STATE(MEDIUM, medium_mobs, write_to_buffer, save);
+    SYNC_MAP_STATE(LARGE,  large_mobs,  write_to_buffer, save);
 }
 void read_map_state(Map* map, byte* buffer, int* pos) {
-    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
-        MobCommon* mob = &map->state->small_mobs[i];
-        read_from_buffer(buffer, &mob->mob_type_id, pos, sizeof(int));
-
-        if (mob->mob_type_id != -1) {
-            mob_registry[mob->mob_type_id].load(mob, map, buffer, pos);
-        }
-    }
-    // TODO TODO copypaste or macro in medium and large :[ ........^
+    SYNC_MAP_STATE(SMALL,  small_mobs,  read_from_buffer, load);
+    SYNC_MAP_STATE(MEDIUM, medium_mobs, read_from_buffer, load);
+    SYNC_MAP_STATE(LARGE,  large_mobs,  read_from_buffer, load);
 }

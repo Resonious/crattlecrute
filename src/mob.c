@@ -7,7 +7,6 @@ void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos
     SDL_assert(sizeof(MobPon) <= sizeof(SmallMob));
 
     MobPon* pon = (MobPon*)vpon;
-    printf("SPAWNING PON AT (%2.f, %2.f)\n", pos.x, pos.y);
 
     pon->pos = pos;
     pon->frame = 0;
@@ -56,4 +55,7 @@ void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
     read_from_buffer(buffer, &pon->pos, pos, sizeof(vec2));
     read_from_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));
+    pon->frame = 0;
+    pon->frame_counter = 0;
+    pon->frame_inc = 1;
 }
