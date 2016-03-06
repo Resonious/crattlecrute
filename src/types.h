@@ -61,6 +61,7 @@ extern Uint64 ticks_per_second;
 #define ALIGN_16
 #endif
 
+void wait_for_then_use_lock(SDL_mutex* mutex);
 void write_to_buffer(byte* buffer, void* src, int* pos, int size);
 void read_from_buffer(byte* buffer, void* dest, int* pos, int size);
 

@@ -81,6 +81,11 @@ typedef struct RemotePlayer {
     // Server uses these. Applies to player's current area only.
     ControlsBufferSpot mob_stream_spots[MAP_STATE_MAX_MOBS];
 
+    SDL_mutex* mob_spawn_buffer_locked;
+    byte mob_spawn_buffer[256];
+    int mob_spawn_buffer_pos;
+    int mob_spawn_count;
+
     int last_frames_playback_pos;
     ControlsBuffer controls_playback;
 } RemotePlayer;
@@ -132,15 +137,6 @@ typedef struct ServerLoop {
 void net_character_post_update(RemotePlayer* plr) {
     character_post_update(&plr->guy);
     plr->last_frames_playback_pos = plr->controls_playback.pos;
-}
-
-void wait_for_then_use_lock(SDL_mutex* mutex) {
-    /*
-    while (SDL_AtomicGet(lock)) {}
-    SDL_AtomicSet(lock, true);
-    */
-    if (SDL_LockMutex(mutex) != 0)
-        exit(137);
 }
 
 int frames_between_position_syncs(RemotePlayer* plr) {
@@ -276,6 +272,13 @@ RemotePlayer* allocate_new_player(int id, struct sockaddr_in* addr) {
 
     new_player->local_stream_spot.pos = -1;
     new_player->local_stream_spot.frame = -1;
+
+    new_player->mob_spawn_buffer_pos = 0;
+    new_player->mob_spawn_count = 0;
+    new_player->mob_spawn_buffer_locked = SDL_CreateMutex();
+    if (!new_player->mob_spawn_buffer_locked) {
+        printf("BAD MUTEX\n");
+    }
 
     for (int i = 0; i < MAX_PLAYERS; i++)
         SDL_AtomicSet(&new_player->countdown_until_i_get_position_of[i], 0);
@@ -414,6 +417,7 @@ int truncate_buffer_to_lowest_spot(WorldScene* scene, RemotePlayer* player) {
 #define NETF_CONTROLS (1 << 0)
 #define NETF_AREA     (1 << 1)
 #define NETF_POSITION (1 << 2)
+#define NETF_MOBSPAWN (1 << 3)
 
 RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sockaddr_in* addr, int bufsize) {
     int pos = 1; // [0] is opcode, which we know by now
@@ -528,6 +532,33 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
         }
 
         SDL_UnlockMutex(player->controls_playback.locked);
+
+        if (flags & NETF_MOBSPAWN) {
+            wait_for_then_use_lock(scene->map->locked);
+
+            int number_of_spawns;
+            read_from_buffer(buffer, &number_of_spawns, &pos, sizeof(int));
+            int area_id;
+            read_from_buffer(buffer, &area_id, &pos, sizeof(int));
+
+            if (area_id == scene->current_area) {
+                for (int i = 0; i < number_of_spawns; i++) {
+                    int mob_type;
+                    read_from_buffer(buffer, &mob_type, &pos, sizeof(int));
+
+                    vec2 position;
+                    read_from_buffer(buffer, &position, &pos, sizeof(vec2));
+
+                    MobCommon* mob = spawn_mob(scene->map, scene->game, mob_type, position);
+                    mob_registry[mob_type].load(mob, scene->map, buffer, &pos);
+                }
+            }
+            else {
+                printf("Got mob spawns for the wrong area woops!!!!\n");
+            }
+
+            SDL_UnlockMutex(scene->map->locked);
+        }
     }//while (pos < bufsize)
 
     return first_player;
@@ -610,6 +641,20 @@ int netwrite_guy_area(byte* buffer, int area_id, int* pos) {
     return *pos;
 }
 
+int netwrite_guy_mob_spawns(byte* buffer, RemotePlayer* player, int* pos) {
+    int area_id = SDL_AtomicGet(&player->area_id);
+    wait_for_then_use_lock(player->mob_spawn_buffer_locked);
+
+    write_to_buffer(buffer, &player->mob_spawn_count, pos, sizeof(int));
+    write_to_buffer(buffer, &area_id, pos, sizeof(int));
+    write_to_buffer(buffer, player->mob_spawn_buffer, pos, player->mob_spawn_buffer_pos);
+
+    player->mob_spawn_buffer_pos = 0;
+    player->mob_spawn_count = 0;
+
+    SDL_UnlockMutex(player->mob_spawn_buffer_locked);
+}
+
 int netwrite_guy_initialization(WorldScene* scene, byte* buffer) {
     SDL_assert(scene->net.remote_id >= 0);
     SDL_assert(scene->net.remote_id < 255);
@@ -658,8 +703,10 @@ int netwrite_state(WorldScene* scene, byte* buffer, RemotePlayer* target_player,
     for (int i = 0; i < map_count; i++) {
         Map* map = maps[i];
 
+        wait_for_then_use_lock(map->locked);
         write_to_buffer(buffer, &map->area_id, &pos, sizeof(map->area_id));
         write_map_state(map, buffer, &pos);
+        SDL_UnlockMutex(map->locked);
     }
 
     return pos;
@@ -825,6 +872,11 @@ int network_server_loop(void* vdata) {
 
                     player->local_stream_spot.frame = scene->controls_stream.current_frame;
                     player->local_stream_spot.pos   = scene->controls_stream.pos;
+                }
+
+                if (player->mob_spawn_count > 0) {
+                    *flags |= NETF_MOBSPAWN;
+                    netwrite_guy_mob_spawns(buffer, player, &pos);
                 }
 
                 // If there's more than just this guy playing with us, we need to send them the controls
@@ -1349,7 +1401,21 @@ void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id,
     SDL_assert(s->net.status == HOSTING);
 
     MobCommon* mob = spawn_mob(map, game, mob_type_id, pos);
-    // TODO retrieve this mob, "save" it, and store it in a "spawned mobs" buffer for the network loop to pick up.
+    MobType* mob_type = &mob_registry[mob_type_id];
+    if (mob_type != NULL) {
+        for (int i = 0; i < s->net.number_of_players; i++) {
+            RemotePlayer* player = s->net.players[i];
+            if (player == NULL || SDL_AtomicGet(&player->area_id) != map->area_id)
+                continue;
+
+            wait_for_then_use_lock(player->mob_spawn_buffer_locked);
+            write_to_buffer(player->mob_spawn_buffer, &mob_type_id, &player->mob_spawn_buffer_pos, sizeof(int));
+            write_to_buffer(player->mob_spawn_buffer, &pos, &player->mob_spawn_buffer_pos, sizeof(vec2));
+            mob_type->save(mob, map, player->mob_spawn_buffer, &player->mob_spawn_buffer_pos);
+            player->mob_spawn_count += 1;
+            SDL_UnlockMutex(player->mob_spawn_buffer_locked);
+        }
+    }
 }
 
 void record_controls(Controls* from, ControlsBuffer* to) {
@@ -1680,6 +1746,7 @@ void scene_world_update(void* vs, Game* game) {
                 break;
             case JOINING:
                 SDL_CreateThread(network_client_loop, "Network client loop", s);
+                printf("Created client loop thread\n");
                 break;
             default:
                 SDL_assert(false);

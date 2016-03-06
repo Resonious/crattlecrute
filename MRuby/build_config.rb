@@ -1,7 +1,7 @@
 require 'os'
 
 if OS.windows?
-  system('C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat')
+  # system('C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat')
 end
 
 MRuby::Build.new do |conf|

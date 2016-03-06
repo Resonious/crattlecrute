@@ -129,6 +129,8 @@ typedef struct MapState {
 #define MAP_STATE_MAX_MOBS (MAP_STATE_MAX_SMALL_MOBS + MAP_STATE_MAX_MEDIUM_MOBS + MAP_STATE_MAX_LARGE_MOBS)
 
 typedef struct Map {
+    SDL_mutex* locked;
+
     int area_id;
     int asset_id;
     CollisionMap tile_collision;

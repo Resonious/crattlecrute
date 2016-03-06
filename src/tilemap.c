@@ -870,6 +870,7 @@ void update_map(
     void* data,
     void (*spawn_mob_from_spawn_zone)(void*, Map*, struct Game*, int, vec2)
 ) {
+    wait_for_then_use_lock(map->locked);
     if (spawn_mob_from_spawn_zone == NULL)
         goto update_mobs;
     // Spawn mobs when needed.
@@ -926,6 +927,7 @@ update_mobs:
         if (mob->mob_type_id != -1)
             mob_registry[mob->mob_type_id].update(mob, game, map);
     }
+    SDL_UnlockMutex(map->locked);
 }
 
 #define READ(type, dest) \
@@ -961,6 +963,7 @@ CmFileHeader read_cm_file_header(const int asset) {
 
 // Here we're assuming map is just some empty chunk of memory with enough size lol...
 // Enough memory can be allocated ahead of time by reading the file header. (like in assets.c)
+// ALSO ASSUMES THE MUTEX IS ALREADY INITIALIZED... (like in assets.c)
 void load_map(const int asset, /*out*/ Map* map) {
     AssetFile file = load_asset(asset);
     SDL_assert(file.bytes[0] == 'C');

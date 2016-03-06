@@ -277,6 +277,7 @@ Map* cached_map(Game* game, int asset) {
             sizeof(MapState);
 
         cached_asset->map = malloc(bytes_needed_for_map);
+        cached_asset->map->locked = SDL_CreateMutex(); // TODO check for successful mutex creation
         load_map(asset, cached_asset->map);
 
         for (int i = 0; i < cached_asset->map->number_of_tilemaps; i++) {
