@@ -17,6 +17,8 @@ typedef struct MobType {
     void(*render)(void* mob, struct Game* game, struct Map* map);
     void(*save)(void* mob, struct Map* map, byte* buffer, int* pos);
     void(*load)(void* mob, struct Map* map, byte* buffer, int* pos);
+    bool(*sync_send)(void* mob, struct Map* map, byte* buffer, int* pos);
+    void(*sync_receive)(void* mob, struct Map* map, byte* buffer, int* pos);
 } MobType;
 
 #define MOB_FIELDS\
@@ -53,6 +55,8 @@ enum MobId {
 typedef struct MobPon {
     MOB_FIELDS
 
+    vec2 velocity;
+    vec2 target_pos;
     vec2 pos;
     int frame;
     int frame_counter;
@@ -64,6 +68,8 @@ void mob_pon_update(void* pon, struct Game* game, struct Map* map);
 void mob_pon_render(void* pon, struct Game* game, struct Map* map);
 void mob_pon_save(void* pon, struct Map* map, byte* buffer, int* pos);
 void mob_pon_load(void* pon, struct Map* map, byte* buffer, int* pos);
+bool mob_pon_sync_send(void* pon, struct Map* map, byte* buffer, int* pos);
+void mob_pon_sync_receive(void* pon, struct Map* map, byte* buffer, int* pos);
 
 static MobType mob_registry[] = {
     {
@@ -73,7 +79,9 @@ static MobType mob_registry[] = {
         mob_pon_update,
         mob_pon_render,
         mob_pon_save,
-        mob_pon_load
+        mob_pon_load,
+        mob_pon_sync_send,
+        mob_pon_sync_receive,
     }
 };
 

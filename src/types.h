@@ -108,7 +108,11 @@ typedef union mat22 {
 
 mat22 rotation_mat22(float angle);
 vec2 mat_mul_22(mat22* mat, vec2* vec);
-float dot(vec2* u, vec2* v);
-float magnitude(vec2* u);
+float v2_dot(vec2* u, vec2* v);
+float v2_magnitude(vec2* u);
+vec2 v2_add(vec2 u, vec2 v);
+vec2 v2_sub(vec2 u, vec2 v);
+vec2 v2_mul(float s, vec2 u);
+void v2_addeq(vec2* u, vec2 v);
 
 #endif // TYPES_H

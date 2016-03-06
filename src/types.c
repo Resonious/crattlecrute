@@ -39,10 +39,36 @@ vec2 mat_mul_22(mat22* mat, vec2* vec) {
     return r;
 }
 
-float dot(vec2* u, vec2* v) {
+float v2_dot(vec2* u, vec2* v) {
     return u->x * v->x + u->y * v->y;
 }
 
-float magnitude(vec2* u) {
+float v2_magnitude(vec2* u) {
     return sqrtf(u->x * u->x + u->y * u->y);
+}
+
+void v2_addeq(vec2* u, vec2 v) {
+    u->x += v.x;
+    u->y += v.y;
+}
+
+vec2 v2_add(vec2 u, vec2 v) {
+    return (vec2) {
+        u.x + v.x,
+        u.y + v.y
+    };
+}
+
+vec2 v2_sub(vec2 u, vec2 v) {
+    return (vec2) {
+        u.x - v.x,
+        u.y - v.y
+    };
+}
+
+vec2 v2_mul(float s, vec2 u) {
+    return (vec2) {
+        u.x * s,
+        u.y * s
+    };
 }

@@ -186,8 +186,9 @@ void draw_door(struct Game* game, struct Door* door);
 void update_map(
     Map* map, struct Game* game,
     void* data,
-    void(*spawn_mob_from_spawn_zone)(void*, Map*, struct Game*, int, vec2)
-    );
+    void(*spawn_mob_from_spawn_zone)(void*, Map*, struct Game*, int, vec2),
+    void(*after_mob_update)(void*, Map*, struct Game*, MobCommon*)
+);
 MobCommon* spawn_mob(Map* map, struct Game* game, int mob_type_id, vec2 pos);
 int mob_id(Map* map, MobCommon* mob);
 MobCommon* mob_from_id(Map* map, int id);

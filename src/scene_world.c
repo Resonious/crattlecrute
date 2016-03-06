@@ -540,15 +540,13 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
             int area_id;
             read_from_buffer(buffer, &area_id, &pos, sizeof(int));
 
-            if (area_id == scene->current_area) {
-                clear_map_state(scene->map);
-                read_map_state(scene->map, buffer, &pos);
-            }
-            else {
-                printf("ERROR: Got map state for wrong area???\n");
-            }
+            SDL_assert(area_id == scene->current_area);
+            SDL_assert(area_id == scene->map->area_id);
+            clear_map_state(scene->map);
+            read_map_state(scene->map, buffer, &pos);
 
             SDL_UnlockMutex(scene->map->locked);
+            printf("PROCESSED MAP STATE EVENT\n");
         }
 
         if (flags & NETF_MOBEVENT) {
@@ -584,7 +582,15 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
                     } break;
 
                     case NETF_MOBEVENT_UPDATE: {
-                        // TODO TODO TODO TODO TODO TODO
+                        int m_id;
+                        read_from_buffer(buffer, &m_id, &pos, sizeof(int));
+
+                        MobCommon* mob = mob_from_id(scene->map, m_id);
+                        if (mob->mob_type_id == -1) {
+                            printf("WARNING: Got a bad mob update event (mob not registered.) mobid=%i\n", m_id);
+                        }
+                        MobType* reg = &mob_registry[mob->mob_type_id];
+                        reg->sync_receive(mob, scene->map, buffer, &pos);
                     } break;
 
                     default:
@@ -683,7 +689,6 @@ int netwrite_guy_area(byte* buffer, int area_id, int* pos) {
 
 int netwrite_guy_mobevents(byte* buffer, RemotePlayer* player, int* pos) {
     int area_id = SDL_AtomicGet(&player->area_id);
-    wait_for_then_use_lock(player->mob_event_buffer_locked);
 
     write_to_buffer(buffer, &player->mob_event_count, pos, sizeof(int));
     write_to_buffer(buffer, &player->mob_event_buffer_pos, pos, sizeof(int));
@@ -693,7 +698,6 @@ int netwrite_guy_mobevents(byte* buffer, RemotePlayer* player, int* pos) {
     player->mob_event_buffer_pos = 0;
     player->mob_event_count = 0;
 
-    SDL_UnlockMutex(player->mob_event_buffer_locked);
     return *pos;
 }
 
@@ -828,6 +832,7 @@ int network_server_loop(void* vdata) {
                 // Load their map to send it to them.
                 int their_area_id = SDL_AtomicGet(&new_player->area_id);
                 Map* their_map = cached_map(scene->game, map_asset_for_area(their_area_id));
+                their_map->area_id = their_area_id;
 
                 new_player->socket = loop->socket;
                 send(loop->socket, buffer, netwrite_state(scene, buffer, new_player, 1, &their_map), 0);
@@ -903,6 +908,7 @@ int network_server_loop(void* vdata) {
                     player->local_stream_spot.pos   = scene->controls_stream.pos;
                 }
 
+                bool mob_events_locked = false;
                 if (SDL_AtomicGet(&player->just_switched_maps)) {
                     *flags |= NETF_MAPSTATE;
 
@@ -912,12 +918,24 @@ int network_server_loop(void* vdata) {
                     netwrite_guy_mapstate(buffer, map, &pos);
 
                     SDL_AtomicSet(&player->just_switched_maps, false);
+                    wait_for_then_use_lock(player->mob_event_buffer_locked);
+                    mob_events_locked = true;
+
+                    player->mob_event_buffer_pos = 0;
+                    player->mob_event_count = 0;
                 }
 
                 if (player->mob_event_count > 0) {
                     *flags |= NETF_MOBEVENT;
+                    // This will never deadlock with above, as mob_event_count will be 0 if it's locked from there.
+                    wait_for_then_use_lock(player->mob_event_buffer_locked);
+                    mob_events_locked = true;
+
                     netwrite_guy_mobevents(buffer, player, &pos);
                 }
+
+                if (mob_events_locked)
+                    SDL_UnlockMutex(player->mob_event_buffer_locked);
 
                 // If there's more than just this guy playing with us, we need to send them the controls
                 // of all other players..
@@ -1400,13 +1418,14 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
 
     wait_for_then_use_lock(player->mob_event_buffer_locked);
     player->mob_event_count = 0;
+    player->mob_event_buffer_pos = 0;
 
     SDL_assert(door->dest_area > -1);
     int area_id = door->dest_area;
     int map_asset = map_asset_for_area(area_id);
     SDL_assert(map_asset > -1);
     Map* map = cached_map(game, map_asset);
-    s->map->area_id = area_id;
+    map->area_id = area_id;
 
     for (int i = 0; i < s->net.number_of_players; i++) {
         RemotePlayer* other_player = s->net.players[i];
@@ -1450,11 +1469,10 @@ void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id,
 
         for (int i = 0; i < s->net.number_of_players; i++) {
             RemotePlayer* player = s->net.players[i];
-            if (player == NULL || SDL_AtomicGet(&player->area_id) != map->area_id)
+            if (player == NULL || SDL_AtomicGet(&player->area_id) != map->area_id || SDL_AtomicGet(&player->just_switched_maps))
                 continue;
 
             int m_id = mob_id(map, mob);
-
             wait_for_then_use_lock(player->mob_event_buffer_locked);
 
             player->mob_event_buffer[player->mob_event_buffer_pos++] = NETF_MOBEVENT_SPAWN;
@@ -1464,7 +1482,35 @@ void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id,
             mob_type->save(mob, map, player->mob_event_buffer,      &player->mob_event_buffer_pos);
 
             player->mob_event_count += 1;
+            SDL_UnlockMutex(player->mob_event_buffer_locked);
+        }
+    }
+}
 
+#define SYNC_BUFFER_SIZE 256
+void write_mob_events(void* vs, Map* map, struct Game* game, MobCommon* mob) {
+    WorldScene* s = (WorldScene*)vs;
+
+    byte sync_buffer[SYNC_BUFFER_SIZE];
+    int size = 0;
+
+    MobType* reg = &mob_registry[mob->mob_type_id];
+    if (reg->sync_send != NULL && reg->sync_send(mob, map, sync_buffer, &size)) {
+        SDL_assert(size <= SYNC_BUFFER_SIZE);
+        for (int i = 0; i < s->net.number_of_players; i++) {
+            RemotePlayer* player = s->net.players[i];
+            if (player == NULL || SDL_AtomicGet(&player->area_id) != map->area_id || SDL_AtomicGet(&player->just_switched_maps))
+                continue;
+            SDL_assert(player->mob_event_buffer_pos <= 256 && player->mob_event_buffer_pos >= 0);
+
+            int m_id = mob_id(map, mob);
+            wait_for_then_use_lock(player->mob_event_buffer_locked);
+
+            player->mob_event_buffer[player->mob_event_buffer_pos++] = NETF_MOBEVENT_UPDATE;
+            write_to_buffer(player->mob_event_buffer, &m_id,       &player->mob_event_buffer_pos, sizeof(int));
+            write_to_buffer(player->mob_event_buffer, sync_buffer, &player->mob_event_buffer_pos, size);
+
+            player->mob_event_count += 1;
             SDL_UnlockMutex(player->mob_event_buffer_locked);
         }
     }
@@ -1655,7 +1701,12 @@ void scene_world_update(void* vs, Game* game) {
     else if (s->net.status == HOSTING)
         on_mob_spawn = connected_spawn_mob;
 
-    update_map(s->map, game, s, on_mob_spawn);
+    void(*after_mob_update)(void*, Map*, struct Game*, MobCommon*) = NULL;
+    if (s->net.status == HOSTING)
+        after_mob_update = write_mob_events;
+
+    SDL_assert(s->map->area_id == s->current_area);
+    update_map(s->map, game, s, on_mob_spawn, after_mob_update);
     if (s->net.status == HOSTING) {
         int updated_maps[NUMBER_OF_AREAS];
         memset(updated_maps, 0, sizeof(updated_maps));
@@ -1668,7 +1719,7 @@ void scene_world_update(void* vs, Game* game) {
             if (updated_maps[area_id]) continue;
 
             Map* map = cached_map(game, map_asset_for_area(area_id));
-            update_map(map, game, s, connected_spawn_mob);
+            update_map(map, game, s, connected_spawn_mob, after_mob_update);
             updated_maps[area_id] = true;
         }
     }

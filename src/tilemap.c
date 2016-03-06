@@ -887,7 +887,8 @@ MobCommon* mob_from_id(Map* map, int id) {
 void update_map(
     Map* map, struct Game* game,
     void* data,
-    void (*spawn_mob_from_spawn_zone)(void*, Map*, struct Game*, int, vec2)
+    void(*spawn_mob_from_spawn_zone)(void*, Map*, struct Game*, int, vec2),
+    void(*after_mob_update)(void*, Map*, struct Game*, MobCommon*)
 ) {
     wait_for_then_use_lock(map->locked);
     if (spawn_mob_from_spawn_zone == NULL)
@@ -933,18 +934,27 @@ void update_map(
 update_mobs:
     for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
         MobCommon* mob = &map->state->small_mobs[i];
-        if (mob->mob_type_id != -1)
+        if (mob->mob_type_id != -1) {
             mob_registry[mob->mob_type_id].update(mob, game, map);
+            if (after_mob_update != NULL)
+                after_mob_update(data, map, game, mob);
+        }
     }
     for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
         MobCommon* mob = &map->state->medium_mobs[i];
-        if (mob->mob_type_id != -1)
+        if (mob->mob_type_id != -1) {
             mob_registry[mob->mob_type_id].update(mob, game, map);
+            if (after_mob_update != NULL)
+                after_mob_update(data, map, game, mob);
+        }
     }
     for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++) {
         MobCommon* mob = &map->state->large_mobs[i];
-        if (mob->mob_type_id != -1)
+        if (mob->mob_type_id != -1) {
             mob_registry[mob->mob_type_id].update(mob, game, map);
+            if (after_mob_update != NULL)
+                after_mob_update(data, map, game, mob);
+        }
     }
     SDL_UnlockMutex(map->locked);
 }
@@ -1137,14 +1147,13 @@ void clear_map_state(Map* map) {
     }
 }
 
-#define SYNC_MAP_STATE(size, mob_list, buffer_op, mob_op, ...)\
+#define SYNC_MAP_STATE(size, mob_list, buffer_op, mob_op)\
     for (int i = 0; i < MAP_STATE_MAX_##size##_MOBS; i++) {\
         MobCommon* mob = &map->state->mob_list[i];\
         buffer_op(buffer, &mob->mob_type_id, pos, sizeof(int));\
 \
         if (mob->mob_type_id != -1) {\
             mob->index = i;\
-            __VA_ARGS__;\
             mob_registry[mob->mob_type_id].mob_op(mob, map, buffer, pos);\
         }\
     }

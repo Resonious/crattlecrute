@@ -241,7 +241,7 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
 
     // THIS is in RADIANS
     float eye_pos_angle = (guy->ground_angle * (float)M_PI / 180.0f) + atan2f(eye_offset.y, eye_offset.x);
-    float eye_pos_magnitude = magnitude(&eye_offset);
+    float eye_pos_magnitude = v2_magnitude(&eye_offset);
     vec2 actual_eye_offset = {
         eye_pos_magnitude * cosf(eye_pos_angle),
         eye_pos_magnitude * sinf(eye_pos_angle)

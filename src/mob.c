@@ -9,9 +9,12 @@ void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos
     MobPon* pon = (MobPon*)vpon;
 
     pon->pos = pos;
+    pon->target_pos = pos;
     pon->frame = 0;
     pon->frame_counter = 0;
     pon->frame_inc = 1;
+    pon->velocity.x = 0;
+    pon->velocity.y = 0;
     if (rand() % 30 == 1) {
         pon->color.r = 255;
         pon->color.g = 198;
@@ -33,6 +36,29 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
         if (pon->frame == 2 || pon->frame == 0)
             pon->frame_inc *= -1;
     }
+
+    if (game->net_joining) {
+        vec2 diff = v2_sub(pon->target_pos, pon->pos);
+        pon->pos.x += diff.x * 0.6f;
+        pon->pos.y += diff.y * 0.6f;
+    }
+    else {
+        if (pon->velocity.x == 0 || pon->velocity.y == 0) {
+            pon->velocity.x = rand() % 10;
+            pon->velocity.y = rand() % 10;
+        }
+        if (pon->pos.x > map->width)
+            pon->velocity.x = -(rand() % 10);
+        if (pon->pos.x < 0)
+            pon->velocity.x = (rand() % 10);
+
+        if (pon->pos.y > map->height)
+            pon->velocity.y = -(rand() % 10);
+        if (pon->pos.y < 0)
+            pon->velocity.y = (rand() % 10);
+
+        v2_addeq(&pon->pos, v2_mul(1.0f/60.0f, pon->velocity));
+    }
 }
 void mob_pon_render(void* vpon, struct Game* game, struct Map* map) {
     MobPon* pon = (MobPon*)vpon;
@@ -48,14 +74,26 @@ void mob_pon_render(void* vpon, struct Game* game, struct Map* map) {
 }
 void mob_pon_save(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
+    write_to_buffer(buffer, &pon->velocity, pos, sizeof(vec2));
     write_to_buffer(buffer, &pon->pos, pos, sizeof(vec2));
     write_to_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));
 }
 void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
+    read_from_buffer(buffer, &pon->velocity, pos, sizeof(vec2));
     read_from_buffer(buffer, &pon->pos, pos, sizeof(vec2));
     read_from_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));
     pon->frame = 0;
     pon->frame_counter = 0;
     pon->frame_inc = 1;
+    pon->target_pos = pon->pos;
+}
+bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos) {
+    MobPon* pon = (MobPon*)vpon;
+    write_to_buffer(buffer, &pon->pos, pos, sizeof(vec2));
+    return true;
+}
+void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos) {
+    MobPon* pon = (MobPon*)vpon;
+    read_from_buffer(buffer, &pon->target_pos, pos, sizeof(vec2));
 }
