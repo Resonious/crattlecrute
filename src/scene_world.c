@@ -78,7 +78,7 @@ typedef struct RemotePlayer {
     PhysicsState sync;
     SDL_atomic_t frames_until_sync;
 
-    // Server uses these.
+    // Server uses these. Applies to player's current area only.
     ControlsBufferSpot mob_stream_spots[MAP_STATE_MAX_MOBS];
 
     int last_frames_playback_pos;
@@ -727,16 +727,31 @@ int network_server_loop(void* vdata) {
                 new_player->local_stream_spot.frame = scene->controls_stream.current_frame;
                 SDL_UnlockMutex(scene->controls_stream.locked);
 
-                // Find maps of interest to send
+                // Load their map to send it to them.
                 int their_area_id = SDL_AtomicGet(&new_player->area_id);
                 Map* their_map = cached_map(scene->game, map_asset_for_area(their_area_id));
-                /* TODO .....................................................................................................................................
-                for (int i = 0; i < MAP_STATE_MAX_MOBS; i++) {
-                    MobCommon* mob = mob_from_id(their_map, i);
-                    if (mob->mob_type_id == -1)
-                        continue;
+                ControlsBuffer* mob_controls_buffers = scene->net.mob_controls_buffers[their_area_id];
+                // Set positions of mob controls buffers.
+                if (mob_controls_buffers == NULL) {
+                    for (int i = 0; i < MAP_STATE_MAX_MOBS; i++) {
+                        new_player->mob_stream_spots[i].frame = -1;
+                        new_player->mob_stream_spots[i].pos   = -1;
+                    }
                 }
-                */
+                else {
+                    for (int i = 0; i < MAP_STATE_MAX_MOBS; i++) {
+                        MobCommon* mob = mob_from_id(their_map, i);
+                        if (mob->mob_type_id == -1 || mob->controls == NULL) {
+                            new_player->mob_stream_spots[i].frame = -1;
+                            new_player->mob_stream_spots[i].pos   = -1;
+                        }
+                        else {
+                            ControlsBuffer* c_buffer = &mob_controls_buffers[i];
+                            new_player->mob_stream_spots[i].frame = c_buffer->current_frame;
+                            new_player->mob_stream_spots[i].pos   = c_buffer->pos;
+                        }
+                    }
+                }
 
                 new_player->socket = loop->socket;
                 send(loop->socket, buffer, netwrite_state(scene, buffer, new_player, 1, &their_map), 0);
