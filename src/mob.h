@@ -2,7 +2,9 @@
 #define MOB_H
 
 #include "types.h"
+
 struct Map;
+struct Controls;
 
 enum MobSizeClass { SMALL, MEDIUM, LARGE };
 
@@ -13,11 +15,13 @@ typedef struct MobType {
     void(*initialize)(void* mob, struct Game* game, struct Map* map, vec2 pos);
     void(*update)(void* mob, struct Game* game, struct Map* map);
     void(*render)(void* mob, struct Game* game, struct Map* map);
-    void(*save)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
-    void(*load)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
+    void(*save)(void* mob, struct Map* map, byte* buffer, int* pos);
+    void(*load)(void* mob, struct Map* map, byte* buffer, int* pos);
 } MobType;
 
-#define MOB_FIELDS int id, mob_type_id;
+#define MOB_FIELDS\
+    int index, mob_type_id;\
+    struct Controls* controls;
 
 typedef struct MobCommon { MOB_FIELDS } MobCommon;
 
@@ -43,7 +47,8 @@ typedef struct LargeMob {
 
 // === Mobs === (THIS ENUM IS READ BY A RUBY SCRIPT AT COMPILE TIME)
 enum MobId {
-    MOB_PON
+    MOB_PON,
+    NUMBER_OF_MOB_TYPES
 };
 
 typedef struct MobPon {
@@ -58,8 +63,8 @@ typedef struct MobPon {
 void mob_pon_initialize(void* pon, struct Game* game, struct Map* map, vec2 pos);
 void mob_pon_update(void* pon, struct Game* game, struct Map* map);
 void mob_pon_render(void* pon, struct Game* game, struct Map* map);
-void mob_pon_save(void* pon, struct Game* game, struct Map* map, byte* buffer, int* pos);
-void mob_pon_load(void* pon, struct Game* game, struct Map* map, byte* buffer, int* pos);
+void mob_pon_save(void* pon, struct Map* map, byte* buffer, int* pos);
+void mob_pon_load(void* pon, struct Map* map, byte* buffer, int* pos);
 
 static MobType mob_registry[] = {
     {

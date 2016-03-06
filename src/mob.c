@@ -4,11 +4,13 @@
 #include "game.h"
 
 void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos) {
-    SDL_assert(sizeof(MobPon) <= sizeof(SmallMob));
+    SDL_assert(sizeof(MobPon) + sizeof(Controls) <= sizeof(SmallMob));
 
     MobPon* pon = (MobPon*)vpon;
     printf("SPAWNING PON AT (%2.f, %2.f)\n", pos.x, pos.y);
 
+    pon->controls = (Controls*)(pon + 1);
+    SDL_memset(pon->controls, 0, sizeof(Controls));
     pon->pos = pos;
     pon->frame = 0;
     pon->frame_counter = 0;
@@ -47,12 +49,12 @@ void mob_pon_render(void* vpon, struct Game* game, struct Map* map) {
     SDL_SetTextureAlphaMod(pon_tex, pon->color.a);
     world_render_copy(game, pon_tex, &src, &pon->pos, 90, 90, &center);
 }
-void mob_pon_save(void* vpon, struct Game* game, struct Map* map, byte* buffer, int* pos) {
+void mob_pon_save(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
     write_to_buffer(buffer, &pon->pos, pos, sizeof(vec2));
     write_to_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));
 }
-void mob_pon_load(void* vpon, struct Game* game, struct Map* map, byte* buffer, int* pos) {
+void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
     read_from_buffer(buffer, &pon->pos, pos, sizeof(vec2));
     read_from_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));

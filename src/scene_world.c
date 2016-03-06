@@ -78,11 +78,15 @@ typedef struct RemotePlayer {
     PhysicsState sync;
     SDL_atomic_t frames_until_sync;
 
+    // Server uses these.
+    ControlsBufferSpot mob_stream_spots[MAP_STATE_MAX_MOBS];
+
     int last_frames_playback_pos;
     ControlsBuffer controls_playback;
 } RemotePlayer;
 
 typedef struct WorldScene {
+    Game* game;
     float gravity;
     float drag;
     Character guy;
@@ -113,6 +117,9 @@ typedef struct WorldScene {
         // Array of malloced RemotePlayers
         int number_of_players;
         RemotePlayer* players[MAX_PLAYERS];
+
+        // Controls buffers for all applicable mobs for each area.
+        ControlsBuffer* mob_controls_buffers[NUMBER_OF_AREAS];
     } net;
 } WorldScene;
 
@@ -133,7 +140,7 @@ void wait_for_then_use_lock(SDL_mutex* mutex) {
     SDL_AtomicSet(lock, true);
     */
     if (SDL_LockMutex(mutex) != 0)
-        exit(1);
+        exit(137);
 }
 
 int frames_between_position_syncs(RemotePlayer* plr) {
@@ -311,15 +318,19 @@ void write_guy_info_to_buffer(byte* buffer, Character* guy, int area_id, int* po
 }
 
 // balls
-RemotePlayer* netop_initialize_player(WorldScene* scene, byte* buffer, struct sockaddr_in* addr) {
+RemotePlayer* netop_initialize_state(WorldScene* scene, byte* buffer, struct sockaddr_in* addr) {
     int pos = 1;
 
     int player_count;
     read_from_buffer(buffer, &player_count, &pos, sizeof(player_count));
     SDL_assert(player_count >= 0);
+    int map_count;
+    read_from_buffer(buffer, &map_count, &pos, sizeof(map_count));
+    SDL_assert(map_count == 0 || scene->net.status == JOINING);
 
     RemotePlayer* first_player = NULL;
 
+    // Read players
     for (int i = 0; i < player_count; i++) {
         int player_id = (int)buffer[pos++];
         RemotePlayer* player = player_of_id(scene, player_id, addr);
@@ -341,6 +352,19 @@ RemotePlayer* netop_initialize_player(WorldScene* scene, byte* buffer, struct so
         int area_id = SDL_AtomicGet(&player->area_id);
         read_guy_info_from_buffer(buffer, &player->guy, &area_id, &pos);
         SDL_AtomicSet(&player->area_id, area_id);
+    }
+
+    // Read maps
+    for (int i = 0; i < map_count; i++) {
+        int area_id;
+        read_from_buffer(buffer, &area_id, &pos, sizeof(area_id));
+        SDL_assert(area_id >= 0);
+        int map_asset = map_asset_for_area(area_id);
+        SDL_assert(map_asset >= 0);
+        Map* map = cached_map(scene->game, map_asset);
+
+        clear_map_state(map);
+        read_map_state(map, buffer, &pos);
     }
 
     return first_player;
@@ -596,6 +620,8 @@ int netwrite_guy_initialization(WorldScene* scene, byte* buffer) {
 
     int number_of_players = 1;
     write_to_buffer(buffer, &number_of_players, &pos, sizeof(number_of_players));
+    int zero = 0; // 0 maps being sent
+    write_to_buffer(buffer, &zero, &pos, sizeof(zero));
 
     buffer[pos++] = (byte)scene->net.remote_id;
     write_guy_info_to_buffer(buffer, &scene->guy, scene->current_area, &pos);
@@ -603,7 +629,8 @@ int netwrite_guy_initialization(WorldScene* scene, byte* buffer) {
     return pos;
 }
 
-int netwrite_player_positions(WorldScene* scene, byte* buffer, RemotePlayer* target_player) {
+#define netwrite_player_state(scene, buffer, target_player) netwrite_state(scene, buffer, target_player, 0, NULL)
+int netwrite_state(WorldScene* scene, byte* buffer, RemotePlayer* target_player, int map_count, Map** maps) {
     // Only server retains authoritative copies of all player positions.
     SDL_assert(scene->net.status == HOSTING);
 
@@ -611,10 +638,13 @@ int netwrite_player_positions(WorldScene* scene, byte* buffer, RemotePlayer* tar
     buffer[pos++] = NETOP_INITIALIZE_PLAYER;
     // number_of_players - 1 (excluding target) + 1 (including local server player)
     write_to_buffer(buffer, &scene->net.number_of_players, &pos, sizeof(scene->net.number_of_players));
+    // number of maps we're syncing
+    write_to_buffer(buffer, &map_count, &pos, sizeof(map_count));
 
     buffer[pos++] = (byte)scene->net.remote_id;
     write_guy_info_to_buffer(buffer, &scene->guy, scene->current_area, &pos);
 
+    // Write players
     for (int i = 0; i < scene->net.number_of_players; i++) {
         RemotePlayer* player = scene->net.players[i];
         if (player == NULL || player->id == target_player->id)
@@ -622,6 +652,14 @@ int netwrite_player_positions(WorldScene* scene, byte* buffer, RemotePlayer* tar
 
         buffer[pos++] = (byte)player->id;
         write_guy_info_to_buffer(buffer, &player->guy, SDL_AtomicGet(&player->area_id), &pos);
+    }
+
+    // Write maps
+    for (int i = 0; i < map_count; i++) {
+        Map* map = maps[i];
+
+        write_to_buffer(buffer, &map->area_id, &pos, sizeof(map->area_id));
+        write_map_state(map, buffer, &pos);
     }
 
     return pos;
@@ -679,21 +717,29 @@ int network_server_loop(void* vdata) {
         } break;
 
         case NETOP_INITIALIZE_PLAYER: {
-            /*
-            for (int i = 0; i < s->net.number_of_players; i++) {
-                RemotePlayer* plr = s->net.players[i];
-                */
             scene->net.connected = true;
 
-            RemotePlayer* new_player = netop_initialize_player(scene, buffer, &loop->address);
+            RemotePlayer* new_player = netop_initialize_state(scene, buffer, &loop->address);
             if (new_player) {
+                // Initialize local controls stream positions
                 wait_for_then_use_lock(scene->controls_stream.locked);
                 new_player->local_stream_spot.pos   = scene->controls_stream.pos;
                 new_player->local_stream_spot.frame = scene->controls_stream.current_frame;
                 SDL_UnlockMutex(scene->controls_stream.locked);
 
+                // Find maps of interest to send
+                int their_area_id = SDL_AtomicGet(&new_player->area_id);
+                Map* their_map = cached_map(scene->game, map_asset_for_area(their_area_id));
+                /* TODO .....................................................................................................................................
+                for (int i = 0; i < MAP_STATE_MAX_MOBS; i++) {
+                    MobCommon* mob = mob_from_id(their_map, i);
+                    if (mob->mob_type_id == -1)
+                        continue;
+                }
+                */
+
                 new_player->socket = loop->socket;
-                send(loop->socket, buffer, netwrite_player_positions(scene, buffer, new_player), 0);
+                send(loop->socket, buffer, netwrite_state(scene, buffer, new_player, 1, &their_map), 0);
 
                 // Gotta tell those other players that this guy is joining... And set stream positions.
                 for (int i = 0; i < scene->net.number_of_players; i++) {
@@ -710,7 +756,7 @@ int network_server_loop(void* vdata) {
                     SDL_UnlockMutex(other_player->controls_playback.locked);
 
                     // HAHA! TCP
-                    send(other_player->socket, buffer, netwrite_player_positions(scene, buffer, other_player), 0);
+                    send(other_player->socket, buffer, netwrite_player_state(scene, buffer, other_player), 0);
                 }
             }
         } break;
@@ -1049,7 +1095,7 @@ int network_client_loop(void* vdata) {
             } break;
 
             case NETOP_INITIALIZE_PLAYER:
-                netop_initialize_player(scene, buffer, NULL);
+                netop_initialize_state(scene, buffer, NULL);
                 break;
 
             case NETOP_UPDATE_CONTROLS: {
@@ -1090,6 +1136,7 @@ int set_tcp_nodelay(SOCKET socket) {
 
 void scene_world_initialize(void* vdata, Game* game) {
     WorldScene* data = (WorldScene*)vdata;
+    data->game = game;
     SDL_memset(data->editable_text, 0, sizeof(data->editable_text));
     SDL_strlcat(data->editable_text, "hey", EDITABLE_TEXT_BUFFER_SIZE);
 
@@ -1106,12 +1153,14 @@ void scene_world_initialize(void* vdata, Game* game) {
         data->net.number_of_players = 0;
         memset(data->net.players, 0, sizeof(data->net.players));
 
+        memset(data->net.mob_controls_buffers, NULL, sizeof(data->net.mob_controls_buffers));
+
         data->net.connected = false;
         data->net.status = NOT_CONNECTED;
         SDL_AtomicSet(&data->net.status_message_locked, false);
 
         SDL_memset(data->net.textinput_ip_address, 0, sizeof(data->net.textinput_ip_address));
-        SDL_strlcat(data->net.textinput_ip_address, "0.0.0.0", EDITABLE_TEXT_BUFFER_SIZE);
+        SDL_strlcat(data->net.textinput_ip_address, "127.0.0.1", EDITABLE_TEXT_BUFFER_SIZE);
         SDL_memset(data->net.textinput_port, 0, sizeof(data->net.textinput_port));
         SDL_strlcat(data->net.textinput_port, "2997", EDITABLE_TEXT_BUFFER_SIZE);
 
@@ -1274,6 +1323,54 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     guy->old_position.x[Y] = dest_y;
 
     SDL_AtomicSet(&player->area_id, area_id);
+}
+
+void local_spawn_mob(void* vs, Map* map, struct Game* game, int mobtype, vec2 pos) {
+    spawn_mob(map, game, mobtype, pos);
+}
+
+void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id, vec2 pos) {
+    WorldScene* s = (WorldScene*)vs;
+    SDL_assert(s->net.status == HOSTING);
+
+    MobCommon* mob = spawn_mob(map, game, mob_type_id, pos);
+    // TODO retrieve this mob, "save" it, and store it in a "spawned mobs" buffer for the network loop to pick up.
+}
+
+void record_controls(Controls* from, ControlsBuffer* to) {
+    for (enum Control ctrl = 0; ctrl < NUM_CONTROLS; ctrl++) {
+        if (from->this_frame[ctrl])
+            to->bytes[to->pos++] = ctrl;
+    }
+    to->bytes[to->pos++] = CONTROL_BLOCK_END;
+    SDL_assert(to->pos < CONTROLS_BUFFER_SIZE);
+
+    to->current_frame += 1;
+
+    to->size = to->pos;
+    to->bytes[0] = to->current_frame;
+}
+
+void record_mob_controls(WorldScene* s, Map* map) {
+    for (int i = 0; i < MAP_STATE_MAX_MOBS; i++) {
+        MobCommon* mob = mob_from_id(map, i);
+        if (mob->mob_type_id == -1 || mob->controls == NULL)
+            goto next;
+
+        ControlsBuffer* map_buffers = s->net.mob_controls_buffers[map->area_id];
+        if (map_buffers == NULL) {
+            map_buffers = s->net.mob_controls_buffers[map->area_id] = aligned_malloc(sizeof(ControlsBuffer) * MAP_STATE_MAX_MOBS);
+            map_buffers->current_frame = 0;
+            map_buffers->pos = 0;
+        }
+        ControlsBuffer* c_buffer = &map_buffers[i];
+        wait_for_then_use_lock(c_buffer->locked);
+
+        record_controls(mob->controls, c_buffer);
+
+        next:
+        SDL_UnlockMutex(c_buffer->locked);
+    }
 }
 
 #define PERCENT_CHANCE(percent) (rand() < RAND_MAX / (100 / percent))
@@ -1440,7 +1537,13 @@ void scene_world_update(void* vs, Game* game) {
     update_character_animation(&s->guy);
 
     // Update everything else on the map(s)
-    update_map(s->map, game);
+    void(*on_mob_spawn)(void*, Map*, struct Game*, int, vec2) = NULL;
+    if (s->net.status == NOT_CONNECTED)
+        on_mob_spawn = local_spawn_mob;
+    else if (s->net.status == HOSTING)
+        on_mob_spawn = connected_spawn_mob;
+
+    update_map(s->map, game, s, on_mob_spawn);
     if (s->net.status == HOSTING) {
         int updated_maps[NUMBER_OF_AREAS];
         memset(updated_maps, 0, sizeof(updated_maps));
@@ -1452,7 +1555,9 @@ void scene_world_update(void* vs, Game* game) {
             int area_id = SDL_AtomicGet(&player->area_id);
             if (updated_maps[area_id]) continue;
 
-            update_map(s->map);
+            Map* map = cached_map(game, map_asset_for_area(area_id));
+            update_map(map, game, s, connected_spawn_mob);
+            record_mob_controls(s, map);
             updated_maps[area_id] = true;
         }
     }
@@ -1476,17 +1581,7 @@ void scene_world_update(void* vs, Game* game) {
 
     if (s->controls_stream.current_frame >= 0) {
         // record
-        for (enum Control ctrl = 0; ctrl < NUM_CONTROLS; ctrl++) {
-            if (game->controls.this_frame[ctrl])
-                s->controls_stream.bytes[s->controls_stream.pos++] = ctrl;
-        }
-        s->controls_stream.bytes[s->controls_stream.pos++] = CONTROL_BLOCK_END;
-        SDL_assert(s->controls_stream.pos < CONTROLS_BUFFER_SIZE);
-
-        s->controls_stream.current_frame += 1;
-
-        s->controls_stream.size = s->controls_stream.pos;
-        s->controls_stream.bytes[0] = s->controls_stream.current_frame;
+        record_controls(&game->controls, &s->controls_stream);
 
         if (s->controls_stream.current_frame >= 255) {
             SDL_assert(s->net.status == HOSTING); // TODO OTHERWISE THIS MEANS SERVER CRASHED!
@@ -1555,6 +1650,7 @@ void scene_world_update(void* vs, Game* game) {
         else if (just_pressed(&game->controls, C_F2)) {
             start_editing_text(game, s->net.textinput_ip_address, EDITABLE_TEXT_BUFFER_SIZE, &text_box_rect);
             s->net.status = JOINING;
+            game->net_joining = true;
         }
     }
     else {

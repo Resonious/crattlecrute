@@ -67,6 +67,7 @@ typedef struct Game {
     // Remember to #include "scene.h" if you're gonna use this.
     struct Scene* current_scene;
     void* current_scene_data;
+    bool net_joining;
     bool follow_cam_y;
     vec4 camera_target;
     vec4 camera;

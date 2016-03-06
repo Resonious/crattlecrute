@@ -807,12 +807,71 @@ void slide_character(float gravity, struct Character* guy) {
         for (int k = 0; k < MAP_STATE_MAX_##size##_MOBS ; k++) {\
             if (map->state->mob_list[k].mob_type_id == -1) {\
                 mob_data = (MobCommon*)&map->state->mob_list[k];\
-                mob_data->id = k;\
+                mob_data->index = k;\
                 goto spawn_it;\
             }\
-        } goto done;
+        } return NULL;
 
-void update_map(Map* map, Game* game) {
+MobCommon* spawn_mob(Map* map, struct Game* game, int mob_type_id, vec2 pos) {
+    MobType* mob_to_spawn = &mob_registry[mob_type_id];
+    SDL_assert(mob_to_spawn->id == mob_type_id);
+
+    MobCommon* mob_data;
+    switch (mob_to_spawn->size_class) {
+        FIND_SPAWN_SLOT(SMALL,  small_mobs)
+        FIND_SPAWN_SLOT(MEDIUM, medium_mobs)
+        FIND_SPAWN_SLOT(LARGE,  large_mobs)
+    default:
+        printf("UNKNOWN SIZE CLASS. mob_type_id: %i, spawn class: %i", mob_to_spawn->id, mob_to_spawn->size_class);
+        return NULL;
+    }
+
+spawn_it:
+    mob_data->mob_type_id = mob_type_id;
+    mob_to_spawn->initialize((void*)mob_data, game, map, pos);
+    return mob_data;
+}
+
+int mob_id(Map* map, MobCommon* mob) {
+    int offset = 0;
+    MobType* mob_type = &mob_registry[mob->mob_type_id];
+    switch (mob_type->size_class) {
+    case SMALL:
+        break;
+    case LARGE:  offset += MAP_STATE_MAX_MEDIUM_MOBS;
+    case MEDIUM: offset += MAP_STATE_MAX_SMALL_MOBS;
+        break;
+    default:
+        SDL_assert(false);
+        return;
+    }
+    return offset + mob->index;
+}
+
+MobCommon* mob_from_id(Map* map, int id) {
+    MobCommon* mob_list = map->state->small_mobs;
+
+    if (id > MAP_STATE_MAX_SMALL_MOBS) {
+        id -= MAP_STATE_MAX_SMALL_MOBS;
+        mob_list = map->state->medium_mobs;
+    }
+    if (id > MAP_STATE_MAX_MEDIUM_MOBS) {
+        id -= MAP_STATE_MAX_MEDIUM_MOBS;
+        mob_list = map->state->large_mobs;
+        SDL_assert(id < MAP_STATE_MAX_LARGE_MOBS);
+    }
+    SDL_assert(id >= 0);
+
+    return &mob_list[id];
+}
+
+void update_map(
+    Map* map, struct Game* game,
+    void* data,
+    void (*spawn_mob_from_spawn_zone)(void*, Map*, struct Game*, int, vec2)
+) {
+    if (spawn_mob_from_spawn_zone == NULL)
+        goto update_mobs;
     // Spawn mobs when needed.
     for (int i = 0; i < map->number_of_spawn_zones; i++) {
         MobSpawnZone* zone = &map->spawn_zones[i];
@@ -826,34 +885,15 @@ void update_map(Map* map, Game* game) {
             for (int j = 0; j < zone->number_of_spawns; j++) {
                 MobSpawnRate* spawn = &zone->spawns[j];
                 if (spawn->percentage != 0 && random <= spawn->percentage) {
-                    MobType* mob_to_spawn = &mob_registry[spawn->mob_type_id];
-                    SDL_assert(mob_to_spawn->id == spawn->mob_type_id);
+                    vec2 target_pos = {
+                        zone->x + (rand() % zone->width),
+                        zone->y + (rand() % zone->height)
+                    };
+                    spawn_mob_from_spawn_zone(data, map, game, spawn->mob_type_id, target_pos);
 
-                    MobCommon* mob_data;
-                    switch (mob_to_spawn->size_class) {
-                        FIND_SPAWN_SLOT(SMALL,  small_mobs)
-                        FIND_SPAWN_SLOT(MEDIUM, medium_mobs)
-                        FIND_SPAWN_SLOT(LARGE,  large_mobs)
-                    default:
-                        printf("UNKNOWN SIZE CLASS. mob_type_id: %i, spawn class: %i", mob_to_spawn->id, mob_to_spawn->size_class);
-                        goto done;
-                    }
-
-                spawn_it:
-                    mob_data->mob_type_id = spawn->mob_type_id;
-                    mob_to_spawn->initialize(
-                        (void*)mob_data,
-                        map, game,
-                        (vec2) {
-                            zone->x + (rand() % zone->width),
-                            zone->y + (rand() % zone->height)
-                        }
-                    );
-
-                done:
                     // TODO add spawn frequency or something to maps.
                     zone->countdown_until_next_spawn_attempt = 60 * 10;
-                    break;
+                    goto update_mobs;
                 }
             }
         }
@@ -870,6 +910,7 @@ void update_map(Map* map, Game* game) {
     UPDATE_MOBS(MEDIUM, medium_mobs);
     UPDATE_MOBS(LARGE,  large_mobs);
     */
+update_mobs:
     for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
         MobCommon* mob = &map->state->small_mobs[i];
         if (mob->mob_type_id != -1)
@@ -1059,10 +1100,46 @@ void load_map(const int asset, /*out*/ Map* map) {
     SDL_assert(file.size == pos);
 
     map->state = (MapState*)(map->spawn_zones + spawn_zone_count);
-    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++)
+    clear_map_state(map);
+}
+
+void clear_map_state(Map* map) {
+    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
         map->state->small_mobs[i].mob_type_id = -1;
-    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++)
+        map->state->small_mobs[i].controls = NULL;
+    }
+    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
         map->state->medium_mobs[i].mob_type_id = -1;
-    for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++)
+        map->state->medium_mobs[i].controls = NULL;
+    }
+    for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++) {
         map->state->large_mobs[i].mob_type_id = -1;
+        map->state->large_mobs[i].controls = NULL;
+    }
+}
+
+// TODO .......vvvv....... (the v arrows don't mean anything specifically)
+// #define SYNC_MAP_STATE(size, mob_list, buffer_op, mob_op)\
+
+void write_map_state(Map* map, byte* buffer, int* pos) {
+    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
+        MobCommon* mob = &map->state->small_mobs[i];
+        write_to_buffer(buffer, &mob->mob_type_id, pos, sizeof(int));
+
+        if (mob->mob_type_id != -1) {
+            mob_registry[mob->mob_type_id].save(mob, map, buffer, pos);
+        }
+    }
+    // TODO TODO copypaste or macro in medium and large :[ ......^
+}
+void read_map_state(Map* map, byte* buffer, int* pos) {
+    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
+        MobCommon* mob = &map->state->small_mobs[i];
+        read_from_buffer(buffer, &mob->mob_type_id, pos, sizeof(int));
+
+        if (mob->mob_type_id != -1) {
+            mob_registry[mob->mob_type_id].load(mob, map, buffer, pos);
+        }
+    }
+    // TODO TODO copypaste or macro in medium and large :[ ........^
 }

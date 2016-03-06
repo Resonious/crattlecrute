@@ -118,7 +118,6 @@ typedef struct MobSpawnZone {
     MobSpawnRate* spawns;
 } MobSpawnZone;
 
-// TODO SAVE AND LOAD.
 #define MAP_STATE_MAX_SMALL_MOBS 10
 #define MAP_STATE_MAX_MEDIUM_MOBS 5
 #define MAP_STATE_MAX_LARGE_MOBS 2
@@ -127,6 +126,7 @@ typedef struct MapState {
     MediumMob medium_mobs[MAP_STATE_MAX_MEDIUM_MOBS];
     LargeMob  large_mobs[MAP_STATE_MAX_LARGE_MOBS];
 } MapState;
+#define MAP_STATE_MAX_MOBS (MAP_STATE_MAX_SMALL_MOBS + MAP_STATE_MAX_MEDIUM_MOBS + MAP_STATE_MAX_LARGE_MOBS)
 
 typedef struct Map {
     int area_id;
@@ -181,6 +181,17 @@ void load_map(const int asset, /*out*/Map* map);
 void draw_map(struct Game* game, Map* map);
 void draw_parallax_background(struct Game* game, struct Map* map, struct ParallaxBackground* background);
 void draw_door(struct Game* game, struct Door* door);
-void update_map(Map* map, struct Game* game);
+void update_map(
+    Map* map, struct Game* game,
+    void* data,
+    void(*spawn_mob_from_spawn_zone)(void*, Map*, struct Game*, int, vec2)
+    );
+MobCommon* spawn_mob(Map* map, struct Game* game, int mob_type_id, vec2 pos);
+int mob_id(Map* map, MobCommon* mob);
+MobCommon* mob_from_id(Map* map, int id);
+
+void clear_map_state(Map* map);
+void write_map_state(Map* map, byte* buffer, int* pos);
+void read_map_state(Map* map, byte* buffer, int* pos);
 
 #endif // TILEMAP_H

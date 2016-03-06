@@ -16,7 +16,7 @@ void interact_character_with_world(
     struct Controls* controls,
     struct Map* map,
     void* data,
-    void (*go_through_door)(void*, struct Game* game, struct Character*, struct Door*)
+    void (*go_through_door)(void*, struct Game*, struct Character*, struct Door*)
 ) {
     for (int i = 0; i < map->number_of_doors; i++) {
         Door* door = &map->doors[i];
