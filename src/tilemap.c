@@ -848,21 +848,35 @@ int mob_id(Map* map, MobCommon* mob) {
     return offset + mob->index;
 }
 
+int index_from_mob_id(int id) {
+    if (id > MAP_STATE_MAX_SMALL_MOBS) {
+        id -= MAP_STATE_MAX_SMALL_MOBS;
+        if (id > MAP_STATE_MAX_MEDIUM_MOBS)
+            id -= MAP_STATE_MAX_MEDIUM_MOBS;
+    }
+    SDL_assert(id >= 0);
+    return id;
+}
+
 MobCommon* mob_from_id(Map* map, int id) {
     MobCommon* mob_list = map->state->small_mobs;
+    int offset = sizeof(SmallMob);
 
     if (id > MAP_STATE_MAX_SMALL_MOBS) {
         id -= MAP_STATE_MAX_SMALL_MOBS;
         mob_list = map->state->medium_mobs;
-    }
-    if (id > MAP_STATE_MAX_MEDIUM_MOBS) {
-        id -= MAP_STATE_MAX_MEDIUM_MOBS;
-        mob_list = map->state->large_mobs;
-        SDL_assert(id < MAP_STATE_MAX_LARGE_MOBS);
+        offset = sizeof(MediumMob);
+
+        if (id > MAP_STATE_MAX_MEDIUM_MOBS) {
+            id -= MAP_STATE_MAX_MEDIUM_MOBS;
+            mob_list = map->state->large_mobs;
+            SDL_assert(id < MAP_STATE_MAX_LARGE_MOBS);
+            offset = sizeof(LargeMob);
+        }
     }
     SDL_assert(id >= 0);
 
-    return &mob_list[id];
+    return (MobCommon*)(((byte*)mob_list) + id * offset);
 }
 
 void update_map(

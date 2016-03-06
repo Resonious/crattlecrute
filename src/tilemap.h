@@ -191,6 +191,7 @@ void update_map(
 MobCommon* spawn_mob(Map* map, struct Game* game, int mob_type_id, vec2 pos);
 int mob_id(Map* map, MobCommon* mob);
 MobCommon* mob_from_id(Map* map, int id);
+int index_from_mob_id(int id);
 
 void clear_map_state(Map* map);
 void write_map_state(Map* map, byte* buffer, int* pos);

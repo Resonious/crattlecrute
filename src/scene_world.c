@@ -549,8 +549,17 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
                     vec2 position;
                     read_from_buffer(buffer, &position, &pos, sizeof(vec2));
 
-                    MobCommon* mob = spawn_mob(scene->map, scene->game, mob_type, position);
-                    mob_registry[mob_type].load(mob, scene->map, buffer, &pos);
+                    int m_id;
+                    read_from_buffer(buffer, &m_id, &pos, sizeof(int));
+
+                    // mob = spawn_mob(scene->map, scene->game, mob_type, position);
+                    // TODO TODO TODO something is wrong with this. Probably to do with ID generating.
+                    MobCommon* mob = mob_from_id(scene->map, m_id);
+                    MobType*   reg = &mob_registry[mob_type];
+                    mob->mob_type_id = mob_type;
+                    mob->index       = index_from_mob_id(m_id);
+                    reg->initialize(mob, scene->game, scene->map, position);
+                    reg->load(mob, scene->map, buffer, &pos);
                 }
             }
             else {
@@ -1401,16 +1410,20 @@ void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id,
     SDL_assert(s->net.status == HOSTING);
 
     MobCommon* mob = spawn_mob(map, game, mob_type_id, pos);
-    MobType* mob_type = &mob_registry[mob_type_id];
-    if (mob_type != NULL) {
+    if (mob != NULL) {
+        MobType* mob_type = &mob_registry[mob_type_id];
+
         for (int i = 0; i < s->net.number_of_players; i++) {
             RemotePlayer* player = s->net.players[i];
             if (player == NULL || SDL_AtomicGet(&player->area_id) != map->area_id)
                 continue;
 
+            int m_id = mob_id(map, mob);
+
             wait_for_then_use_lock(player->mob_spawn_buffer_locked);
             write_to_buffer(player->mob_spawn_buffer, &mob_type_id, &player->mob_spawn_buffer_pos, sizeof(int));
             write_to_buffer(player->mob_spawn_buffer, &pos, &player->mob_spawn_buffer_pos, sizeof(vec2));
+            write_to_buffer(player->mob_spawn_buffer, &m_id, &player->mob_spawn_buffer_pos, sizeof(int));
             mob_type->save(mob, map, player->mob_spawn_buffer, &player->mob_spawn_buffer_pos);
             player->mob_spawn_count += 1;
             SDL_UnlockMutex(player->mob_spawn_buffer_locked);
@@ -1769,6 +1782,7 @@ void draw_text_box(struct Game* game, SDL_Rect* text_box_rect, char* text) {
     SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
 }
 
+
 void scene_world_render(void* vs, Game* game) {
     WorldScene* s = (WorldScene*)vs;
     /* == Keeping this around in case I want it ==
@@ -1808,9 +1822,12 @@ void scene_world_render(void* vs, Game* game) {
 #endif
     */
 
+    BENCH_START(draw_map);
     // Draw WHOLE MAP
     draw_map(game, s->map);
+    BENCH_END(draw_map);
 
+    BENCH_START(characters);
     // Draw guys
     {
         draw_character(game, &s->guy, &s->guy_view);
@@ -1820,8 +1837,10 @@ void scene_world_render(void* vs, Game* game) {
                 draw_character(game, &player->guy, &s->guy_view);
         }
     }
+    BENCH_END(characters);
 
     // Recording indicator
+    /*
     {
         char* text = NULL;
         int num = 0;
@@ -1837,7 +1856,9 @@ void scene_world_render(void* vs, Game* game) {
         if (text)
             draw_text_f(game, game->window_width / 2 - 128, game->window_height - 35, text, num);
     }
+    */
 
+    BENCH_START(editable_text);
     // Draw editable text box!!
     if (game->text_edit.text == s->editable_text) {
         draw_text_box(game, &text_box_rect, s->editable_text);
@@ -1853,13 +1874,17 @@ void scene_world_render(void* vs, Game* game) {
             draw_text_box(game, &text_box_rect, s->net.textinput_ip_address);
         }
     }
+    BENCH_END(editable_text);
 
+    BENCH_START(status_message);
     if (s->net.status != NOT_CONNECTED) {
         set_text_color(game, 100, 50, 255);
         draw_text(game, 10, game->window_height - 50, s->net.status_message);
     }
+    BENCH_END(status_message);
 
 #ifdef _DEBUG
+    BENCH_START(ping);
     for (int i = 0; i < s->net.number_of_players; i++) {
         RemotePlayer* player = s->net.players[i];
         if (s->net.status == JOINING && player->id != 0) continue;
@@ -1875,6 +1900,7 @@ void scene_world_render(void* vs, Game* game) {
             draw_text_ex_f(game, game->window_width - 200, game->window_height - 60 - i * 20, -1, 0.7f, "P%i Ping: %.1fms", player->id, player->ping);
         }
     }
+    BENCH_END(ping);
 #endif
 }
 
