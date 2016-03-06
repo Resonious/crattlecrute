@@ -1123,15 +1123,12 @@ void load_map(const int asset, /*out*/ Map* map) {
 void clear_map_state(Map* map) {
     for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
         map->state->small_mobs[i].mob_type_id = -1;
-        map->state->small_mobs[i].controls = NULL;
     }
     for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
         map->state->medium_mobs[i].mob_type_id = -1;
-        map->state->medium_mobs[i].controls = NULL;
     }
     for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++) {
         map->state->large_mobs[i].mob_type_id = -1;
-        map->state->large_mobs[i].controls = NULL;
     }
 }
 

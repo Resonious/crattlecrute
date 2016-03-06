@@ -20,8 +20,7 @@ typedef struct MobType {
 } MobType;
 
 #define MOB_FIELDS\
-    int index, mob_type_id;\
-    struct Controls* controls;
+    int index, mob_type_id;
 
 typedef struct MobCommon { MOB_FIELDS } MobCommon;
 

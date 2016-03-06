@@ -92,14 +92,14 @@
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\..\..\MRuby\include;..\..\src\main\windows;..\..\..\win;..\..\..\STB;..\..\..\src;..\..\include;%(AdditionalIncludeDirectories);"$(DXSDK_DIR)\Include";</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>X86;DRAW_FPS;EMBEDDED_ASSETS;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <CompileAs>Default</CompileAs>
+      <CompileAs>CompileAsC</CompileAs>
       <ExceptionHandling>false</ExceptionHandling>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
@@ -111,9 +111,9 @@
       <AdditionalDependencies>libmruby.lib;ws2_32.lib;SDL2main.lib;winmm.lib;imm32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <CLRUnmanagedCodeCheck>false</CLRUnmanagedCodeCheck>
-      <AdditionalLibraryDirectories>..\..\..\MRuby\build\host-debug\lib;..\SDLmain\Win32\$(Configuration);$(DXSDK_DIR)\lib\x86</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\..\MRuby\build\32bit-debug\lib;..\SDLmain\Win32\$(Configuration);$(DXSDK_DIR)\lib\x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

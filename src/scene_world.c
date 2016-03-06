@@ -36,6 +36,7 @@ extern SDL_Window* main_window;
 #define CONTROLS_BUFFER_SIZE (255 * NUM_CONTROLS)
 #define CONTROL_BLOCK_END NUM_CONTROLS
 #define MAX_PLAYERS 20
+#define MOB_EVENT_BUFFER_SIZE (1024)
 
 typedef struct ControlsBuffer {
     SDL_mutex* locked;
@@ -78,9 +79,6 @@ typedef struct RemotePlayer {
     PhysicsState sync;
     SDL_atomic_t frames_until_sync;
 
-    // Server uses these. Applies to player's current area only.
-    ControlsBufferSpot mob_stream_spots[MAP_STATE_MAX_MOBS];
-
     SDL_mutex* mob_spawn_buffer_locked;
     byte mob_spawn_buffer[256];
     int mob_spawn_buffer_pos;
@@ -122,9 +120,6 @@ typedef struct WorldScene {
         // Array of malloced RemotePlayers
         int number_of_players;
         RemotePlayer* players[MAX_PLAYERS];
-
-        // Controls buffers for all applicable mobs for each area.
-        ControlsBuffer* mob_controls_buffers[NUMBER_OF_AREAS];
     } net;
 } WorldScene;
 
@@ -786,28 +781,6 @@ int network_server_loop(void* vdata) {
                 // Load their map to send it to them.
                 int their_area_id = SDL_AtomicGet(&new_player->area_id);
                 Map* their_map = cached_map(scene->game, map_asset_for_area(their_area_id));
-                ControlsBuffer* mob_controls_buffers = scene->net.mob_controls_buffers[their_area_id];
-                // Set positions of mob controls buffers.
-                if (mob_controls_buffers == NULL) {
-                    for (int i = 0; i < MAP_STATE_MAX_MOBS; i++) {
-                        new_player->mob_stream_spots[i].frame = -1;
-                        new_player->mob_stream_spots[i].pos   = -1;
-                    }
-                }
-                else {
-                    for (int i = 0; i < MAP_STATE_MAX_MOBS; i++) {
-                        MobCommon* mob = mob_from_id(their_map, i);
-                        if (mob->mob_type_id == -1 || mob->controls == NULL) {
-                            new_player->mob_stream_spots[i].frame = -1;
-                            new_player->mob_stream_spots[i].pos   = -1;
-                        }
-                        else {
-                            ControlsBuffer* c_buffer = &mob_controls_buffers[i];
-                            new_player->mob_stream_spots[i].frame = c_buffer->current_frame;
-                            new_player->mob_stream_spots[i].pos   = c_buffer->pos;
-                        }
-                    }
-                }
 
                 new_player->socket = loop->socket;
                 send(loop->socket, buffer, netwrite_state(scene, buffer, new_player, 1, &their_map), 0);
@@ -1229,8 +1202,6 @@ void scene_world_initialize(void* vdata, Game* game) {
         data->net.number_of_players = 0;
         memset(data->net.players, 0, sizeof(data->net.players));
 
-        memset(data->net.mob_controls_buffers, NULL, sizeof(data->net.mob_controls_buffers));
-
         data->net.connected = false;
         data->net.status = NOT_CONNECTED;
         SDL_AtomicSet(&data->net.status_message_locked, false);
@@ -1421,11 +1392,14 @@ void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id,
             int m_id = mob_id(map, mob);
 
             wait_for_then_use_lock(player->mob_spawn_buffer_locked);
+
             write_to_buffer(player->mob_spawn_buffer, &mob_type_id, &player->mob_spawn_buffer_pos, sizeof(int));
             write_to_buffer(player->mob_spawn_buffer, &pos, &player->mob_spawn_buffer_pos, sizeof(vec2));
             write_to_buffer(player->mob_spawn_buffer, &m_id, &player->mob_spawn_buffer_pos, sizeof(int));
             mob_type->save(mob, map, player->mob_spawn_buffer, &player->mob_spawn_buffer_pos);
+
             player->mob_spawn_count += 1;
+
             SDL_UnlockMutex(player->mob_spawn_buffer_locked);
         }
     }
@@ -1443,28 +1417,6 @@ void record_controls(Controls* from, ControlsBuffer* to) {
 
     to->size = to->pos;
     to->bytes[0] = to->current_frame;
-}
-
-void record_mob_controls(WorldScene* s, Map* map) {
-    for (int i = 0; i < MAP_STATE_MAX_MOBS; i++) {
-        MobCommon* mob = mob_from_id(map, i);
-        if (mob->mob_type_id == -1 || mob->controls == NULL)
-            goto next;
-
-        ControlsBuffer* map_buffers = s->net.mob_controls_buffers[map->area_id];
-        if (map_buffers == NULL) {
-            map_buffers = s->net.mob_controls_buffers[map->area_id] = aligned_malloc(sizeof(ControlsBuffer) * MAP_STATE_MAX_MOBS);
-            map_buffers->current_frame = 0;
-            map_buffers->pos = 0;
-        }
-        ControlsBuffer* c_buffer = &map_buffers[i];
-        wait_for_then_use_lock(c_buffer->locked);
-
-        record_controls(mob->controls, c_buffer);
-
-        next:
-        SDL_UnlockMutex(c_buffer->locked);
-    }
 }
 
 #define PERCENT_CHANCE(percent) (rand() < RAND_MAX / (100 / percent))
@@ -1651,7 +1603,6 @@ void scene_world_update(void* vs, Game* game) {
 
             Map* map = cached_map(game, map_asset_for_area(area_id));
             update_map(map, game, s, connected_spawn_mob);
-            record_mob_controls(s, map);
             updated_maps[area_id] = true;
         }
     }

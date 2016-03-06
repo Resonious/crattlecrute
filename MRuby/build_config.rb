@@ -1,17 +1,15 @@
 require 'os'
 
-if OS.windows?
-  # system('C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat')
-end
-
 MRuby::Build.new do |conf|
   # load specific toolchain settings
 
   # Gets set by the VS command prompts.
   if ENV['VisualStudioVersion'] || ENV['VSINSTALLDIR']
     toolchain :visualcpp
+    puts "USING VISUAL STUDIO"
   else
     toolchain :gcc
+    puts "USING GCC"
   end
 
   conf.disable_cxx_exception
@@ -132,15 +130,48 @@ MRuby::Build.new('test') do |conf|
 end
 =end
 
-=begin
-Mruby::CrossBuild.new('32bit') do |conf|
-  if ENV['VisualStudioVersion'] || ENV['VSINSTALLDIR']
+if OS.windows?
+  MRuby::CrossBuild.new('32bit') do |conf|
     toolchain :visualcpp
-  else
-    toolchain :gcc
+
+    conf.disable_cxx_exception
+    conf.gembox 'default'
+
+    conf.cc do |cc|
+      cc.command = '"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64_x86\cl.exe"'
+      cc.flags << '/MT'
+    end
+
+    conf.linker do |linker|
+      linker.command = '"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64_x86\link.exe"'
+    end
+
+    conf.archiver do |archiver|
+      archiver.command = '"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64_x86\lib.exe"'
+    end
+  end
+
+  MRuby::CrossBuild.new('32bit-debug') do |conf|
+    toolchain :visualcpp
+
+    enable_debug
+    conf.disable_cxx_exception
+    conf.gembox 'default'
+
+    conf.cc do |cc|
+      cc.command = '"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64_x86\cl.exe"'
+      cc.flags << '/MTd'
+    end
+
+    conf.linker do |linker|
+      linker.command = '"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64_x86\link.exe"'
+    end
+
+    conf.archiver do |archiver|
+      archiver.command = '"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64_x86\lib.exe"'
+    end
   end
 end
-=end
 
 # Define cross build settings
 # MRuby::CrossBuild.new('32bit') do |conf|

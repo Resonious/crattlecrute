@@ -4,13 +4,11 @@
 #include "game.h"
 
 void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos) {
-    SDL_assert(sizeof(MobPon) + sizeof(Controls) <= sizeof(SmallMob));
+    SDL_assert(sizeof(MobPon) <= sizeof(SmallMob));
 
     MobPon* pon = (MobPon*)vpon;
     printf("SPAWNING PON AT (%2.f, %2.f)\n", pos.x, pos.y);
 
-    pon->controls = (Controls*)(pon + 1);
-    SDL_memset(pon->controls, 0, sizeof(Controls));
     pon->pos = pos;
     pon->frame = 0;
     pon->frame_counter = 0;
