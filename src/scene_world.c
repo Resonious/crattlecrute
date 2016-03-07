@@ -36,7 +36,7 @@ extern SDL_Window* main_window;
 #define CONTROLS_BUFFER_SIZE (255 * NUM_CONTROLS)
 #define CONTROL_BLOCK_END NUM_CONTROLS
 #define MAX_PLAYERS 20
-#define MOB_EVENT_BUFFER_SIZE (1024)
+#define MOB_EVENT_BUFFER_SIZE (1024 * 3)
 
 typedef struct ControlsBuffer {
     SDL_mutex* locked;
@@ -690,6 +690,8 @@ int netwrite_guy_area(byte* buffer, int area_id, int* pos) {
 int netwrite_guy_mobevents(byte* buffer, RemotePlayer* player, int* pos) {
     int area_id = SDL_AtomicGet(&player->area_id);
 
+    SDL_assert(player->mob_event_buffer_pos <= MOB_EVENT_BUFFER_SIZE && player->mob_event_buffer_pos >= 0);
+
     write_to_buffer(buffer, &player->mob_event_count, pos, sizeof(int));
     write_to_buffer(buffer, &player->mob_event_buffer_pos, pos, sizeof(int));
     write_to_buffer(buffer, &area_id, pos, sizeof(int));
@@ -807,6 +809,7 @@ int network_server_loop(void* vdata) {
             SDL_assert(scene->net.next_id < 255);
             int new_id = scene->net.next_id++;
             RemotePlayer* player = allocate_new_player(new_id, &loop->address);
+            SDL_AtomicSet(&player->just_switched_maps, true);
 
             int pos = 0;
             buffer[pos++] = NETOP_HERES_YOUR_ID;
@@ -836,6 +839,8 @@ int network_server_loop(void* vdata) {
 
                 new_player->socket = loop->socket;
                 send(loop->socket, buffer, netwrite_state(scene, buffer, new_player, 1, &their_map), 0);
+
+                SDL_AtomicSet(&new_player->just_switched_maps, false);
 
                 // Gotta tell those other players that this guy is joining... And set stream positions.
                 for (int i = 0; i < scene->net.number_of_players; i++) {
@@ -1496,14 +1501,13 @@ void write_mob_events(void* vs, Map* map, struct Game* game, MobCommon* mob) {
     MobType* reg = &mob_registry[mob->mob_type_id];
     if (reg->sync_send != NULL && reg->sync_send(mob, map, sync_buffer, &size)) {
         SDL_assert(size <= MOB_EVENT_BUFFER_SIZE);
+
         for (int i = 0; i < s->net.number_of_players; i++) {
             RemotePlayer* player = s->net.players[i];
             if (player == NULL || SDL_AtomicGet(&player->area_id) != map->area_id || SDL_AtomicGet(&player->just_switched_maps))
                 continue;
-            if (!(player->mob_event_buffer_pos <= MOB_EVENT_BUFFER_SIZE && player->mob_event_buffer_pos >= 0)) {
-                printf("Player %i event buffer pos is %i!!!\n", player->id, player->mob_event_buffer_pos);
-                SDL_assert(!"IT HAPPENED.");
-            }
+            SDL_assert(player->mob_event_buffer_pos <= MOB_EVENT_BUFFER_SIZE && player->mob_event_buffer_pos >= 0);
+            SDL_assert(player->mob_event_buffer_pos + size < MOB_EVENT_BUFFER_SIZE);
 
             int m_id = mob_id(map, mob);
             wait_for_then_use_lock(player->mob_event_buffer_locked);
@@ -1964,10 +1968,10 @@ void scene_world_render(void* vs, Game* game) {
 
         set_text_color(game, 255, 255, 50);
         if (s->net.status == JOINING) {
-            draw_text_ex_f(game, game->window_width - 180, game->window_height - 60 - i * 20, -1, 0.7f, "Ping: %.1fms", player->ping);
+            draw_text_ex_f(game, game->window_width - 180, game->window_height - 60 - i * 20, -1, 0.7f, "Ping: %.1dms", player->ping);
         }
         else {
-            draw_text_ex_f(game, game->window_width - 200, game->window_height - 60 - i * 20, -1, 0.7f, "P%i Ping: %.1fms", player->id, player->ping);
+            draw_text_ex_f(game, game->window_width - 200, game->window_height - 60 - i * 20, -1, 0.7f, "P%i Ping: %.1dms", player->id, player->ping);
         }
     }
     BENCH_END(ping);

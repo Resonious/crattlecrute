@@ -39,8 +39,8 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
 
     if (game->net_joining) {
         vec2 diff = v2_sub(pon->target_pos, pon->pos);
-        pon->pos.x += diff.x * 0.6f;
-        pon->pos.y += diff.y * 0.6f;
+        pon->pos.x += diff.x * 0.3f;
+        pon->pos.y += diff.y * 0.3f;
     }
     else {
         if (pon->velocity.x == 0 || pon->velocity.y == 0) {
@@ -90,8 +90,12 @@ void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos) {
 }
 bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
-    write_to_buffer(buffer, &pon->pos, pos, sizeof(vec2));
-    return true;
+
+    if (pon->frame_counter % 20 == 0) {
+        write_to_buffer(buffer, &pon->pos, pos, sizeof(vec2));
+        return true;
+    }
+    else return false;
 }
 void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
