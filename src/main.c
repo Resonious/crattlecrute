@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
     );
     main_window = game.window;
     game.renderer = SDL_CreateRenderer(game.window, -1, 0);
-    if (game.renderer == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), game.window);
+    if (game.renderer == NULL) printf("No renderer!\n");
     SDL_SetRenderDrawColor(game.renderer, 20, 20, 20, 255);
     BENCH_END(loading_window);
 
@@ -273,24 +273,26 @@ int main(int argc, char** argv) {
         game.current_scene->update(game.current_scene_data, &game);
 
         // Draw!!! Finally!!!
-        SDL_RenderClear(game.renderer);
-        game.current_scene->render(game.current_scene_data, &game);
+        if (game.renderer) {
+            SDL_RenderClear(game.renderer);
+            game.current_scene->render(game.current_scene_data, &game);
 #if _DEBUG
-        if (debug_pause) {
-            set_text_color(&game, 50, 50, 255);
-            draw_text_ex(&game, 32, game.window_height - 32, "FREEZE-FRAME!", 1, 0.7f);
-        }
+            if (debug_pause) {
+                set_text_color(&game, 50, 50, 255);
+                draw_text_ex(&game, 32, game.window_height - 32, "FREEZE-FRAME!", 1, 0.7f);
+            }
 #endif
-        if (tick_second_counter / (double)ticks_per_second >= 1.0) {
-            game.frames_per_second = frame_count_this_second / (tick_second_counter / (double)ticks_per_second);
-            frame_count_this_second = 0;
-            tick_second_counter = 0;
-        }
+            if (tick_second_counter / (double)ticks_per_second >= 1.0) {
+                game.frames_per_second = frame_count_this_second / (tick_second_counter / (double)ticks_per_second);
+                frame_count_this_second = 0;
+                tick_second_counter = 0;
+            }
 #if DRAW_FPS
-        set_text_color(&game, 255, 255, 20);
-        draw_text_ex_f(&game, (int)game.window_width - 150, (int)game.window_height - 20, -1, 0.7f, "FPS: %.2f", game.frames_per_second);
+            set_text_color(&game, 255, 255, 20);
+            draw_text_ex_f(&game, (int)game.window_width - 150, (int)game.window_height - 20, -1, 0.7f, "FPS: %.2f", game.frames_per_second);
 #endif
-        SDL_RenderPresent(game.renderer);
+            SDL_RenderPresent(game.renderer);
+        }
 
         // ======================= Cap Framerate =====================
         frame_end = SDL_GetPerformanceCounter();
