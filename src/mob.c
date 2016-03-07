@@ -83,6 +83,7 @@ void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos) {
     read_from_buffer(buffer, &pon->velocity, pos, sizeof(vec2));
     read_from_buffer(buffer, &pon->pos, pos, sizeof(vec2));
     read_from_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));
+
     pon->frame = 0;
     pon->frame_counter = 0;
     pon->frame_inc = 1;

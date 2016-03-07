@@ -1603,7 +1603,7 @@ void scene_world_update(void* vs, Game* game) {
         ) {
             // Do 2 frames at a time if we're so many frames behind
             int frames_behind = (int)plr->controls_playback.bytes[0] - plr->controls_playback.current_frame;
-            const int frames_behind_threshold = max(2, plr->ping + plr->ping / 2);
+            const int frames_behind_threshold = plr->ping * 2 + 1;
 
             if (frames_behind > frames_behind_threshold) {
                 printf("Network control sync behind by %i frames\n", frames_behind);
@@ -1968,10 +1968,10 @@ void scene_world_render(void* vs, Game* game) {
 
         set_text_color(game, 255, 255, 50);
         if (s->net.status == JOINING) {
-            draw_text_ex_f(game, game->window_width - 180, game->window_height - 60 - i * 20, -1, 0.7f, "Ping: %.1dms", player->ping);
+            draw_text_ex_f(game, game->window_width - 180, game->window_height - 60 - i * 20, -1, 0.7f, "Ping: %.1fms", ping_in_ms);
         }
         else {
-            draw_text_ex_f(game, game->window_width - 200, game->window_height - 60 - i * 20, -1, 0.7f, "P%i Ping: %.1dms", player->id, player->ping);
+            draw_text_ex_f(game, game->window_width - 200, game->window_height - 60 - i * 20, -1, 0.7f, "P%i Ping: %.1fms", player->id, ping_in_ms);
         }
     }
     BENCH_END(ping);
