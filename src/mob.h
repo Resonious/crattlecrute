@@ -4,7 +4,7 @@
 #include "types.h"
 
 struct Map;
-struct Controls;
+struct Game;
 
 enum MobSizeClass { SMALL, MEDIUM, LARGE };
 
@@ -63,13 +63,13 @@ typedef struct MobPon {
     int frame_inc;
     SDL_Color color;
 } MobPon;
-void mob_pon_initialize(void* pon, struct Game* game, struct Map* map, vec2 pos);
-void mob_pon_update(void* pon, struct Game* game, struct Map* map);
-void mob_pon_render(void* pon, struct Game* game, struct Map* map);
-void mob_pon_save(void* pon, struct Map* map, byte* buffer, int* pos);
-void mob_pon_load(void* pon, struct Map* map, byte* buffer, int* pos);
-bool mob_pon_sync_send(void* pon, struct Map* map, byte* buffer, int* pos);
-void mob_pon_sync_receive(void* pon, struct Map* map, byte* buffer, int* pos);
+void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos);
+void mob_pon_update(void* vpon, struct Game* game, struct Map* map);
+void mob_pon_render(void* vpon, struct Game* game, struct Map* map);
+void mob_pon_save(void* vpon, struct Map* map, byte* buffer, int* pos);
+void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos);
+bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos);
+void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos);
 
 static MobType mob_registry[] = {
     {

@@ -10,5 +10,6 @@ build/
 *.lnk
 .byebug_history
 .DS_Store
+*.core
 
 mac/Crattlecrute/Crattlecrute.xcodeproj/xcuserdata/
