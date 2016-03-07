@@ -39,8 +39,8 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
 
     if (game->net_joining) {
         vec2 diff = v2_sub(pon->target_pos, pon->pos);
-        pon->pos.x += diff.x * 0.3f;
-        pon->pos.y += diff.y * 0.3f;
+        pon->pos.x += diff.x * 0.1f;
+        pon->pos.y += diff.y * 0.1f;
     }
     else {
         if (pon->velocity.x == 0 || pon->velocity.y == 0) {
