@@ -1500,7 +1500,10 @@ void write_mob_events(void* vs, Map* map, struct Game* game, MobCommon* mob) {
             RemotePlayer* player = s->net.players[i];
             if (player == NULL || SDL_AtomicGet(&player->area_id) != map->area_id || SDL_AtomicGet(&player->just_switched_maps))
                 continue;
-            SDL_assert(player->mob_event_buffer_pos <= MOB_EVENT_BUFFER_SIZE && player->mob_event_buffer_pos >= 0);
+            if (!(player->mob_event_buffer_pos <= MOB_EVENT_BUFFER_SIZE && player->mob_event_buffer_pos >= 0)) {
+                printf("Player %i event buffer pos is %i!!!\n", player->id, player->mob_event_buffer_pos);
+                SDL_assert(!"IT HAPPENED.");
+            }
 
             int m_id = mob_id(map, mob);
             wait_for_then_use_lock(player->mob_event_buffer_locked);
