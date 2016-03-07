@@ -81,12 +81,19 @@ mrb_value mrb_map_init(mrb_state* mrb, mrb_value self) {
     return self;
 }
 
+mrb_value mrb_map_game(mrb_state* mrb, mrb_value self) {
+    Map* map = DATA_PTR(self);
+    return mrb_iv_get(mrb, self, map->game->ruby.sym_atgame);
+}
+
 // World functions are defined in scene_world.c
 
 void script_init(struct Game* game) {
     game->ruby.sym_atcontrols = mrb_intern_lit(game->mrb, "@controls");
-    game->ruby.sym_atworld = mrb_intern_lit(game->mrb, "@world");
-    game->ruby.sym_update = mrb_intern_lit(game->mrb, "update");
+    game->ruby.sym_atworld    = mrb_intern_lit(game->mrb, "@world");
+    game->ruby.sym_atgame     = mrb_intern_lit(game->mrb, "@game");
+    game->ruby.sym_atmap      = mrb_intern_lit(game->mrb, "@map");
+    game->ruby.sym_update     = mrb_intern_lit(game->mrb, "update");
 
     // ==================================== class Controls =============================
     game->ruby.controls_class = mrb_define_class(game->mrb, "Controls", game->mrb->object_class);
@@ -124,12 +131,21 @@ void script_init(struct Game* game) {
     MRB_SET_INSTANCE_TT(game->ruby.world_class, MRB_TT_DATA);
 
     mrb_define_method(game->mrb, game->ruby.world_class, "initialize", mrb_world_init, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.world_class, "current_map", mrb_world_current_map, MRB_ARGS_NONE());
 
     // ==================================== class Map =================================
     game->ruby.map_class = mrb_define_class(game->mrb, "Map", game->mrb->object_class);
     MRB_SET_INSTANCE_TT(game->ruby.map_class, MRB_TT_DATA);
 
     mrb_define_method(game->mrb, game->ruby.map_class, "initialize", mrb_map_init, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.map_class, "game", mrb_map_game, MRB_ARGS_NONE());
+    // mrb_define_method(game->mrb, game->ruby.map_class, "spawn_mob", mrb_map_spawn_mob, MRB_ARGS_NONE());
+
+    // ==================================== class Mob =================================
+    game->ruby.mob_class = mrb_define_class(game->mrb, "Mob", game->mrb->object_class);
+    MRB_SET_INSTANCE_TT(game->ruby.mob_class, MRB_TT_DATA);
+
+    // mrb_define_method(game->mrb, game->ruby.map_class, "initialize", mrb_mob_init, MRB_ARGS_NONE());
 }
 
 // Pasted in from mirb code lol.

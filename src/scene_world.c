@@ -1358,9 +1358,12 @@ void scene_world_initialize(void* vdata, Game* game) {
 
     // Add ruby object to game!
     mrb_iv_check(game->mrb, game->ruby.sym_atworld);
-    data->script_obj = mrb_class_new_instance(game->mrb, 0, NULL, game->ruby.world_class);
-    mrb_data_init(data->script_obj, data, &mrb_controls_type);
+    data->script_obj = mrb_obj_new(game->mrb, game->ruby.world_class, 0, NULL);
+    mrb_data_init(data->script_obj, data, &mrb_world_type);
     mrb_iv_set(game->mrb, game->ruby.game, game->ruby.sym_atworld, data->script_obj);
+
+    mrb_iv_check(game->mrb, game->ruby.sym_atgame);
+    mrb_iv_set(game->mrb, data->script_obj, game->ruby.sym_atgame, game->ruby.game);
 }
 
 void set_camera_target(Game* game, Map* map, Character* guy) {
@@ -1998,4 +2001,24 @@ void scene_world_cleanup(void* vdata, Game* game) {
 mrb_value mrb_world_init(mrb_state* mrb, mrb_value self) {
     mrb_data_init(self, NULL, &mrb_world_type);
     return self;
+}
+
+mrb_value mrb_world_current_map(mrb_state* mrb, mrb_value self) {
+    WorldScene* scene = DATA_PTR(self);
+    if (scene == NULL) {
+        mrb_raise(mrb, mrb->eStandardError_class, "Invalid world");
+        return mrb_nil_value();
+    }
+    mrb_sym atmap = scene->game->ruby.sym_atmap;
+
+    mrb_value rmap;
+    if (mrb_iv_defined(mrb, self, scene->game->ruby.sym_atmap)) {
+        rmap = mrb_iv_get(mrb, self, atmap);
+    }
+    else {
+        rmap = mrb_obj_new(mrb, scene->game->ruby.map_class, 0, NULL);
+        mrb_iv_set(mrb, self, atmap, rmap);
+    }
+    mrb_data_init(rmap, scene->map, &mrb_map_type);
+    return rmap;
 }

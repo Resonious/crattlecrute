@@ -130,6 +130,7 @@ typedef struct MapState {
 
 typedef struct Map {
     SDL_mutex* locked;
+    struct Game* game;
 
     int area_id;
     int asset_id;

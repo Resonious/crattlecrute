@@ -15,6 +15,9 @@ static const struct mrb_data_type mrb_controls_type = { "Controls", mrb_free };
 static const struct mrb_data_type mrb_game_type = { "Game", mrb_dont_free };
 static const struct mrb_data_type mrb_world_type = { "World", mrb_dont_free };
 static const struct mrb_data_type mrb_map_type = { "Map", mrb_dont_free };
+// TODO perhaps a special free method that despawns the mob if it's spawned?
+// We don't currently have any mob spawning.
+static const struct mrb_data_type mrb_mob_type = { "Mob", mrb_free };
 
 mrb_value mrb_controls_init(mrb_state* mrb, mrb_value self);
 mrb_value mrb_controls_just_pressed(mrb_state* mrb, mrb_value self);
@@ -25,8 +28,12 @@ mrb_value mrb_game_controls(mrb_state* mrb, mrb_value self);
 mrb_value mrb_game_world(mrb_state* mrb, mrb_value self);
 
 mrb_value mrb_world_init(mrb_state* mrb, mrb_value self);
+mrb_value mrb_world_current_map(mrb_state* mrb, mrb_value self);
 
 mrb_value mrb_map_init(mrb_state* mrb, mrb_value self);
+// mrb_value mrb_map_spawn_mob(mrb_state* mrb, mrb_value self);
+
+// mrb_value mrb_mob_init(mrb_state* mrb, mrb_value self);
 
 struct Game;
 void script_init(struct Game* game);

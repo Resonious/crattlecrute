@@ -44,15 +44,15 @@ typedef struct Game {
     struct {
         mrb_sym sym_atcontrols;
         mrb_sym sym_atworld;
+        mrb_sym sym_atgame;
+        mrb_sym sym_atmap;
         mrb_sym sym_update;
-        mrb_sym sym_HOSTING;
-        mrb_sym sym_JOINING;
-        mrb_sym sym_NOT_CONNECTED;
         mrb_value game;
         struct RClass* controls_class;
         struct RClass* game_class;
         struct RClass* world_class;
         struct RClass* map_class;
+        struct RClass* mob_class;
     } ruby;
     struct {
         int text_buf_size;
