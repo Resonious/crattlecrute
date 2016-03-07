@@ -43,8 +43,12 @@ typedef struct Game {
     mrb_state* mrb;
     struct {
         mrb_sym sym_atcontrols;
+        mrb_sym sym_atworld;
+        mrb_sym sym_update;
+        mrb_value game;
         struct RClass* controls_class;
         struct RClass* game_class;
+        struct RClass* world_class;
     } ruby;
     struct {
         int text_buf_size;

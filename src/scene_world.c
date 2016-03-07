@@ -13,6 +13,7 @@
 #define closesocket close
 #endif
 
+#include "script.h"
 #include "scene.h"
 #include "game.h"
 #include "character.h"
@@ -1352,6 +1353,12 @@ void scene_world_initialize(void* vdata, Game* game) {
             SDL_CreateThread(network_server_listen, "Network server listen", data);
         }
     }
+
+    // Add ruby object to game!
+    mrb_iv_check(game->mrb, game->ruby.sym_atworld);
+    mrb_value world = mrb_class_new_instance(mrb, 0, NULL, game->ruby.world_class);
+    mrb_data_init(world, data, &mrb_controls_type);
+    mrb_iv_set(game->mrb, game->ruby.game, game->ruby.sym_atworld, world);
 }
 
 void set_camera_target(Game* game, Map* map, Character* guy) {

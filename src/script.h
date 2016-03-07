@@ -1,6 +1,7 @@
 #ifndef SCRIPT_H
 #define SCRIPT_H
 
+#include "types.h"
 #include <mruby.h>
 #include <mruby/compile.h>
 #include <mruby/class.h>
@@ -8,19 +9,25 @@
 #include <mruby/data.h>
 #include <mruby/string.h>
 
-// In other words: don't.
-static void mrb_free_game(mrb_state* mrb, void* p) { }
+static void mrb_dont_free(mrb_state* mrb, void* p) { }
 
 static const struct mrb_data_type mrb_controls_type = { "Controls", mrb_free };
-static const struct mrb_data_type mrb_game_type = { "Game", mrb_free_game };
+static const struct mrb_data_type mrb_game_type = { "Game", mrb_dont_free };
+static const struct mrb_data_type mrb_world_type = { "World", mrb_dont_free };
 
 mrb_value mrb_controls_init(mrb_state* mrb, mrb_value self);
 mrb_value mrb_controls_just_pressed(mrb_state* mrb, mrb_value self);
 mrb_value mrb_controls_just_released(mrb_state* mrb, mrb_value self);
 mrb_value mrb_game_init(mrb_state* mrb, mrb_value self);
 mrb_value mrb_game_controls(mrb_state* mrb, mrb_value self);
+mrb_value mrb_game_world(mrb_state* mrb, mrb_value self);
 struct Game;
 void script_init(struct Game* game);
-void ruby_p(mrb_state *mrb, mrb_value obj, int prompt);
+#ifdef _DEBUG
+bool load_script_file(mrb_state* mrb);
+#else
+#define load_script_file() (false)
+#endif
+void ruby_p(mrb_state* mrb, mrb_value obj, int prompt);
 
 #endif

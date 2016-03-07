@@ -71,8 +71,20 @@ mrb_value mrb_game_controls(mrb_state* mrb, mrb_value self) {
     return rcontrols;
 }
 
+mrb_value mrb_game_world(mrb_state* mrb, mrb_value self) {
+    Game* game = DATA_PTR(self);
+    return mrb_iv_get(mrb, self, game->ruby.sym_atworld);
+}
+
+mrb_value mrb_world_init(mrb_state* mrb, mrb_value self) {
+    mrb_data_init(self, NULL, &mrb_world_type);
+    return self;
+}
+
 void script_init(struct Game* game) {
     game->ruby.sym_atcontrols = mrb_intern_lit(game->mrb, "@controls");
+    game->ruby.sym_atworld = mrb_intern_lit(game->mrb, "@world");
+    game->ruby.sym_update = mrb_intern_lit(game->mrb, "update");
 
     // ==================================== class Controls =============================
     game->ruby.controls_class = mrb_define_class(game->mrb, "Controls", game->mrb->object_class);
@@ -103,6 +115,13 @@ void script_init(struct Game* game) {
 
     mrb_define_method(game->mrb, game->ruby.game_class, "initialize", mrb_game_init, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.game_class, "controls", mrb_game_controls, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.game_class, "world", mrb_game_world, MRB_ARGS_NONE());
+
+    // ==================================== class World ===============================
+    game->ruby.world_class = mrb_define_class(game->mrb, "World", game->mrb->object_class);
+    MRB_SET_INSTANCE_TT(game->ruby.world_class, MRB_TT_DATA);
+
+    mrb_define_method(game->mrb, game->ruby.world_class, "initialize", mrb_world_init, MRB_ARGS_NONE());
 }
 
 // Pasted in from mirb code lol.
@@ -124,3 +143,17 @@ void ruby_p(mrb_state *mrb, mrb_value obj, int prompt) {
   fwrite(RSTRING_PTR(val), RSTRING_LEN(val), 1, stdout);
   putc('\n', stdout);
 }
+
+#ifdef _DEBUG
+bool load_script_file(mrb_state* mrb) {
+    FILE* file = fopen("script.rb", "r");
+    if (file == NULL) {
+        file = fopen("C:\\Users\\Metre\\game\\crattlecrute\\build\\script.rb", "r");
+        if (file == NULL)
+            return false;
+    }
+    mrb_load_file(mrb, file);
+    fclose(file);
+    return true;
+}
+#endif

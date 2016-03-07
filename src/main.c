@@ -155,17 +155,16 @@ int main(int argc, char** argv) {
     script_init(&game);
 
     mrb_value ruby_context = mrb_obj_value(game.mrb->top_self);
-    mrb_load_string(
-        game.mrb,
-        "def update(game)\n"
-        "  puts 'OMG!!' if game.controls.just_pressed(Controls::A)\n"
-        "end\n"
-    );
-    // TODO mrb->top_self should also give the ruby context
-    ruby_p(game.mrb, ruby_context, 0);
+#ifdef _DEBUG
+    if (load_script_file(game.mrb))
+        printf("script.rb loaded\n");
+    else
+        printf("script.rb not loaded\n");
+#endif
 
     mrb_value rgame = mrb_class_new_instance(game.mrb, 0, NULL, game.ruby.game_class);
     DATA_PTR(rgame) = &game;
+    game.ruby.game = rgame;
     BENCH_END(loading_ruby);
 
     // Main loop bitch
@@ -225,6 +224,11 @@ int main(int argc, char** argv) {
                     switch (event.key.keysym.scancode) { SET_CONTROL(keys_down, true) }
                 break;
             case SDL_KEYUP:
+#ifdef _DEBUG
+                if (event.key.keysym.sym == SDLK_F5 || (event.key.keysym.sym == SDLK_r && event.key.keysym.mod & KMOD_CTRL))
+                    load_script_file(game.mrb);
+#endif
+
                 if (!game.text_edit.text)
                     switch (event.key.keysym.scancode) { SET_CONTROL(keys_up, true) }
                 break;
@@ -258,7 +262,8 @@ int main(int argc, char** argv) {
             ruby_p(game.mrb, mrb_obj_value(game.mrb->exc), 0);
             game.mrb->exc = 0;
         }
-        mrb_funcall(game.mrb, ruby_context, "update", 1, rgame);
+        if (mrb_respond_to(game.mrb, ruby_context, game.ruby.sym_update))
+            mrb_funcall(game.mrb, ruby_context, "update", 1, rgame);
 
 #if _DEBUG
         if (just_pressed(&game.controls, C_PAUSE))
