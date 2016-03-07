@@ -81,7 +81,7 @@ typedef struct RemotePlayer {
     SDL_atomic_t frames_until_sync;
 
     SDL_mutex* mob_event_buffer_locked;
-    byte mob_event_buffer[256];
+    byte mob_event_buffer[MOB_EVENT_BUFFER_SIZE];
     int mob_event_buffer_pos;
     int mob_event_count;
 
@@ -1487,21 +1487,20 @@ void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id,
     }
 }
 
-#define SYNC_BUFFER_SIZE 256
 void write_mob_events(void* vs, Map* map, struct Game* game, MobCommon* mob) {
     WorldScene* s = (WorldScene*)vs;
 
-    byte sync_buffer[SYNC_BUFFER_SIZE];
+    byte sync_buffer[MOB_EVENT_BUFFER_SIZE];
     int size = 0;
 
     MobType* reg = &mob_registry[mob->mob_type_id];
     if (reg->sync_send != NULL && reg->sync_send(mob, map, sync_buffer, &size)) {
-        SDL_assert(size <= SYNC_BUFFER_SIZE);
+        SDL_assert(size <= MOB_EVENT_BUFFER_SIZE);
         for (int i = 0; i < s->net.number_of_players; i++) {
             RemotePlayer* player = s->net.players[i];
             if (player == NULL || SDL_AtomicGet(&player->area_id) != map->area_id || SDL_AtomicGet(&player->just_switched_maps))
                 continue;
-            SDL_assert(player->mob_event_buffer_pos <= 256 && player->mob_event_buffer_pos >= 0);
+            SDL_assert(player->mob_event_buffer_pos <= MOB_EVENT_BUFFER_SIZE && player->mob_event_buffer_pos >= 0);
 
             int m_id = mob_id(map, mob);
             wait_for_then_use_lock(player->mob_event_buffer_locked);
@@ -1958,7 +1957,7 @@ void scene_world_render(void* vs, Game* game) {
         if (s->net.status == JOINING && player->id != 0) continue;
         if (player == NULL) continue;
 
-        double ping_in_ms = 1000.0 * (double)player->ping / game->frames_per_second;
+        double ping_in_ms = (1000.0 * (double)player->ping) / game->frames_per_second;
 
         set_text_color(game, 255, 255, 50);
         if (s->net.status == JOINING) {
