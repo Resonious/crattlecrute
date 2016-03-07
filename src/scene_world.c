@@ -105,6 +105,8 @@ typedef struct WorldScene {
     ControlsBuffer controls_stream;
     const char* dbg_last_action;
 
+    mrb_value script_obj;
+
     struct NetInfo {
         int remote_id;
         int next_id;
@@ -1356,9 +1358,9 @@ void scene_world_initialize(void* vdata, Game* game) {
 
     // Add ruby object to game!
     mrb_iv_check(game->mrb, game->ruby.sym_atworld);
-    mrb_value world = mrb_class_new_instance(mrb, 0, NULL, game->ruby.world_class);
-    mrb_data_init(world, data, &mrb_controls_type);
-    mrb_iv_set(game->mrb, game->ruby.game, game->ruby.sym_atworld, world);
+    data->script_obj = mrb_class_new_instance(game->mrb, 0, NULL, game->ruby.world_class);
+    mrb_data_init(data->script_obj, data, &mrb_controls_type);
+    mrb_iv_set(game->mrb, game->ruby.game, game->ruby.sym_atworld, data->script_obj);
 }
 
 void set_camera_target(Game* game, Map* map, Character* guy) {
@@ -1991,4 +1993,9 @@ void scene_world_cleanup(void* vdata, Game* game) {
     game->audio.looped_waves[0] = NULL;
 
     closesocket(data->net.local_socket);
+}
+
+mrb_value mrb_world_init(mrb_state* mrb, mrb_value self) {
+    mrb_data_init(self, NULL, &mrb_world_type);
+    return self;
 }

@@ -14,13 +14,20 @@ static void mrb_dont_free(mrb_state* mrb, void* p) { }
 static const struct mrb_data_type mrb_controls_type = { "Controls", mrb_free };
 static const struct mrb_data_type mrb_game_type = { "Game", mrb_dont_free };
 static const struct mrb_data_type mrb_world_type = { "World", mrb_dont_free };
+static const struct mrb_data_type mrb_map_type = { "Map", mrb_dont_free };
 
 mrb_value mrb_controls_init(mrb_state* mrb, mrb_value self);
 mrb_value mrb_controls_just_pressed(mrb_state* mrb, mrb_value self);
 mrb_value mrb_controls_just_released(mrb_state* mrb, mrb_value self);
+
 mrb_value mrb_game_init(mrb_state* mrb, mrb_value self);
 mrb_value mrb_game_controls(mrb_state* mrb, mrb_value self);
 mrb_value mrb_game_world(mrb_state* mrb, mrb_value self);
+
+mrb_value mrb_world_init(mrb_state* mrb, mrb_value self);
+
+mrb_value mrb_map_init(mrb_state* mrb, mrb_value self);
+
 struct Game;
 void script_init(struct Game* game);
 #ifdef _DEBUG

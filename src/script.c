@@ -76,10 +76,12 @@ mrb_value mrb_game_world(mrb_state* mrb, mrb_value self) {
     return mrb_iv_get(mrb, self, game->ruby.sym_atworld);
 }
 
-mrb_value mrb_world_init(mrb_state* mrb, mrb_value self) {
-    mrb_data_init(self, NULL, &mrb_world_type);
+mrb_value mrb_map_init(mrb_state* mrb, mrb_value self) {
+    mrb_data_init(self, NULL, &mrb_map_type);
     return self;
 }
+
+// World functions are defined in scene_world.c
 
 void script_init(struct Game* game) {
     game->ruby.sym_atcontrols = mrb_intern_lit(game->mrb, "@controls");
@@ -122,6 +124,12 @@ void script_init(struct Game* game) {
     MRB_SET_INSTANCE_TT(game->ruby.world_class, MRB_TT_DATA);
 
     mrb_define_method(game->mrb, game->ruby.world_class, "initialize", mrb_world_init, MRB_ARGS_NONE());
+
+    // ==================================== class Map =================================
+    game->ruby.map_class = mrb_define_class(game->mrb, "Map", game->mrb->object_class);
+    MRB_SET_INSTANCE_TT(game->ruby.map_class, MRB_TT_DATA);
+
+    mrb_define_method(game->mrb, game->ruby.map_class, "initialize", mrb_map_init, MRB_ARGS_NONE());
 }
 
 // Pasted in from mirb code lol.
@@ -149,8 +157,11 @@ bool load_script_file(mrb_state* mrb) {
     FILE* file = fopen("script.rb", "r");
     if (file == NULL) {
         file = fopen("C:\\Users\\Metre\\game\\crattlecrute\\build\\script.rb", "r");
-        if (file == NULL)
-            return false;
+        if (file == NULL) {
+            file = fopen("C:\\Users\\Nigel\\game\\crattle\\build\\script.rb", "r");
+            if (file == NULL)
+                return false;
+        }
     }
     mrb_load_file(mrb, file);
     fclose(file);
