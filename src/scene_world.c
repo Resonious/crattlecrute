@@ -1615,7 +1615,7 @@ void scene_world_update(void* vs, Game* game) {
         ) {
             // Do 2 frames at a time if we're so many frames behind
             int frames_behind = (int)plr->controls_playback.bytes[0] - plr->controls_playback.current_frame;
-            const int frames_behind_threshold = plr->ping * 2 + 1;
+            const int frames_behind_threshold = (s->net.status == HOSTING ? plr->ping : s->net.players[0]->ping) * 2 + 1;
 
             if (frames_behind > frames_behind_threshold) {
                 printf("Network control sync behind by %i frames\n", frames_behind);
