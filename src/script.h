@@ -8,6 +8,8 @@
 #include <mruby/variable.h>
 #include <mruby/data.h>
 #include <mruby/string.h>
+#include <mruby/proc.h>
+#include <mruby/dump.h>
 
 static void mrb_dont_free(mrb_state* mrb, void* p) { }
 
@@ -40,7 +42,7 @@ void script_init(struct Game* game);
 #ifdef _DEBUG
 bool load_script_file(mrb_state* mrb);
 #else
-#define load_script_file() (false)
+#define load_script_file(x) (false)
 #endif
 void ruby_p(mrb_state* mrb, mrb_value obj, int prompt);
 

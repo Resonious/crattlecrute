@@ -3,6 +3,8 @@
 #include "assets.h"
 #include "game.h"
 
+// ==== PON ====
+
 void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos) {
     SDL_assert(sizeof(MobPon) <= sizeof(SmallMob));
 
@@ -101,4 +103,22 @@ bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos) {
 void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
     read_from_buffer(buffer, &pon->target_pos, pos, sizeof(vec2));
+}
+
+// ==== SCRIPT ====
+
+void mob_script_initialize(void* vs, struct Game* game, struct Map* map, vec2 pos) {
+}
+void mob_script_update(void* vs, struct Game* game, struct Map* map) {
+}
+void mob_script_render(void* vs, struct Game* game, struct Map* map) {
+}
+void mob_script_save(void* vs, struct Map* map, byte* buffer, int* pos) {
+}
+void mob_script_load(void* vs, struct Map* map, byte* buffer, int* pos) {
+}
+bool mob_script_sync_send(void* vs, struct Map* map, byte* buffer, int* pos) {
+    return false;
+}
+void mob_script_sync_receive(void* vs, struct Map* map, byte* buffer, int* pos) {
 }

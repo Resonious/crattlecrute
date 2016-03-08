@@ -49,6 +49,7 @@ typedef struct LargeMob {
 // === Mobs === (THIS ENUM IS READ BY A RUBY SCRIPT AT COMPILE TIME)
 enum MobId {
     MOB_PON,
+    MOB_SCRIPT,
     NUMBER_OF_MOB_TYPES
 };
 
@@ -71,6 +72,17 @@ void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos);
 bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos);
 void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos);
 
+typedef struct MobScript {
+    MOB_FIELDS
+} MobScript;
+void mob_script_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos);
+void mob_script_update(void* vpon, struct Game* game, struct Map* map);
+void mob_script_render(void* vpon, struct Game* game, struct Map* map);
+void mob_script_save(void* vpon, struct Map* map, byte* buffer, int* pos);
+void mob_script_load(void* vpon, struct Map* map, byte* buffer, int* pos);
+bool mob_script_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos);
+void mob_script_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos);
+
 static MobType mob_registry[] = {
     {
         MOB_PON,
@@ -82,6 +94,17 @@ static MobType mob_registry[] = {
         mob_pon_load,
         mob_pon_sync_send,
         mob_pon_sync_receive,
+    },
+    {
+        MOB_SCRIPT,
+        LARGE,
+        mob_script_initialize,
+        mob_script_update,
+        mob_script_render,
+        mob_script_save,
+        mob_script_load,
+        mob_script_sync_send,
+        mob_script_sync_receive,
     }
 };
 

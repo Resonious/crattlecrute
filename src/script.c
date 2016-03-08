@@ -86,6 +86,17 @@ mrb_value mrb_map_game(mrb_state* mrb, mrb_value self) {
     return mrb_iv_get(mrb, self, map->game->ruby.sym_atgame);
 }
 
+mrb_value mrb_map_spawn_script_mob(mrb_state* mrb, mrb_value self) {
+    Map* map = DATA_PTR(self);
+    if (map == NULL) {
+        mrb_raise(mrb, mrb->eStandardError_class, "NULL map");
+        return mrb_nil_value();
+    }
+
+    printf("no can do yet\n");
+    return mrb_nil_value();
+}
+
 // World functions are defined in scene_world.c
 
 void script_init(struct Game* game) {
@@ -139,7 +150,7 @@ void script_init(struct Game* game) {
 
     mrb_define_method(game->mrb, game->ruby.map_class, "initialize", mrb_map_init, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.map_class, "game", mrb_map_game, MRB_ARGS_NONE());
-    // mrb_define_method(game->mrb, game->ruby.map_class, "spawn_mob", mrb_map_spawn_mob, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.map_class, "spawn_script_mob", mrb_map_spawn_script_mob, MRB_ARGS_REQ(1));
 
     // ==================================== class Mob =================================
     game->ruby.mob_class = mrb_define_class(game->mrb, "Mob", game->mrb->object_class);
