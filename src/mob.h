@@ -22,23 +22,23 @@ typedef struct MobType {
 } MobType;
 
 #define MOB_FIELDS\
-    int index, mob_type_id;
+    int index, mob_type_id
 
-typedef struct MobCommon { MOB_FIELDS } MobCommon;
+typedef struct MobCommon { MOB_FIELDS; } MobCommon;
 
 typedef struct SmallMob {
-    MOB_FIELDS
+    MOB_FIELDS;
     byte data[64];
 } SmallMob;
 
 typedef struct MediumMob {
-    MOB_FIELDS
+    MOB_FIELDS;
     byte data[256];
 } MediumMob;
 
 typedef struct LargeMob {
-    MOB_FIELDS
-    byte data[1024];
+    MOB_FIELDS;
+    byte data[1024 * 5];
 } LargeMob;
 
 // ============== ACTUAL MOBS ===============
@@ -54,7 +54,7 @@ enum MobId {
 };
 
 typedef struct MobPon {
-    MOB_FIELDS
+    MOB_FIELDS;
 
     vec2 velocity;
     vec2 target_pos;
@@ -73,7 +73,15 @@ bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos);
 void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos);
 
 typedef struct MobScript {
-    MOB_FIELDS
+    MOB_FIELDS;
+
+    vec2 pos;
+
+    char class_name[30];
+    int bytecode_size;
+    byte bytecode[1024 * 4];
+
+    mrb_value self;
 } MobScript;
 void mob_script_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos);
 void mob_script_update(void* vpon, struct Game* game, struct Map* map);

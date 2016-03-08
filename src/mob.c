@@ -2,6 +2,7 @@
 #include "tilemap.h"
 #include "assets.h"
 #include "game.h"
+#include "script.h"
 
 // ==== PON ====
 
@@ -108,14 +109,38 @@ void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos) {
 // ==== SCRIPT ====
 
 void mob_script_initialize(void* vs, struct Game* game, struct Map* map, vec2 pos) {
+    SDL_assert(sizeof(MobScript) <= sizeof(LargeMob));
+    MobScript* mob = (MobScript*)vs;
+    mob->pos = pos;
+    mob->bytecode_size = 0;
+    SDL_memset(mob->bytecode, 0, sizeof(mob->bytecode));
 }
 void mob_script_update(void* vs, struct Game* game, struct Map* map) {
 }
 void mob_script_render(void* vs, struct Game* game, struct Map* map) {
 }
 void mob_script_save(void* vs, struct Map* map, byte* buffer, int* pos) {
+    MobScript* mob = (MobScript*)vs;
+
+    write_to_buffer(buffer, &mob->pos, pos, sizeof(vec2));
+    write_to_buffer(buffer, &mob->bytecode_size, pos, sizeof(int));
+    write_to_buffer(buffer, mob->bytecode, pos, mob->bytecode_size);
 }
 void mob_script_load(void* vs, struct Map* map, byte* buffer, int* pos) {
+    MobScript* mob = (MobScript*)vs;
+    mrb_state* mrb = map->game->mrb;
+
+    *pos += SDL_strlcpy(mob->class_name, buffer + *pos, sizeof(mob->class_name));
+    read_from_buffer(buffer, &mob->pos, pos, sizeof(vec2));
+    read_from_buffer(buffer, &mob->bytecode_size, pos, sizeof(int));
+
+    if (mrb_class_defined(mrb, mob->class_name)) {
+        read_from_buffer(buffer, mob->bytecode, pos, mob->bytecode_size);
+    }
+    else {
+        *pos += mob->bytecode_size;
+    }
+    // TODO uhhhh make instance of class.
 }
 bool mob_script_sync_send(void* vs, struct Map* map, byte* buffer, int* pos) {
     return false;
