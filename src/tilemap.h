@@ -69,10 +69,10 @@ struct Game;
 struct Character;
 
 TileIndex tile_from_int(int raw_tile_index);
-TileCollision process_side_sensor(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor);
-TileCollision process_top_sensor(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
-TileCollision process_bottom_sensor(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
-TileCollision process_bottom_sensor_one_tile_down(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
+TileCollision process_side_sensor(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor);
+TileCollision process_top_sensor(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
+TileCollision process_bottom_sensor(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
+TileCollision process_bottom_sensor_one_tile_down(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
 void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/SensedTile* result);
 void draw_tilemap(struct Game* game, Tilemap* tilemap);
     /* NOTE HERE IS THE 2-PASS COLLISION THAT I DON'T USE

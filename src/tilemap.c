@@ -100,7 +100,7 @@ void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/Sens
     );
 }
 
-TileCollision process_bottom_sensor_one_tile_down(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
+TileCollision process_bottom_sensor_one_tile_down(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
     TileCollision result;
     result.hit = false;
     result.new_position = guy->position.x[Y];
@@ -129,7 +129,7 @@ TileCollision process_bottom_sensor_one_tile_down(struct Character* guy, Collisi
     return result;
 }
 
-TileCollision process_bottom_sensor(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
+TileCollision process_bottom_sensor(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
     TileCollision result;
     result.hit = false;
     result.new_position = guy->position.x[Y];
@@ -227,10 +227,10 @@ TileCollision top_sensor_placement(CollisionMap* tilemap, SensedTile* t, Generic
 
 // NOTE the functions in here should line up with BOTTOM_SENSOR, TOP_SENSOR, RIGHT_SENSOR, and LEFT_SENSOR.
 const static TileCollision(*placement_functions[])(CollisionMap* tilemap, SensedTile* t, GenericBody* guy, int height, const int sensor) = {
-    dont_call_me, // Bottom sensors are special case
-    top_sensor_placement,
-    right_sensor_placement,
-    left_sensor_placement
+    (void*)dont_call_me, // Bottom sensors are special case
+    (void*)top_sensor_placement,
+    (void*)right_sensor_placement,
+    (void*)left_sensor_placement
 };
 
 TileCollision process_top_sensor(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
@@ -630,7 +630,7 @@ void draw_map(struct Game* game, Map* map) {
 
     BENCH_START(small_mobs);
     for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
-        MobCommon* mob = &map->state->small_mobs[i];
+        MobCommon* mob = (MobCommon*)&map->state->small_mobs[i];
         if (mob->mob_type_id != -1) {
             SDL_assert(mob->mob_type_id >= 0);
             mob_registry[mob->mob_type_id].render(mob, game, map);
@@ -639,12 +639,12 @@ void draw_map(struct Game* game, Map* map) {
     BENCH_END(small_mobs);
     SDL_assert(small_mobs_seconds < 0.01);
     for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
-        MobCommon* mob = &map->state->medium_mobs[i];
+        MobCommon* mob = (MobCommon*)&map->state->medium_mobs[i];
         if (mob->mob_type_id != -1)
             mob_registry[mob->mob_type_id].render(mob, game, map);
     }
     for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++) {
-        MobCommon* mob = &map->state->large_mobs[i];
+        MobCommon* mob = (MobCommon*)&map->state->large_mobs[i];
         if (mob->mob_type_id != -1)
             mob_registry[mob->mob_type_id].render(mob, game, map);
     }
@@ -1214,10 +1214,11 @@ void load_map(const int asset, /*out*/ Map* map) {
     // DONE reading the file - now just initializing map state.
     SDL_assert(file.size == pos);
 
-    map->state = (MapState*)(map->spawn_zones + spawn_zone_count);
-    int bytes_off = ((size_t)map->state) % 16;
-    if (bytes_off != 0)
-        ((int)map->state) += bytes_off;
+    byte* map_state = (byte*)(map->spawn_zones + spawn_zone_count);
+    while (((size_t)map_state) % 16 != 0)
+        map_state += 1;
+
+    map->state = (MapState*)map_state;
     clear_map_state(map);
 }
 
@@ -1235,7 +1236,7 @@ void clear_map_state(Map* map) {
 
 #define SYNC_MAP_STATE(size, mob_list, buffer_op, mob_op)\
     for (int i = 0; i < MAP_STATE_MAX_##size##_MOBS; i++) {\
-        MobCommon* mob = &map->state->mob_list[i];\
+        MobCommon* mob = (MobCommon*)&map->state->mob_list[i];\
         buffer_op(buffer, &mob->mob_type_id, pos, sizeof(int));\
 \
         if (mob->mob_type_id != -1) {\
