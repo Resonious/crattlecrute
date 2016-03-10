@@ -1215,8 +1215,8 @@ void load_map(const int asset, /*out*/ Map* map) {
     SDL_assert(file.size == pos);
 
     byte* map_state = (byte*)(map->spawn_zones + spawn_zone_count);
-    while (((size_t)map_state) % 16 != 0)
-        map_state += 1;
+    int remainder = ((size_t)map_state) % 16;
+    map_state += (16 - remainder);
 
     map->state = (MapState*)map_state;
     clear_map_state(map);
