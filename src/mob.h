@@ -29,17 +29,17 @@ typedef struct MobCommon { MOB_FIELDS; } MobCommon;
 
 typedef struct SmallMob {
     MOB_FIELDS;
-    byte data[64];
+    byte data[64 - sizeof(int) * 2];
 } SmallMob;
 
 typedef struct MediumMob {
     MOB_FIELDS;
-    byte data[256];
+    byte data[256 - sizeof(int) * 2];
 } MediumMob;
 
 typedef struct LargeMob {
     MOB_FIELDS;
-    byte data[1024];
+    byte data[1024 - sizeof(int) * 2];
 } LargeMob;
 
 // ============== ACTUAL MOBS ===============
@@ -57,12 +57,13 @@ enum MobId {
 typedef struct MobPon {
     MOB_FIELDS;
 
+    int pad : 12;
+    GenericBody body;
     // Pixels per frame
     vec4 velocity;
     vec2 target_pos;
     SDL_RendererFlip flip;
     bool hop;
-    GenericBody body;
     int frame;
     int frame_counter;
     int frame_inc;

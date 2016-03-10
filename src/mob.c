@@ -10,9 +10,10 @@ void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos
     SDL_assert(sizeof(MobPon) <= sizeof(MediumMob));
 
     MobPon* pon = (MobPon*)vpon;
+    SDL_assert((int)(&pon->body) % 16 == 0);
 
     memset(&pon->body, 0, sizeof(GenericBody));
-    pon->body.position.simd = _mm_set_ps(pos.y, pos.x, pos.y, pos.x);
+    pon->body.position = (vec4) { pos.x, pos.y, 0.0f, 0.0f };
     pon->body.old_position.simd = pon->body.position.simd;
 
     pon->body.top_sensors.x[S1X] = -25.0f;
@@ -35,11 +36,11 @@ void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos
     pon->body.right_sensors.x[S1X] = 25.0f;
     pon->body.right_sensors.x[S1Y] = -10.0f;
 
+    pon->velocity.simd = _mm_set1_ps(0.0f);
     pon->target_pos = pos;
     pon->frame = 0;
     pon->frame_counter = 0;
     pon->frame_inc = 1;
-    pon->velocity.simd = _mm_set1_ps(0.0f);
     pon->hop = false;
     if (rand() % 30 == 1) {
         pon->color.r = 255;

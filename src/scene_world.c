@@ -1332,6 +1332,7 @@ void scene_world_initialize(void* vdata, Game* game) {
         data->guy.eye_color.g = rand() % 70;
         data->guy.eye_color.b = rand() % 140;
     }
+    SDL_assert(((int)&data->guy.position) % 16 == 0);
     BENCH_END(loading_crattle1);
 
     BENCH_START(loading_tiles);

@@ -49,7 +49,7 @@ extern Uint64 ticks_per_second;
 #ifdef _WIN32
 #define ALIGN_16 __declspec(align(16))
 
-#ifdef X86
+#ifdef _WIN32
 static void* aligned_malloc(size_t size) { return _aligned_malloc(size, 16); }
 #define aligned_free _aligned_free
 #else

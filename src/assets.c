@@ -279,7 +279,7 @@ Map* cached_map(Game* game, int asset) {
             (size_t)file_header.spawn_zone_count       * sizeof(MobSpawnZone) +
             sizeof(MapState);
 
-        cached_asset->map = aligned_malloc(bytes_needed_for_map);
+        cached_asset->map = aligned_malloc(bytes_needed_for_map + 32); // some cruft room for 16 byte aligned map state
         cached_asset->map->locked = SDL_CreateMutex(); // TODO check for successful mutex creation
         load_map(asset, cached_asset->map);
         cached_asset->map->game = game;
