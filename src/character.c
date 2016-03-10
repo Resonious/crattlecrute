@@ -351,32 +351,32 @@ void default_character(Character* target) {
     target->right_hit = false;
 
     // top1: left
-    target->top_sensors.x[S1X] = 31 - 45;
-    target->top_sensors.x[S1Y] = 72 - 45;
+    target->top_sensors.x[S1X] = -14;
+    target->top_sensors.x[S1Y] = 27;
     // top2: right
-    target->top_sensors.x[S2X] = 58 - 45;
-    target->top_sensors.x[S2Y] = 72 - 45;
+    target->top_sensors.x[S2X] = 13;
+    target->top_sensors.x[S2Y] = 27;
 
     // bottom1: left
-    target->bottom_sensors.x[S1X] = 31 - 45;
-    target->bottom_sensors.x[S1Y] = 16 - 45;
+    target->bottom_sensors.x[S1X] = -14;
+    target->bottom_sensors.x[S1Y] = -29;
     // bottom2: right
-    target->bottom_sensors.x[S2X] = 58 - 45;
-    target->bottom_sensors.x[S2Y] = 16 - 45;
+    target->bottom_sensors.x[S2X] = 13;
+    target->bottom_sensors.x[S2Y] = -29;
 
     // left1: top
-    target->left_sensors.x[S1X] = 30 - 45;
-    target->left_sensors.x[S1Y] = 71 - 45;
+    target->left_sensors.x[S1X] = -15;
+    target->left_sensors.x[S1Y] = 26;
     // left2: bottom
-    target->left_sensors.x[S2X] = 31 - 45;
-    target->left_sensors.x[S2Y] = 17 - 45;
+    target->left_sensors.x[S2X] = -14;
+    target->left_sensors.x[S2Y] = -28;
 
     // right1: top
-    target->right_sensors.x[S1X] = 59 - 45;
-    target->right_sensors.x[S1Y] = 71 - 45;
+    target->right_sensors.x[S1X] = 14;
+    target->right_sensors.x[S1Y] = 26;
     // right2: bottom
-    target->right_sensors.x[S2X] = 59 - 45;
-    target->right_sensors.x[S2Y] = 17 - 45;
+    target->right_sensors.x[S2X] = 14;
+    target->right_sensors.x[S2Y] = -28;
 
     target->middle_sensors.x[S1X] = target->left_sensors.x[S1X];
     target->middle_sensors.x[S1Y] = (target->left_sensors.x[S1Y] + target->left_sensors.x[S2Y]) / 2.0f;

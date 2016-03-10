@@ -129,6 +129,7 @@ typedef struct MapState {
 #define MAP_STATE_MAX_MOBS (MAP_STATE_MAX_SMALL_MOBS + MAP_STATE_MAX_MEDIUM_MOBS + MAP_STATE_MAX_LARGE_MOBS)
 
 typedef struct Map {
+  // TODO TODO ADD GRAVITY AND DRAG - REMOVE FROM WORLDSCENE
     SDL_mutex* locked;
     struct Game* game;
 

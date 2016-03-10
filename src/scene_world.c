@@ -92,6 +92,7 @@ typedef struct RemotePlayer {
 
 typedef struct WorldScene {
     Game* game;
+    // TODO TODO MOVE GRAVITY AND DRAG TO MAPS
     float gravity;
     float drag;
     Character guy;

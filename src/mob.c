@@ -17,24 +17,24 @@ void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos
     pon->body.old_position.simd = pon->body.position.simd;
 
     pon->body.top_sensors.x[S1X] = -25.0f;
-    pon->body.top_sensors.x[S1Y] = 10.0f;
+    pon->body.top_sensors.x[S1Y] = 13.0f;
     pon->body.top_sensors.x[S1X] = 25.0f;
-    pon->body.top_sensors.x[S1Y] = 10.0f;
+    pon->body.top_sensors.x[S1Y] = 13.0f;
 
     pon->body.bottom_sensors.x[S1X] = -25.0f;
-    pon->body.bottom_sensors.x[S1Y] = -10.0f;
+    pon->body.bottom_sensors.x[S1Y] = -14.0f - 1;
     pon->body.bottom_sensors.x[S2X] = 25.0f;
-    pon->body.bottom_sensors.x[S2Y] = -10.0f;
+    pon->body.bottom_sensors.x[S2Y] = -14.0f - 1;
 
-    pon->body.left_sensors.x[S1X] = -25.0f;
-    pon->body.left_sensors.x[S1Y] = 10.0f;
-    pon->body.left_sensors.x[S1X] = -25.0f;
-    pon->body.left_sensors.x[S1Y] = -10.0f;
+    pon->body.left_sensors.x[S1X] = -25.0f - 1;
+    pon->body.left_sensors.x[S1Y] = 13.0f;
+    pon->body.left_sensors.x[S1X] = -25.0f - 1;
+    pon->body.left_sensors.x[S1Y] = -14.0f;
 
-    pon->body.right_sensors.x[S1X] = 25.0f;
-    pon->body.right_sensors.x[S1Y] = 10.0f;
-    pon->body.right_sensors.x[S1X] = 25.0f;
-    pon->body.right_sensors.x[S1Y] = -10.0f;
+    pon->body.right_sensors.x[S1X] = 25.0f + 1;
+    pon->body.right_sensors.x[S1Y] = 13.0f;
+    pon->body.right_sensors.x[S1X] = 25.0f + 1;
+    pon->body.right_sensors.x[S1Y] = -14.0f;
 
     pon->velocity.simd = _mm_set1_ps(0.0f);
     pon->target_pos = pos;
@@ -64,10 +64,16 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
             pon->frame_inc *= -1;
     }
 
+    pon->velocity.x[Y] -= 1.15f;
+    if (pon->velocity.x[Y] < -17.0f)
+      pon->velocity.x[Y] = -17.0f;
+
+    MOVE_TOWARDS(pon->velocity.x[X], 0, pon->body.grounded ? 0.1f : 0.025f);
+
     pon->body.position.simd = _mm_add_ps(pon->body.position.simd, pon->velocity.simd);
     collide_generic_body(&pon->body, &map->tile_collision);
 
-    if (pon->body.hit_ceiling)
+    if (pon->body.hit_ceiling || pon->body.grounded)
         pon->velocity.x[Y] = 0;
     if (pon->body.hit_wall)
         pon->velocity.x[X] = -(pon->velocity.x[X] * 0.5f);
@@ -80,12 +86,12 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
     if (game->net_joining) {
     }
     else {
-        if (rand() % 100 == 1) {
+        if (pon->body.grounded && rand() % 100 == 1) {
             if (rand() % 10 < 5)
                 pon->velocity.x[X] = -5.0f;
             else
                 pon->velocity.x[X] = 5.0f;
-            pon->velocity.x[Y] = 6.5f;
+            pon->velocity.x[Y] = 20.0f;
             pon->hop = true;
         }
     }
@@ -113,7 +119,7 @@ void mob_pon_save(void* vpon, struct Map* map, byte* buffer, int* pos) {
 void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
     read_from_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
-    read_from_buffer(buffer, &pon->body.position.x, pos, sizeof(vec4));
+    read_from_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
     read_from_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));
 
     pon->frame = 0;
