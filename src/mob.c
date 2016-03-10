@@ -108,6 +108,7 @@ void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos) {
 
 // ==== SCRIPT ====
 
+/*
 void mob_script_initialize(void* vs, struct Game* game, struct Map* map, vec2 pos) {
     SDL_assert(sizeof(MobScript) <= sizeof(LargeMob));
     MobScript* mob = (MobScript*)vs;
@@ -141,10 +142,12 @@ void mob_script_load(void* vs, struct Map* map, byte* buffer, int* pos) {
     }
     struct RClass* mob_class = mrb_class_get(mrb, mob->class_name);
     mob->self = mrb_obj_new(mrb, mob_class, 0, NULL);
-    // TODO ?????
+    // TODO NO MORE SCRIPT MOB IN THIS SENSE!!!
+    // Instead we'll have to implement asset packs that get added to game save data or something...
 }
 bool mob_script_sync_send(void* vs, struct Map* map, byte* buffer, int* pos) {
     return false;
 }
 void mob_script_sync_receive(void* vs, struct Map* map, byte* buffer, int* pos) {
 }
+*/

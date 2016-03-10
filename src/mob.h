@@ -38,7 +38,7 @@ typedef struct MediumMob {
 
 typedef struct LargeMob {
     MOB_FIELDS;
-    byte data[1024 * 5];
+    byte data[1024];
 } LargeMob;
 
 // ============== ACTUAL MOBS ===============
@@ -72,6 +72,7 @@ void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos);
 bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos);
 void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos);
 
+/*
 typedef struct MobScript {
     MOB_FIELDS;
 
@@ -90,6 +91,7 @@ void mob_script_save(void* vpon, struct Map* map, byte* buffer, int* pos);
 void mob_script_load(void* vpon, struct Map* map, byte* buffer, int* pos);
 bool mob_script_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos);
 void mob_script_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos);
+*/
 
 static MobType mob_registry[] = {
     {
@@ -103,6 +105,7 @@ static MobType mob_registry[] = {
         mob_pon_sync_send,
         mob_pon_sync_receive,
     },
+    /*
     {
         MOB_SCRIPT,
         LARGE,
@@ -114,6 +117,7 @@ static MobType mob_registry[] = {
         mob_script_sync_send,
         mob_script_sync_receive,
     }
+    */
 };
 
 #endif
