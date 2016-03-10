@@ -199,4 +199,7 @@ void clear_map_state(Map* map);
 void write_map_state(Map* map, byte* buffer, int* pos);
 void read_map_state(Map* map, byte* buffer, int* pos);
 
+struct GenericBody;
+void collide_generic_body(struct GenericBody* body, CollisionMap* tile_collision);
+
 #endif // TILEMAP_H

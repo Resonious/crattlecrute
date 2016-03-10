@@ -7,17 +7,40 @@
 // ==== PON ====
 
 void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos) {
-    SDL_assert(sizeof(MobPon) <= sizeof(SmallMob));
+    SDL_assert(sizeof(MobPon) <= sizeof(MediumMob));
 
     MobPon* pon = (MobPon*)vpon;
 
-    pon->pos = pos;
+    memset(&pon->body, 0, sizeof(GenericBody));
+    pon->body.position.simd = _mm_set_ps(pos.y, pos.x, pos.y, pos.x);
+    pon->body.old_position.simd = pon->body.position.simd;
+
+    pon->body.top_sensors.x[S1X] = -25.0f;
+    pon->body.top_sensors.x[S1Y] = 10.0f;
+    pon->body.top_sensors.x[S1X] = 25.0f;
+    pon->body.top_sensors.x[S1Y] = 10.0f;
+
+    pon->body.bottom_sensors.x[S1X] = -25.0f;
+    pon->body.bottom_sensors.x[S1Y] = -10.0f;
+    pon->body.bottom_sensors.x[S2X] = 25.0f;
+    pon->body.bottom_sensors.x[S2Y] = -10.0f;
+
+    pon->body.left_sensors.x[S1X] = -25.0f;
+    pon->body.left_sensors.x[S1Y] = 10.0f;
+    pon->body.left_sensors.x[S1X] = -25.0f;
+    pon->body.left_sensors.x[S1Y] = -10.0f;
+
+    pon->body.right_sensors.x[S1X] = 25.0f;
+    pon->body.right_sensors.x[S1Y] = 10.0f;
+    pon->body.right_sensors.x[S1X] = 25.0f;
+    pon->body.right_sensors.x[S1Y] = -10.0f;
+
     pon->target_pos = pos;
     pon->frame = 0;
     pon->frame_counter = 0;
     pon->frame_inc = 1;
-    pon->velocity.x = 0;
-    pon->velocity.y = 0;
+    pon->velocity.simd = _mm_set1_ps(0.0f);
+    pon->hop = false;
     if (rand() % 30 == 1) {
         pon->color.r = 255;
         pon->color.g = 198;
@@ -40,28 +63,33 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
             pon->frame_inc *= -1;
     }
 
+    pon->body.position.simd = _mm_add_ps(pon->body.position.simd, pon->velocity.simd);
+    collide_generic_body(&pon->body, &map->tile_collision);
+
+    if (pon->body.hit_ceiling)
+        pon->velocity.x[Y] = 0;
+    if (pon->body.hit_wall)
+        pon->velocity.x[X] = -(pon->velocity.x[X] * 0.5f);
+
+    if (pon->velocity.x[X] > 0)
+        pon->flip = SDL_FLIP_NONE;
+    else if (pon->velocity.x[X] < 0)
+        pon->flip = SDL_FLIP_HORIZONTAL;
+
     if (game->net_joining) {
-        vec2 diff = v2_sub(pon->target_pos, pon->pos);
-        pon->pos.x += diff.x * 0.1f;
-        pon->pos.y += diff.y * 0.1f;
     }
     else {
-        if (pon->velocity.x == 0 || pon->velocity.y == 0) {
-            pon->velocity.x = rand() % 10;
-            pon->velocity.y = rand() % 10;
+        if (rand() % 100 == 1) {
+            if (rand() % 10 < 5)
+                pon->velocity.x[X] = -5.0f;
+            else
+                pon->velocity.x[X] = 5.0f;
+            pon->velocity.x[Y] = 6.5f;
+            pon->hop = true;
         }
-        if (pon->pos.x > map->width)
-            pon->velocity.x = -(rand() % 10);
-        if (pon->pos.x < 0)
-            pon->velocity.x = (rand() % 10);
-
-        if (pon->pos.y > map->height)
-            pon->velocity.y = -(rand() % 10);
-        if (pon->pos.y < 0)
-            pon->velocity.y = (rand() % 10);
-
-        v2_addeq(&pon->pos, v2_mul(1.0f/60.0f, pon->velocity));
     }
+
+    pon->body.old_position.simd = pon->body.position.simd;
 }
 void mob_pon_render(void* vpon, struct Game* game, struct Map* map) {
     MobPon* pon = (MobPon*)vpon;
@@ -73,37 +101,39 @@ void mob_pon_render(void* vpon, struct Game* game, struct Map* map) {
 
     SDL_SetTextureColorMod(pon_tex, pon->color.r, pon->color.g, pon->color.b);
     SDL_SetTextureAlphaMod(pon_tex, pon->color.a);
-    world_render_copy(game, pon_tex, &src, &pon->pos, 90, 90, &center);
+    world_render_copy_ex(game, pon_tex, &src, pon->body.position.x, 90, 90, 0, &center, pon->flip);
 }
 void mob_pon_save(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
-    write_to_buffer(buffer, &pon->velocity, pos, sizeof(vec2));
-    write_to_buffer(buffer, &pon->pos, pos, sizeof(vec2));
+    write_to_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
+    write_to_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
     write_to_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));
 }
 void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
-    read_from_buffer(buffer, &pon->velocity, pos, sizeof(vec2));
-    read_from_buffer(buffer, &pon->pos, pos, sizeof(vec2));
+    read_from_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
+    read_from_buffer(buffer, &pon->body.position.x, pos, sizeof(vec4));
     read_from_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));
 
     pon->frame = 0;
     pon->frame_counter = 0;
     pon->frame_inc = 1;
-    pon->target_pos = pon->pos;
 }
 bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
 
-    if (pon->frame_counter % 20 == 0) {
-        write_to_buffer(buffer, &pon->pos, pos, sizeof(vec2));
+    if (pon->hop) {
+        write_to_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
+        write_to_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
+        pon->hop = false;
         return true;
     }
     else return false;
 }
 void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
-    read_from_buffer(buffer, &pon->target_pos, pos, sizeof(vec2));
+    read_from_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
+    read_from_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
 }
 
 // ==== SCRIPT ====

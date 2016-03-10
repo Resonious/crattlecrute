@@ -1,8 +1,3 @@
-#include "assets.h"
-#include "game.h"
-#include <stdio.h>
-#include <errno.h>
-
 #ifdef __APPLE__
 #include <mach-o/getsect.h>
 #else
@@ -17,14 +12,22 @@
 #include "SDL.h"
 #endif
 
+#if defined(_WIN32) && defined(EMBEDDED_ASSETS)
+#include <Windows.h>
+#endif
+
 #include "stb_image.h"
+
+#include "assets.h"
+#include "game.h"
+#include <stdio.h>
+#include <errno.h>
 
 extern SDL_Window* main_window;
 
 #ifdef EMBEDDED_ASSETS
 #ifdef _WIN32 //  ========================= VISUAL STUDIO RESOURCE FILE ===================
 #include "embedded_assets.h"
-#include <Windows.h>
 
 byte* embedded_assets;
 
@@ -276,7 +279,7 @@ Map* cached_map(Game* game, int asset) {
             (size_t)file_header.spawn_zone_count       * sizeof(MobSpawnZone) +
             sizeof(MapState);
 
-        cached_asset->map = malloc(bytes_needed_for_map);
+        cached_asset->map = aligned_malloc(bytes_needed_for_map);
         cached_asset->map->locked = SDL_CreateMutex(); // TODO check for successful mutex creation
         load_map(asset, cached_asset->map);
         cached_asset->map->game = game;
@@ -287,7 +290,7 @@ Map* cached_map(Game* game, int asset) {
                 tilemap->tex = cached_texture(game, tilemap->tex_asset);
         }
 
-        cached_asset->free = free;
+        cached_asset->free = aligned_free;
     }
     else
         SDL_assert(cached_asset->id == asset);

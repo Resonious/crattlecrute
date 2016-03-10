@@ -350,23 +350,31 @@ void default_character(Character* target) {
     target->left_hit = false;
     target->right_hit = false;
 
+    // top1: left
     target->top_sensors.x[S1X] = 31 - 45;
     target->top_sensors.x[S1Y] = 72 - 45;
+    // top2: right
     target->top_sensors.x[S2X] = 58 - 45;
     target->top_sensors.x[S2Y] = 72 - 45;
 
+    // bottom1: left
     target->bottom_sensors.x[S1X] = 31 - 45;
     target->bottom_sensors.x[S1Y] = 16 - 45;
+    // bottom2: right
     target->bottom_sensors.x[S2X] = 58 - 45;
     target->bottom_sensors.x[S2Y] = 16 - 45;
 
+    // left1: top
     target->left_sensors.x[S1X] = 30 - 45;
     target->left_sensors.x[S1Y] = 71 - 45;
+    // left2: bottom
     target->left_sensors.x[S2X] = 31 - 45;
     target->left_sensors.x[S2Y] = 17 - 45;
 
+    // right1: top
     target->right_sensors.x[S1X] = 59 - 45;
     target->right_sensors.x[S1Y] = 71 - 45;
+    // right2: bottom
     target->right_sensors.x[S2X] = 59 - 45;
     target->right_sensors.x[S2Y] = 17 - 45;
 

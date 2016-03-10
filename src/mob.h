@@ -2,6 +2,7 @@
 #define MOB_H
 
 #include "types.h"
+#include "coords.h"
 
 struct Map;
 struct Game;
@@ -56,9 +57,12 @@ enum MobId {
 typedef struct MobPon {
     MOB_FIELDS;
 
-    vec2 velocity;
+    // Pixels per frame
+    vec4 velocity;
     vec2 target_pos;
-    vec2 pos;
+    SDL_RendererFlip flip;
+    bool hop;
+    GenericBody body;
     int frame;
     int frame_counter;
     int frame_inc;
@@ -96,7 +100,7 @@ void mob_script_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos
 static MobType mob_registry[] = {
     {
         MOB_PON,
-        SMALL,
+        MEDIUM,
         mob_pon_initialize,
         mob_pon_update,
         mob_pon_render,
