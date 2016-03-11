@@ -39,6 +39,9 @@ extern SDL_Window* main_window;
 #define MAX_PLAYERS 20
 #define MOB_EVENT_BUFFER_SIZE (1024 * 3)
 
+#define TRANSITION_STEP  4
+#define TRANSITION_POINT 52
+
 typedef struct ControlsBuffer {
     SDL_mutex* locked;
     int current_frame;
@@ -59,6 +62,12 @@ typedef struct PhysicsState {
     float dy;
     float ground_speed;
 } PhysicsState;
+
+typedef struct MapTransition {
+    int destination_area;
+    vec2 destination_position;
+    int progress_percent;
+} MapTransition;
 
 typedef struct RemotePlayer {
     int id;
@@ -105,6 +114,8 @@ typedef struct WorldScene {
 
     ControlsBuffer controls_stream;
     const char* dbg_last_action;
+
+    MapTransition transition;
 
     mrb_value script_obj;
 
@@ -1281,6 +1292,8 @@ void scene_world_initialize(void* vdata, Game* game) {
     data->controls_stream.current_frame = -1;
     data->controls_stream.pos = 1;
 
+    data->transition.progress_percent = 101;
+
     // NETWORKING TIME
     {
         data->net.remote_id = -1;
@@ -1402,19 +1415,28 @@ void local_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     WorldScene* s = (WorldScene*)vs;
 
     SDL_assert(door->dest_area > -1);
-    s->current_area = door->dest_area;
+
+    s->transition.destination_area = door->dest_area;
+    s->transition.destination_position.x = (float)door->dest_x;
+    s->transition.destination_position.y = (float)door->dest_y;
+    s->transition.progress_percent = 0;
+}
+
+void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
+    s->current_area = transition->destination_area;
     int map_asset = map_asset_for_area(s->current_area);
     SDL_assert(map_asset > -1);
     s->map = cached_map(game, map_asset);
     s->map->area_id = s->current_area;
 
-    float dest_x = (float)door->dest_x;
-    float dest_y = s->map->height - (float)door->dest_y;
+    float dest_x = transition->destination_position.x;
+    float dest_y = s->map->height - transition->destination_position.y;
 
-    guy->position.x[X]     = dest_x;
-    guy->position.x[Y]     = dest_y;
-    guy->old_position.x[X] = dest_x;
-    guy->old_position.x[Y] = dest_y;
+    s->guy.position.x[X]     = dest_x;
+    s->guy.position.x[Y]     = dest_y;
+    s->guy.old_position.x[X] = dest_x;
+    s->guy.old_position.x[Y] = dest_y;
+
     set_camera_target(game, s->map, &s->guy);
     game->camera.simd = game->camera_target.simd;
 }
@@ -1708,11 +1730,19 @@ void scene_world_update(void* vs, Game* game) {
     // END OF REMOTE PLAYER CONTROLS PLAYBACK
 
     // Update local player
-    apply_character_physics(game, &s->guy, &game->controls, s->gravity, s->drag);
-    collide_character(&s->guy, &s->map->tile_collision);
-    slide_character(s->gravity, &s->guy);
-    interact_character_with_world(game, &s->guy, &game->controls, s->map, s, local_go_through_door);
-    update_character_animation(&s->guy);
+    if (s->transition.progress_percent <= 100) {
+        s->transition.progress_percent += TRANSITION_STEP;
+        if (s->transition.progress_percent == TRANSITION_POINT) {
+            transition_maps(s, game, &s->transition);
+        }
+    }
+    if (s->transition.progress_percent >= TRANSITION_POINT) {
+        apply_character_physics(game, &s->guy, &game->controls, s->gravity, s->drag);
+        collide_character(&s->guy, &s->map->tile_collision);
+        slide_character(s->gravity, &s->guy);
+        interact_character_with_world(game, &s->guy, &game->controls, s->map, s, local_go_through_door);
+        update_character_animation(&s->guy);
+    }
 
     // Update everything else on the map(s)
     void(*on_mob_spawn)(void*, Map*, struct Game*, int, vec2) = NULL;
@@ -1990,6 +2020,20 @@ void scene_world_render(void* vs, Game* game) {
     }
     BENCH_END(ping);
 #endif
+
+    if (s->transition.progress_percent < 100) {
+        float alpha = (float)s->transition.progress_percent * (255.0f / (float)TRANSITION_POINT);
+        if (alpha > 255)
+            alpha = 255 - (alpha - 255);
+
+        SDL_BlendMode blend;
+        SDL_GetRenderDrawBlendMode(game->renderer, &blend);
+
+        SDL_SetRenderDrawBlendMode(game->renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, (byte)alpha);
+        SDL_RenderFillRect(game->renderer, NULL);
+        SDL_SetRenderDrawBlendMode(game->renderer, blend);
+    }
 }
 
 void scene_world_cleanup(void* vdata, Game* game) {
