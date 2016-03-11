@@ -64,6 +64,7 @@ typedef struct PhysicsState {
 } PhysicsState;
 
 typedef struct MapTransition {
+    SDL_mutex* locked;
     int destination_area;
     vec2 destination_position;
     int progress_percent;
@@ -551,16 +552,33 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
         SDL_UnlockMutex(player->controls_playback.locked);
 
         if (flags & NETF_MAPSTATE) {
-            wait_for_then_use_lock(scene->map->locked);
             int area_id;
             read_from_buffer(buffer, &area_id, &pos, sizeof(int));
 
-            SDL_assert(area_id == scene->current_area);
-            SDL_assert(area_id == scene->map->area_id);
-            clear_map_state(scene->map);
-            read_map_state(scene->map, buffer, &pos);
+            Map* map;
+
+            if (area_id == scene->current_area) {
+                wait_for_then_use_lock(scene->map->locked);
+                SDL_assert(area_id == scene->map->area_id);
+                map = scene->map;
+            }
+            else {
+                SDL_assert(scene->transition.destination_area == area_id);
+                SDL_assert(scene->transition.progress_percent <= TRANSITION_POINT);
+                wait_for_then_use_lock(scene->transition.locked);
+
+                map = cached_map(scene->game, map_asset_for_area(area_id));
+                map->area_id = area_id;
+
+                SDL_UnlockMutex(scene->transition.locked);
+                wait_for_then_use_lock(map->locked);
+            }
+
+            clear_map_state(map);
+            read_map_state(map, buffer, &pos);
 
             SDL_UnlockMutex(scene->map->locked);
+
             printf("PROCESSED MAP STATE EVENT\n");
         }
 
@@ -1293,6 +1311,10 @@ void scene_world_initialize(void* vdata, Game* game) {
     data->controls_stream.pos = 1;
 
     data->transition.progress_percent = 101;
+    data->transition.locked = SDL_CreateMutex();
+    if (!data->transition.locked) {
+        printf("BAD TRANSITION MUTEX\n");
+    }
 
     // NETWORKING TIME
     {
@@ -1416,13 +1438,17 @@ void local_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
 
     SDL_assert(door->dest_area > -1);
 
+    wait_for_then_use_lock(s->transition.locked);
     s->transition.destination_area = door->dest_area;
     s->transition.destination_position.x = (float)door->dest_x;
     s->transition.destination_position.y = (float)door->dest_y;
     s->transition.progress_percent = 0;
+    SDL_UnlockMutex(s->transition.locked);
 }
 
 void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
+    wait_for_then_use_lock(s->transition.locked);
+
     s->current_area = transition->destination_area;
     int map_asset = map_asset_for_area(s->current_area);
     SDL_assert(map_asset > -1);
@@ -1439,6 +1465,8 @@ void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
 
     set_camera_target(game, s->map, &s->guy);
     game->camera.simd = game->camera_target.simd;
+
+    SDL_UnlockMutex(s->transition.locked);
 }
 
 void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
@@ -1730,6 +1758,7 @@ void scene_world_update(void* vs, Game* game) {
     // END OF REMOTE PLAYER CONTROLS PLAYBACK
 
     // Update local player
+    bool updated_guy_physics = false;
     if (s->transition.progress_percent <= 100) {
         s->transition.progress_percent += TRANSITION_STEP;
         if (s->transition.progress_percent == TRANSITION_POINT) {
@@ -1742,6 +1771,7 @@ void scene_world_update(void* vs, Game* game) {
         slide_character(s->gravity, &s->guy);
         interact_character_with_world(game, &s->guy, &game->controls, s->map, s, local_go_through_door);
         update_character_animation(&s->guy);
+        updated_guy_physics = true;
     }
 
     // Update everything else on the map(s)
@@ -1793,7 +1823,8 @@ void scene_world_update(void* vs, Game* game) {
 
     if (s->controls_stream.current_frame >= 0) {
         // record
-        record_controls(&game->controls, &s->controls_stream);
+        if (updated_guy_physics)
+          record_controls(&game->controls, &s->controls_stream);
 
         if (s->controls_stream.current_frame >= 255) {
             SDL_assert(s->net.status == HOSTING); // TODO OTHERWISE THIS MEANS SERVER CRASHED!
