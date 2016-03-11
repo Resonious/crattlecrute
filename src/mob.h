@@ -57,11 +57,9 @@ enum MobId {
 typedef struct MobPon {
     MOB_FIELDS;
 
-    int pad : 12;
     GenericBody body;
     // Pixels per frame
     vec4 velocity;
-    vec2 target_pos;
     SDL_RendererFlip flip;
     bool hop;
     int frame;

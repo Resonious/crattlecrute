@@ -6,6 +6,28 @@
 
 // ==== PON ====
 
+void set_pon_sensors(MobPon* pon) {
+    pon->body.top_sensors.x[S1X] = -25.0f;
+    pon->body.top_sensors.x[S1Y] = 20.0f;
+    pon->body.top_sensors.x[S2X] = 25.0f;
+    pon->body.top_sensors.x[S2Y] = 20.0f;
+
+    pon->body.bottom_sensors.x[S1X] = -25.0f;
+    pon->body.bottom_sensors.x[S1Y] = -14.0f - 1;
+    pon->body.bottom_sensors.x[S2X] = 25.0f;
+    pon->body.bottom_sensors.x[S2Y] = -14.0f - 1;
+
+    pon->body.left_sensors.x[S1X] = -25.0f - 1;
+    pon->body.left_sensors.x[S1Y] = 14.0f;
+    pon->body.left_sensors.x[S2X] = -25.0f - 1;
+    pon->body.left_sensors.x[S2Y] = -14.0f;
+
+    pon->body.right_sensors.x[S1X] = 25.0f + 1;
+    pon->body.right_sensors.x[S1Y] = 13.0f;
+    pon->body.right_sensors.x[S2X] = 25.0f + 1;
+    pon->body.right_sensors.x[S2Y] = -14.0f;
+}
+
 void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos) {
     SDL_assert(sizeof(MobPon) <= sizeof(MediumMob));
 
@@ -15,29 +37,9 @@ void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos
     memset(&pon->body, 0, sizeof(GenericBody));
     pon->body.position = (vec4) { pos.x, pos.y, 0.0f, 0.0f };
     pon->body.old_position.simd = pon->body.position.simd;
-
-    pon->body.top_sensors.x[S1X] = -35.0f + 2;
-    pon->body.top_sensors.x[S1Y] = 20.0f;
-    pon->body.top_sensors.x[S1X] = 35.0f - 2;
-    pon->body.top_sensors.x[S1Y] = 20.0f;
-
-    pon->body.bottom_sensors.x[S1X] = -25.0f;
-    pon->body.bottom_sensors.x[S1Y] = -14.0f - 1;
-    pon->body.bottom_sensors.x[S2X] = 25.0f - 1;
-    pon->body.bottom_sensors.x[S2Y] = -14.0f - 1;
-
-    pon->body.left_sensors.x[S1X] = -25.0f - 1;
-    pon->body.left_sensors.x[S1Y] = 13.0f;
-    pon->body.left_sensors.x[S1X] = -25.0f - 1;
-    pon->body.left_sensors.x[S1Y] = -14.0f;
-
-    pon->body.right_sensors.x[S1X] = 25.0f + 1;
-    pon->body.right_sensors.x[S1Y] = 13.0f;
-    pon->body.right_sensors.x[S1X] = 25.0f + 1;
-    pon->body.right_sensors.x[S1Y] = -14.0f;
+    set_pon_sensors(pon);
 
     pon->velocity.simd = _mm_set1_ps(0.0f);
-    pon->target_pos = pos;
     pon->frame = 0;
     pon->frame_counter = 0;
     pon->frame_inc = 1;
@@ -115,14 +117,19 @@ void mob_pon_save(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
     write_to_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
     write_to_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
+    write_to_buffer(buffer, pon->body.old_position.x, pos, sizeof(vec4));
     write_to_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));
 }
 void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
+    memset(&pon->body, 0, sizeof(GenericBody));
+
     read_from_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
     read_from_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
+    read_from_buffer(buffer, pon->body.old_position.x, pos, sizeof(vec4));
     read_from_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));
 
+    set_pon_sensors(pon);
     pon->frame = 0;
     pon->frame_counter = 0;
     pon->frame_inc = 1;
@@ -134,6 +141,7 @@ bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos) {
         write_to_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
         write_to_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
         write_to_buffer(buffer, pon->body.old_position.x, pos, sizeof(vec4));
+        write_to_buffer(buffer, &pon->body.grounded, pos, sizeof(bool));
         write_to_buffer(buffer, &pon->body.ground_angle, pos, sizeof(float));
         pon->hop = false;
         return true;
@@ -145,6 +153,7 @@ void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos) {
     read_from_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
     read_from_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
     read_from_buffer(buffer, pon->body.old_position.x, pos, sizeof(vec4));
+    read_from_buffer(buffer, &pon->body.grounded, pos, sizeof(bool));
     read_from_buffer(buffer, &pon->body.ground_angle, pos, sizeof(float));
 }
 
