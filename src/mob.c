@@ -132,6 +132,8 @@ bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos) {
     if (pon->hop) {
         write_to_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
         write_to_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
+        write_to_buffer(buffer, pon->body.old_position.x, pos, sizeof(vec4));
+        write_to_buffer(buffer, &pon->body.ground_angle, pos, sizeof(float));
         pon->hop = false;
         return true;
     }
@@ -141,6 +143,8 @@ void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
     read_from_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
     read_from_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
+    read_from_buffer(buffer, pon->body.old_position.x, pos, sizeof(vec4));
+    read_from_buffer(buffer, &pon->body.ground_angle, pos, sizeof(float));
 }
 
 // ==== SCRIPT ====
