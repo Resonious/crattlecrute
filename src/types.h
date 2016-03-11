@@ -115,4 +115,24 @@ vec2 v2_sub(vec2 u, vec2 v);
 vec2 v2_mul(float s, vec2 u);
 void v2_addeq(vec2* u, vec2 v);
 
+typedef struct GenericBody {
+    // (x[0] left to right, x[1] down to up)
+    vec4 position;
+    // (x[0] left to right, x[1] down to up)
+    vec4 old_position;
+
+    // (x[0], x[1])  (x[2], x[3])
+    vec4i top_sensors;
+    // (x[0], x[1])  (x[2], x[3])
+    vec4i bottom_sensors;
+    // (x[0], x[1])  (x[2], x[3])
+    vec4i left_sensors;
+    // (x[0], x[1])  (x[2], x[3])
+    vec4i right_sensors;
+
+    bool left_hit, right_hit, grounded, hit_ceiling, hit_wall;
+    // In degrees
+    float ground_angle;
+} GenericBody;
+
 #endif // TYPES_H

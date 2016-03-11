@@ -9,6 +9,30 @@ extern bool debug_pause;
 #endif
 #include <math.h>
 
+void set_collision_sensors(struct GenericBody* body, float width, float height, float y_offset) {
+    float hw = width  / 2.0f;
+    float hh = height / 2.0f;
+    body->top_sensors.x[S1X] = -hw;
+    body->top_sensors.x[S1Y] = hh + y_offset;
+    body->top_sensors.x[S2X] = hw;
+    body->top_sensors.x[S2Y] = hh + y_offset;
+
+    body->bottom_sensors.x[S1X] = -hw;
+    body->bottom_sensors.x[S1Y] = -hh + y_offset;
+    body->bottom_sensors.x[S2X] = hw;
+    body->bottom_sensors.x[S2Y] = -hh + y_offset;
+
+    body->left_sensors.x[S1X] = -hw - 1;
+    body->left_sensors.x[S1Y] = hh + y_offset;
+    body->left_sensors.x[S2X] = -hw - 1;
+    body->left_sensors.x[S2Y] = -hh + y_offset;
+
+    body->right_sensors.x[S1X] = hw + 1;
+    body->right_sensors.x[S1Y] = hh + y_offset;
+    body->right_sensors.x[S2X] = hw + 1;
+    body->right_sensors.x[S2Y] = -hh + y_offset;
+}
+
 TileIndex tile_from_int(int raw_tile_index) {
     TileIndex result;
 

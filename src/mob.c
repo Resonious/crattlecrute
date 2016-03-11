@@ -6,27 +6,7 @@
 
 // ==== PON ====
 
-void set_pon_sensors(MobPon* pon) {
-    pon->body.top_sensors.x[S1X] = -25.0f;
-    pon->body.top_sensors.x[S1Y] = 20.0f;
-    pon->body.top_sensors.x[S2X] = 25.0f;
-    pon->body.top_sensors.x[S2Y] = 20.0f;
-
-    pon->body.bottom_sensors.x[S1X] = -25.0f;
-    pon->body.bottom_sensors.x[S1Y] = -14.0f - 1;
-    pon->body.bottom_sensors.x[S2X] = 25.0f;
-    pon->body.bottom_sensors.x[S2Y] = -14.0f - 1;
-
-    pon->body.left_sensors.x[S1X] = -25.0f - 1;
-    pon->body.left_sensors.x[S1Y] = 14.0f;
-    pon->body.left_sensors.x[S2X] = -25.0f - 1;
-    pon->body.left_sensors.x[S2Y] = -14.0f;
-
-    pon->body.right_sensors.x[S1X] = 25.0f + 1;
-    pon->body.right_sensors.x[S1Y] = 13.0f;
-    pon->body.right_sensors.x[S2X] = 25.0f + 1;
-    pon->body.right_sensors.x[S2Y] = -14.0f;
-}
+#define set_pon_sensors(pon) set_collision_sensors(&pon->body, 50, 34, 0);
 
 void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos) {
     SDL_assert(sizeof(MobPon) <= sizeof(MediumMob));

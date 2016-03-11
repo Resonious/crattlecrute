@@ -68,6 +68,7 @@ typedef struct {
 struct Game;
 struct Character;
 
+void set_collision_sensors(struct GenericBody* body, float width, float height, float y_offset);
 TileIndex tile_from_int(int raw_tile_index);
 TileCollision process_side_sensor(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor);
 TileCollision process_top_sensor(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
@@ -200,7 +201,6 @@ void clear_map_state(Map* map);
 void write_map_state(Map* map, byte* buffer, int* pos);
 void read_map_state(Map* map, byte* buffer, int* pos);
 
-struct GenericBody;
 void collide_generic_body(struct GenericBody* body, CollisionMap* tile_collision);
 
 #endif // TILEMAP_H
