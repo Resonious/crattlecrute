@@ -16,14 +16,14 @@ void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos
     pon->body.position = (vec4) { pos.x, pos.y, 0.0f, 0.0f };
     pon->body.old_position.simd = pon->body.position.simd;
 
-    pon->body.top_sensors.x[S1X] = -25.0f;
-    pon->body.top_sensors.x[S1Y] = 13.0f;
-    pon->body.top_sensors.x[S1X] = 25.0f;
-    pon->body.top_sensors.x[S1Y] = 13.0f;
+    pon->body.top_sensors.x[S1X] = -35.0f + 2;
+    pon->body.top_sensors.x[S1Y] = 20.0f;
+    pon->body.top_sensors.x[S1X] = 35.0f - 2;
+    pon->body.top_sensors.x[S1Y] = 20.0f;
 
     pon->body.bottom_sensors.x[S1X] = -25.0f;
     pon->body.bottom_sensors.x[S1Y] = -14.0f - 1;
-    pon->body.bottom_sensors.x[S2X] = 25.0f;
+    pon->body.bottom_sensors.x[S2X] = 25.0f - 1;
     pon->body.bottom_sensors.x[S2Y] = -14.0f - 1;
 
     pon->body.left_sensors.x[S1X] = -25.0f - 1;
@@ -68,7 +68,7 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
     if (pon->velocity.x[Y] < -17.0f)
       pon->velocity.x[Y] = -17.0f;
 
-    MOVE_TOWARDS(pon->velocity.x[X], 0, pon->body.grounded ? 0.1f : 0.025f);
+    MOVE_TOWARDS(pon->velocity.x[X], 0, pon->body.grounded ? 1.0f : 0.025f);
 
     pon->body.position.simd = _mm_add_ps(pon->body.position.simd, pon->velocity.simd);
     collide_generic_body(&pon->body, &map->tile_collision);
@@ -76,7 +76,7 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
     if (pon->body.hit_ceiling || pon->body.grounded)
         pon->velocity.x[Y] = 0;
     if (pon->body.hit_wall)
-        pon->velocity.x[X] = -(pon->velocity.x[X] * 0.5f);
+        pon->velocity.x[X] = -(pon->velocity.x[X]);
 
     if (pon->velocity.x[X] > 0)
         pon->flip = SDL_FLIP_NONE;
@@ -91,7 +91,8 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
                 pon->velocity.x[X] = -5.0f;
             else
                 pon->velocity.x[X] = 5.0f;
-            pon->velocity.x[Y] = 20.0f;
+            pon->velocity.x[Y] = 13.0f;
+            pon->body.grounded = false;
             pon->hop = true;
         }
     }
@@ -108,7 +109,7 @@ void mob_pon_render(void* vpon, struct Game* game, struct Map* map) {
 
     SDL_SetTextureColorMod(pon_tex, pon->color.r, pon->color.g, pon->color.b);
     SDL_SetTextureAlphaMod(pon_tex, pon->color.a);
-    world_render_copy_ex(game, pon_tex, &src, pon->body.position.x, 90, 90, 0, &center, pon->flip);
+    world_render_copy_ex(game, pon_tex, &src, pon->body.position.x, 90, 90, pon->body.ground_angle, &center, pon->flip);
 }
 void mob_pon_save(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
