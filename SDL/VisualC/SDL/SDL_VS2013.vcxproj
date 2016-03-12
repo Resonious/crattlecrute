@@ -90,7 +90,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\src\main\windows;..\..\..\win;..\..\..\STB;..\..\..\src;..\..\include;%(AdditionalIncludeDirectories);"$(DXSDK_DIR)\Include";</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\MRuby\include;..\..\src\main\windows;..\..\..\win;..\..\..\STB;..\..\..\src;..\..\include;%(AdditionalIncludeDirectories);"$(DXSDK_DIR)\Include";</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>X86;DRAW_FPS;EMBEDDED_ASSETS;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -99,7 +99,7 @@
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <CompileAs>Default</CompileAs>
+      <CompileAs>CompileAsC</CompileAs>
       <ExceptionHandling>false</ExceptionHandling>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
@@ -108,12 +108,12 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;SDL2main.lib;winmm.lib;imm32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libmruby.lib;ws2_32.lib;SDL2main.lib;winmm.lib;imm32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <CLRUnmanagedCodeCheck>false</CLRUnmanagedCodeCheck>
-      <AdditionalLibraryDirectories>..\SDLmain\Win32\$(Configuration);$(DXSDK_DIR)\lib\x86</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\..\MRuby\build\32bit-debug\lib;..\SDLmain\Win32\$(Configuration);$(DXSDK_DIR)\lib\x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -125,7 +125,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\src\main\windows;..\..\..\win;..\..\..\STB;..\..\..\src;..\..\include;%(AdditionalIncludeDirectories);"$(DXSDK_DIR)\Include";</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\MRuby\include;..\..\src\main\windows;..\..\..\win;..\..\..\STB;..\..\..\src;..\..\include;%(AdditionalIncludeDirectories);"$(DXSDK_DIR)\Include";</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>DRAW_FPS;EMBEDDED_ASSETS;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -141,12 +141,12 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;SDL2main.lib;winmm.lib;imm32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libmruby.lib;ws2_32.lib;SDL2main.lib;winmm.lib;imm32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateDebugInformation>Debug</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <CLRUnmanagedCodeCheck>false</CLRUnmanagedCodeCheck>
-      <AdditionalLibraryDirectories>..\SDLmain\x64\$(Configuration);$(DXSDK_DIR)\lib\x64</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\..\MRuby\build\host-debug\lib;..\SDLmain\x64\$(Configuration);$(DXSDK_DIR)\lib\x64</AdditionalLibraryDirectories>
       <EntryPointSymbol>
       </EntryPointSymbol>
     </Link>
@@ -227,7 +227,7 @@
       <AdditionalDependencies>ws2_32.lib;SDL2main.lib;winmm.lib;imm32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <SubSystem>Windows</SubSystem>
-      <AdditionalLibraryDirectories>..\SDLmain\x64\$(Configuration);$(DXSDK_DIR)\lib\x64</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\..\MRuby\build\host\lib;..\SDLmain\x64\$(Configuration);$(DXSDK_DIR)\lib\x64</AdditionalLibraryDirectories>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -246,7 +246,9 @@
     <ClInclude Include="..\..\..\src\coords.h" />
     <ClInclude Include="..\..\..\src\dxsdkver.h" />
     <ClInclude Include="..\..\..\src\game.h" />
+    <ClInclude Include="..\..\..\src\mob.h" />
     <ClInclude Include="..\..\..\src\scene.h" />
+    <ClInclude Include="..\..\..\src\script.h" />
     <ClInclude Include="..\..\..\src\sound.h" />
     <ClInclude Include="..\..\..\src\tilemap.h" />
     <ClInclude Include="..\..\..\src\types.h" />
@@ -390,8 +392,10 @@
     <ClCompile Include="..\..\..\src\character.c" />
     <ClCompile Include="..\..\..\src\game.c" />
     <ClCompile Include="..\..\..\src\main.c" />
+    <ClCompile Include="..\..\..\src\mob.c" />
     <ClCompile Include="..\..\..\src\scene_offset_viewer.c" />
     <ClCompile Include="..\..\..\src\scene_world.c" />
+    <ClCompile Include="..\..\..\src\script.c" />
     <ClCompile Include="..\..\..\src\sound.c" />
     <ClCompile Include="..\..\..\src\tilemap.c" />
     <ClCompile Include="..\..\..\src\types.c" />

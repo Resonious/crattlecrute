@@ -6,26 +6,27 @@
 
 #define ASSET_NOT_LOADED 2147483647
 
+struct Map;
 typedef struct {
     int id;
     void(*free)(void*);
     union {
         SDL_Texture* texture;
         AudioWave* sound;
-        Map* map;
+        struct Map* map;
         void* data;
     };
 } CachedAsset;
 
 typedef struct {
-    CachedAsset assets[NUMBER_OF_ASSETS];
+    CachedAsset assets[100];
 } AssetCache;
 
 struct Game;
 void free_cached_asset(struct Game* game, int asset);
 SDL_Texture* cached_texture(struct Game* game, int asset);
 AudioWave* cached_sound(struct Game* game, int asset);
-Map* cached_map(struct Game* game, int asset);
+struct Map* cached_map(struct Game* game, int asset);
 
 void cached_texture_dimensions(struct Game* game, int asset, /*out*/TextureDimensions* dims);
 

@@ -58,52 +58,70 @@ def download(uri, dest, start_msg="Downloading")
   end
 end
 
-# Grab STB libs
-FileUtils.mkdir_p File.join(destination_path, "STB")
-download(
-  URI("https://raw.githubusercontent.com/nothings/stb/master/stb_image.h"),
-  File.join(destination_path, "STB", "stb_image.h"),
-  "Downloading stb_image"
-)
-download(
-  URI("https://raw.githubusercontent.com/nothings/stb/master/stb_vorbis.c"),
-  File.join(destination_path, "STB", "stb_vorbis.c"),
-  "Downloading stb_vorbis"
-)
-
-# Actually download SDL
-begin
-  download(
-    URI("https://www.libsdl.org/release/SDL2-2.0.3.zip"),
-    "SDL2temp.zip",
-    "Downloading SDL2"
-  )
-  puts "Done! Now unzipping."
-
-  ZipFile = (Zip::ZipFile rescue Zip::File)
-  ZipFile.open("SDL2temp.zip") do |zipped_files|
+def unzip(destination_path, zip_file, old_folder_name, new_folder_name, options = {})
+  zipfile = (Zip::ZipFile rescue Zip::File)
+  zipfile.open(zip_file) do |zipped_files|
     zipped_files.each do |zip_file|
-      path = File.join(destination_path, zip_file.name.gsub('SDL2-2.0.3', 'SDL'))
+      path = File.join(destination_path, zip_file.name.gsub(old_folder_name, new_folder_name))
       FileUtils.mkdir_p File.dirname(path)
 
       if File.exists?(path)
         puts "Skipping #{path} - already exists."
       else
-        zipped_files.extract(zip_file.to_s, path) 
+        zipped_files.extract(zip_file.to_s, path)
       end
     end
   end
 
   puts "And done."
 
-  if OS.windows?
-    Shortcut.new('VS.lnk') do |s|
-      s.target_path = File.join destination_path, 'SDL\VisualC\SDL_VS2013.sln'
-      s.description = 'Shortcut to Visual Studio solution'
-    end
-    puts "Added a shortcut to the Visual Studio solution. That's all for now!"
-  end
-
 ensure
-  FileUtils.rm "SDL2temp.zip"
+  FileUtils.rm zip_file unless options[:keep_temp]
 end
+
+unless ARGV.include?('--no-stb')
+  # Grab STB libs
+  FileUtils.mkdir_p File.join(destination_path, "STB")
+  download(
+    URI("https://raw.githubusercontent.com/nothings/stb/master/stb_image.h"),
+    File.join(destination_path, "STB", "stb_image.h"),
+    "Downloading stb_image"
+  )
+  download(
+    URI("https://raw.githubusercontent.com/nothings/stb/master/stb_vorbis.c"),
+    File.join(destination_path, "STB", "stb_vorbis.c"),
+    "Downloading stb_vorbis"
+  )
+end
+
+unless ARGV.include?('--no-sdl')
+  # Actually download SDL
+  download(
+    URI("https://www.libsdl.org/release/SDL2-2.0.3.zip"),
+    "SDL2temp.zip",
+    "Downloading SDL2"
+  )
+  puts "Done! Now unzipping."
+  unzip(destination_path, "SDL2temp.zip", "SDL2-2.0.3", "SDL")
+end
+
+if OS.windows?
+  Shortcut.new('VS.lnk') do |s|
+    s.target_path = File.join destination_path, 'SDL\VisualC\SDL_VS2013.sln'
+    s.description = 'Shortcut to Visual Studio solution'
+  end
+  puts "Added a shortcut to the Visual Studio solution. That's all for now!"
+end
+
+unless ARGV.include?('--no-mruby')
+  # Download MRuby
+  download(
+    URI("https://codeload.github.com/mruby/mruby/zip/1.2.0"),
+    "MRubytemp.zip",
+    "Downloading MRuby"
+  )
+  puts "Done! Now unzipping."
+  unzip(destination_path, "MRubytemp.zip", "mruby-1.2.0", "MRuby")
+end
+
+puts "Voila!"

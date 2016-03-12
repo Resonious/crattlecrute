@@ -149,6 +149,12 @@
     <ClCompile Include="..\..\..\src\scene_world.c">
       <Filter>game\scenes</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\mob.c">
+      <Filter>game\mobs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\script.c">
+      <Filter>game</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\dxsdkver.h" />
@@ -315,6 +321,12 @@
     <ClInclude Include="..\..\..\src\character.h">
       <Filter>game</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\mob.h">
+      <Filter>game\mobs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\script.h">
+      <Filter>game</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\..\src\main\windows\version.rc" />
@@ -329,6 +341,9 @@
     </Filter>
     <Filter Include="game\scenes">
       <UniqueIdentifier>{97373134-fe6f-40b6-a84a-01597cc20926}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="game\mobs">
+      <UniqueIdentifier>{f72ad681-fd85-4fc8-80fd-3354e059f12a}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -11,6 +11,7 @@ struct Controls;
 #define CHARACTER_LAYERS 4
 #define GUY_JUMP_SOUND_CHANNEL 0
 
+// NOTE the beginning of this struct should match up with GenericBody
 typedef struct Character {
     // (x[0] left to right, x[1] down to up)
     vec4 position;
@@ -25,6 +26,11 @@ typedef struct Character {
     vec4i left_sensors;
     // (x[0], x[1])  (x[2], x[3])
     vec4i right_sensors;
+
+    bool left_hit, right_hit, grounded, hit_ceiling, hit_wall;
+    // In degrees
+    float ground_angle;
+
     // (x[0], x[1])  (x[2], x[3])
     vec4i middle_sensors;
 
@@ -35,12 +41,8 @@ typedef struct Character {
     float ground_acceleration;
     float ground_deceleration;
     float slide_speed;
-    // In degrees
-    float ground_angle;
-    bool grounded;
     bool jumped;
     bool just_jumped;
-    bool left_hit, right_hit;
     float jump_acceleration;
     int width, height;
     int center_x, center_y;

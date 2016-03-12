@@ -1,3 +1,7 @@
+#ifndef COORDS_H
+#define COORDS_H
+#include "types.h"
+
 #define S1X 0
 #define S1Y 1
 #define S2X 2
@@ -15,3 +19,4 @@
 #define BOTTOM2UP 1
 #define RIGHT2LEFT 2
 #define LEFT2RIGHT 3
+#endif

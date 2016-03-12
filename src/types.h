@@ -46,20 +46,24 @@ extern Uint64 ticks_per_second;
 #define BENCH_END(x)
 #endif
 
-#define aligned_malloc(size) malloc(size)
-#define aligned_free(ptr) free(ptr)
+#ifdef _WIN32
+static void* aligned_malloc(size_t size) { return _aligned_malloc(size, 16); }
+#define aligned_free _aligned_free
+#else
+#define aligned_malloc malloc
+#define aligned_free free
+#endif
 
 #ifdef _WIN32
 #define ALIGN_16 __declspec(align(16))
 
-#ifdef X86
-#define aligned_malloc(size) _aligned_malloc(size, 16)
-#define aligned_free(ptr) _aligned_free(ptr)
-#endif
-
 #else
 #define ALIGN_16
 #endif
+
+void wait_for_then_use_lock(SDL_mutex* mutex);
+void write_to_buffer(byte* buffer, void* src, int* pos, int size);
+void read_from_buffer(byte* buffer, void* dest, int* pos, int size);
 
 typedef union vec4 {
     __m128 simd;
@@ -104,7 +108,31 @@ typedef union mat22 {
 
 mat22 rotation_mat22(float angle);
 vec2 mat_mul_22(mat22* mat, vec2* vec);
-float dot(vec2* u, vec2* v);
-float magnitude(vec2* u);
+float v2_dot(vec2* u, vec2* v);
+float v2_magnitude(vec2* u);
+vec2 v2_add(vec2 u, vec2 v);
+vec2 v2_sub(vec2 u, vec2 v);
+vec2 v2_mul(float s, vec2 u);
+void v2_addeq(vec2* u, vec2 v);
+
+typedef struct GenericBody {
+    // (x[0] left to right, x[1] down to up)
+    vec4 position;
+    // (x[0] left to right, x[1] down to up)
+    vec4 old_position;
+
+    // (x[0], x[1])  (x[2], x[3])
+    vec4i top_sensors;
+    // (x[0], x[1])  (x[2], x[3])
+    vec4i bottom_sensors;
+    // (x[0], x[1])  (x[2], x[3])
+    vec4i left_sensors;
+    // (x[0], x[1])  (x[2], x[3])
+    vec4i right_sensors;
+
+    bool left_hit, right_hit, grounded, hit_ceiling, hit_wall;
+    // In degrees
+    float ground_angle;
+} GenericBody;
 
 #endif // TYPES_H

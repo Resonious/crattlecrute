@@ -11,6 +11,7 @@ ImageLayer = Struct.new(
   :frame_height, :frame_width, :frames, :wrap_x, :wrap_y
 )
 MapObject = Struct.new(:id, :name, :type, :x, :y, :width, :height, :properties)
+SpawnRate = Struct.new(:mob_name, :percentage)
 
 IMAGE_LAYER_DEFAULTS = {
   parallax_factor: 1,
@@ -34,12 +35,12 @@ end
 
 # Straight up parse game.h to get IDs for area strings ... I just don't feel like
 # having a string->id table for runtime.
-def parse_area_ids(file_content)
+def parse_enum(enum, file_content)
   result = Hash.new(-1)
-  if /enum AreaId {(?<areas>[^{}]+)}/m =~ file_content
+  if match = /enum #{enum} {(?<entries>[^{}]+)}/m.match(file_content)
     i = 0
 
-    areas.split(",").each do |entry|
+    match[:entries].split(",").each do |entry|
       entry = entry.strip
       next if entry.empty?
 
@@ -334,9 +335,12 @@ def read_tmx(file)
     attrs = object.attributes
 
     struct = MapObject.new
-    struct.name = attrs['name'].value
+    struct.id = attrs['id'].value
+    struct.name = attrs['name'] ? attrs['name'].value : '<unnamed>'
     struct.x = (attrs['x'] ? attrs['x'].value : '0').to_i
     struct.y = map_height - (attrs['y'] ? attrs['y'].value : '0').to_i
+    struct.width  = (attrs['width']  ?  attrs['width'].value : '0').to_i
+    struct.height = (attrs['height'] ? attrs['height'].value : '0').to_i
     struct.type = attrs['type'].value.downcase.to_sym if attrs['type']
     struct.properties = {}
 
@@ -354,10 +358,32 @@ def read_tmx(file)
 end
 
 def write_cm(map, file_dest)
-  collision_layer = map.layers.find(&:collision?)
+  collision_layer      = map.layers.find(&:collision?)
   non_collision_layers = map.layers.reject(&:collision?)
-  doors = map.map_objects.select { |o| o.type == :door }
 
+  doors     = map.map_objects.select { |o| o.type == :door }
+  mob_zones = map.map_objects.select { |o| o.type == :spawn }
+
+  # We need to collect all spawn rates ahead of time so that we know
+  # how much memory to allocate ahead of time when reading the file.
+  all_spawn_rates = {}
+  mob_zones.each do |mob_spawnzone|
+    spawn_rates = []
+
+    mob_spawnzone.properties.each do |name, value|
+      next unless value.include?('%')
+      percentage = value.gsub('%', '').to_i
+      next if percentage == 0
+
+      spawn_rates << SpawnRate.new(name, percentage)
+    end
+
+    all_spawn_rates[mob_spawnzone.id] = spawn_rates
+  end
+
+  # ============================================================================
+  # ================================== FILE WRITE START ========================
+  # ============================================================================
   file = File.new(file_dest, 'wb')
 
   number_of_sublayers = 0
@@ -368,19 +394,22 @@ def write_cm(map, file_dest)
   raise "no collision layer!!" if collision_layer.nil?
   collision_sublayer = collision_layer.sublayers.values.first
 
+  # ==== HEADER ====
   file.write('CM1') # Magic (and version number I guess lol)
   file.write(
     # Tilemap width and height (both Uint32)
     [map.tiles_wide, map.tiles_high].pack('LL')
   )
-
-  # ==== HEADER ====
   # Number of sublayers (tilemaps): Uint8
   file.write([number_of_sublayers].pack('C'))
   # Number of imagelayers (parallax backgrounds): Uint8
   file.write([map.image_layers.size].pack('C'))
   # Number of doors: Uint8
   file.write([doors.size].pack('C'))
+  # Total Number of (mob, percentage) spawn rate pairs: Uint16
+  file.write([all_spawn_rates.map(&:last).map(&:size).reduce(0, :+)].pack('S'))
+  # Number of mob spawn zones: Uint8
+  file.write([mob_zones.size].pack('C'))
 
   non_collision_layers.each do |layer|
     layer.sublayers.values.each do |sublayer|
@@ -459,7 +488,7 @@ def write_cm(map, file_dest)
 
   # === DOORS!!! ===
   game_h = File.open(File.join(File.dirname(__FILE__), 'src/game.h'), &:read)
-  area_ids = parse_area_ids(game_h)
+  area_ids = parse_enum('AreaId', game_h)
 
   doors.each do |door|
     ['leads_to_area', 'leads_to_x', 'leads_to_y'].each do |x|
@@ -482,6 +511,39 @@ def write_cm(map, file_dest)
       ]
         .pack("lllll")
     )
+  end
+
+  # === MOBS!!! ===
+  mob_h = File.open(File.join(File.dirname(__FILE__), 'src/mob.h'), &:read)
+  mob_ids = parse_enum('MobId', mob_h)
+
+  mob_zones.each do |mob_spawnzone|
+    # x,y,w,h all int32
+    file.write(
+      [
+        mob_spawnzone.x,                        # int32
+        mob_spawnzone.y - mob_spawnzone.height, # int32
+        mob_spawnzone.width,                    # int32
+        mob_spawnzone.height                    # int32
+      ]
+        .pack("llll")
+    )
+
+    spawn_rates = all_spawn_rates[mob_spawnzone.id]
+
+    # Number of mobs that can spawn (Uint8)
+    file.write([spawn_rates.size].pack('C'))
+
+    # Spawnable mobs each (int32, int32)
+    spawn_rates.each do |spawn|
+      file.write(
+        [
+          mob_ids[spawn.mob_name].to_i, # int32
+          spawn.percentage.to_i         # int32
+        ]
+          .pack("ll")
+      )
+    end
   end
 
 ensure

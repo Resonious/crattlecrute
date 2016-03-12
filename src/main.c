@@ -25,6 +25,7 @@ WSADATA global_wsa;
 #include "assets.h"
 #include "scene.h"
 #include "coords.h"
+#include "script.h"
 #ifdef __APPLE__
 #include "SDL_main.h"
 #endif
@@ -59,6 +60,7 @@ Uint64 ticks_per_second;
                 case SDL_SCANCODE_LEFTBRACKET: this_frame[C_DEBUG_ADV] = to; break;
 
 int main(int argc, char** argv) {
+    BENCH_START(total_initialization);
     srand((unsigned int)time(0));
     ticks_per_second = SDL_GetPerformanceFrequency();
     _MM_SET_ROUNDING_MODE(_MM_ROUND_DOWN);
@@ -89,11 +91,14 @@ int main(int argc, char** argv) {
     game.camera_target.simd = _mm_set1_ps(0.0f);
     game.follow_cam_y = false;
 
+    BENCH_START(loading_sdl);
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
     open_assets_file();
     initialize_sound(&game.audio);
     memset(&game.controls, 0, sizeof(game.controls));
+    BENCH_END(loading_sdl);
 
+    BENCH_START(loading_window);
     game.window = SDL_CreateWindow(
         "Crattlecrute",
         SDL_WINDOWPOS_UNDEFINED,
@@ -103,8 +108,9 @@ int main(int argc, char** argv) {
     );
     main_window = game.window;
     game.renderer = SDL_CreateRenderer(game.window, -1, 0);
-    if (game.renderer == NULL) SDL_ShowSimpleMessageBox(0, "FUCK!", SDL_GetError(), game.window);
+    if (game.renderer == NULL) printf("No renderer!\n");
     SDL_SetRenderDrawColor(game.renderer, 20, 20, 20, 255);
+    BENCH_END(loading_window);
 
     game.font = load_texture(game.renderer, ASSET_FONT_FONT_PNG);
 
@@ -138,6 +144,29 @@ int main(int argc, char** argv) {
         SDL_ShowSimpleMessageBox(0, "Uh oh", "Couldn't initialize Windows networking", game.window);
 #endif
 
+    // MRB ????
+    BENCH_START(loading_ruby);
+    game.mrb = mrb_open();
+    if (game.mrb == NULL) {
+        SDL_ShowSimpleMessageBox(0, "NO MRUBY?", "ARE YOU KIDDING ME", game.window);
+        return 0;
+    }
+    mrb_load_string(game.mrb, "puts 'RUBY READY TO RUMBLE'");
+    script_init(&game);
+
+    mrb_value ruby_context = mrb_obj_value(game.mrb->top_self);
+#ifdef _DEBUG
+    if (load_script_file(game.mrb))
+        printf("script.rb loaded\n");
+    else
+        printf("script.rb not loaded\n");
+#endif
+
+    mrb_value rgame = mrb_class_new_instance(game.mrb, 0, NULL, game.ruby.game_class);
+    DATA_PTR(rgame) = &game;
+    game.ruby.game = rgame;
+    BENCH_END(loading_ruby);
+
     // Main loop bitch
     SDL_Event event;
     bool running = true;
@@ -153,6 +182,8 @@ int main(int argc, char** argv) {
     bool keys_down[NUM_CONTROLS];
 
     game.current_scene->initialize(game.current_scene_data, &game);
+
+    BENCH_END(total_initialization);
 
     while (running) {
         frame_start = SDL_GetPerformanceCounter();
@@ -193,6 +224,11 @@ int main(int argc, char** argv) {
                     switch (event.key.keysym.scancode) { SET_CONTROL(keys_down, true) }
                 break;
             case SDL_KEYUP:
+#ifdef _DEBUG
+                if (event.key.keysym.sym == SDLK_F5 || (event.key.keysym.sym == SDLK_r && event.key.keysym.mod & KMOD_CTRL))
+                    load_script_file(game.mrb);
+#endif
+
                 if (!game.text_edit.text)
                     switch (event.key.keysym.scancode) { SET_CONTROL(keys_up, true) }
                 break;
@@ -221,6 +257,14 @@ int main(int argc, char** argv) {
             }
         }
 
+        // Check for exception and print the details if necessary
+        if (game.mrb->exc) {
+            ruby_p(game.mrb, mrb_obj_value(game.mrb->exc), 0);
+            game.mrb->exc = 0;
+        }
+        if (mrb_respond_to(game.mrb, ruby_context, game.ruby.sym_update))
+            mrb_funcall(game.mrb, ruby_context, "update", 1, rgame);
+
 #if _DEBUG
         if (just_pressed(&game.controls, C_PAUSE))
             debug_pause = !debug_pause;
@@ -229,24 +273,26 @@ int main(int argc, char** argv) {
         game.current_scene->update(game.current_scene_data, &game);
 
         // Draw!!! Finally!!!
-        SDL_RenderClear(game.renderer);
-        game.current_scene->render(game.current_scene_data, &game);
+        if (game.renderer) {
+            SDL_RenderClear(game.renderer);
+            game.current_scene->render(game.current_scene_data, &game);
 #if _DEBUG
-        if (debug_pause) {
-            set_text_color(&game, 50, 50, 255);
-            draw_text_ex(&game, 32, game.window_height - 32, "FREEZE-FRAME!", 1, 0.7f);
-        }
+            if (debug_pause) {
+                set_text_color(&game, 50, 50, 255);
+                draw_text_ex(&game, 32, game.window_height - 32, "FREEZE-FRAME!", 1, 0.7f);
+            }
 #endif
-        if (tick_second_counter / (double)ticks_per_second >= 1.0) {
-            game.frames_per_second = frame_count_this_second / (tick_second_counter / (double)ticks_per_second);
-            frame_count_this_second = 0;
-            tick_second_counter = 0;
-        }
+            if (tick_second_counter / (double)ticks_per_second >= 1.0) {
+                game.frames_per_second = frame_count_this_second / (tick_second_counter / (double)ticks_per_second);
+                frame_count_this_second = 0;
+                tick_second_counter = 0;
+            }
 #if DRAW_FPS
-        set_text_color(&game, 255, 255, 20);
-        draw_text_ex_f(&game, (int)game.window_width - 150, (int)game.window_height - 20, -1, 0.7f, "FPS: %.2f", game.frames_per_second);
+            set_text_color(&game, 255, 255, 20);
+            draw_text_ex_f(&game, (int)game.window_width - 150, (int)game.window_height - 20, -1, 0.7f, "FPS: %.2f", game.frames_per_second);
 #endif
-        SDL_RenderPresent(game.renderer);
+            SDL_RenderPresent(game.renderer);
+        }
 
         // ======================= Cap Framerate =====================
         frame_end = SDL_GetPerformanceCounter();

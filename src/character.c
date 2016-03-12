@@ -16,7 +16,7 @@ void interact_character_with_world(
     struct Controls* controls,
     struct Map* map,
     void* data,
-    void (*go_through_door)(void*, struct Game* game, struct Character*, struct Door*)
+    void (*go_through_door)(void*, struct Game*, struct Character*, struct Door*)
 ) {
     for (int i = 0; i < map->number_of_doors; i++) {
         Door* door = &map->doors[i];
@@ -241,7 +241,7 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
 
     // THIS is in RADIANS
     float eye_pos_angle = (guy->ground_angle * (float)M_PI / 180.0f) + atan2f(eye_offset.y, eye_offset.x);
-    float eye_pos_magnitude = magnitude(&eye_offset);
+    float eye_pos_magnitude = v2_magnitude(&eye_offset);
     vec2 actual_eye_offset = {
         eye_pos_magnitude * cosf(eye_pos_angle),
         eye_pos_magnitude * sinf(eye_pos_angle)
@@ -350,25 +350,33 @@ void default_character(Character* target) {
     target->left_hit = false;
     target->right_hit = false;
 
-    target->top_sensors.x[S1X] = 31 - 45;
-    target->top_sensors.x[S1Y] = 72 - 45;
-    target->top_sensors.x[S2X] = 58 - 45;
-    target->top_sensors.x[S2Y] = 72 - 45;
+    // top1: left
+    target->top_sensors.x[S1X] = -14;
+    target->top_sensors.x[S1Y] = 27;
+    // top2: right
+    target->top_sensors.x[S2X] = 13;
+    target->top_sensors.x[S2Y] = 27;
 
-    target->bottom_sensors.x[S1X] = 31 - 45;
-    target->bottom_sensors.x[S1Y] = 16 - 45;
-    target->bottom_sensors.x[S2X] = 58 - 45;
-    target->bottom_sensors.x[S2Y] = 16 - 45;
+    // bottom1: left
+    target->bottom_sensors.x[S1X] = -14;
+    target->bottom_sensors.x[S1Y] = -29;
+    // bottom2: right
+    target->bottom_sensors.x[S2X] = 13;
+    target->bottom_sensors.x[S2Y] = -29;
 
-    target->left_sensors.x[S1X] = 30 - 45;
-    target->left_sensors.x[S1Y] = 71 - 45;
-    target->left_sensors.x[S2X] = 31 - 45;
-    target->left_sensors.x[S2Y] = 17 - 45;
+    // left1: top
+    target->left_sensors.x[S1X] = -15;
+    target->left_sensors.x[S1Y] = 26;
+    // left2: bottom
+    target->left_sensors.x[S2X] = -14;
+    target->left_sensors.x[S2Y] = -28;
 
-    target->right_sensors.x[S1X] = 59 - 45;
-    target->right_sensors.x[S1Y] = 71 - 45;
-    target->right_sensors.x[S2X] = 59 - 45;
-    target->right_sensors.x[S2Y] = 17 - 45;
+    // right1: top
+    target->right_sensors.x[S1X] = 14;
+    target->right_sensors.x[S1Y] = 26;
+    // right2: bottom
+    target->right_sensors.x[S2X] = 14;
+    target->right_sensors.x[S2Y] = -28;
 
     target->middle_sensors.x[S1X] = target->left_sensors.x[S1X];
     target->middle_sensors.x[S1Y] = (target->left_sensors.x[S1Y] + target->left_sensors.x[S2Y]) / 2.0f;

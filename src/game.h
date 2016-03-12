@@ -8,6 +8,7 @@
 #include "types.h"
 #include "sound.h"
 #include "cache.h"
+#include <mruby.h>
 
 enum Control {
     C_UP, C_DOWN, C_LEFT, C_RIGHT,
@@ -39,6 +40,20 @@ struct Scene;
 typedef struct Game {
     SDL_Window* window;
     SDL_Renderer* renderer;
+    mrb_state* mrb;
+    struct {
+        mrb_sym sym_atcontrols;
+        mrb_sym sym_atworld;
+        mrb_sym sym_atgame;
+        mrb_sym sym_atmap;
+        mrb_sym sym_update;
+        mrb_value game;
+        struct RClass* controls_class;
+        struct RClass* game_class;
+        struct RClass* world_class;
+        struct RClass* map_class;
+        struct RClass* mob_class;
+    } ruby;
     struct {
         int text_buf_size;
         char* text;
@@ -60,6 +75,7 @@ typedef struct Game {
     // Remember to #include "scene.h" if you're gonna use this.
     struct Scene* current_scene;
     void* current_scene_data;
+    bool net_joining;
     bool follow_cam_y;
     vec4 camera_target;
     vec4 camera;
@@ -72,7 +88,7 @@ void switch_scene(Game* game, int to_scene);
 void start_editing_text(Game* game, char* text_to_edit, int buffer_size, SDL_Rect* input_rect);
 void stop_editing_text(Game* game);
 
-// === Areas ===
+// === Areas === (THIS ENUM IS READ BY A RUBY SCRIPT AT COMPILE TIME)
 enum AreaId {
     AREA_TESTZONE_ONE,
     AREA_TESTZONE_TWO,
@@ -87,6 +103,8 @@ void draw_text_ex_caret(Game* game, int x, int y, char* text, int padding, float
 void draw_text_ex(Game* game, int x, int y, char* text, int padding, float scale);
 void draw_text_caret(Game* game, int x, int y, char* text, int caret);
 void draw_text(Game* game, int x, int y, char* text);
+void input_text(Game* game, char* text);
+void handle_key_during_text_edit(Game* game, SDL_Event* event);
 #define draw_text_ex_f(game, x, y, padding, scale, fmttext, ...)\
     {\
         char _strbuf[sizeof(fmttext) * 2];\

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" orientation="orthogonal" renderorder="right-up" width="45" height="75" tilewidth="32" tileheight="32" nextobjectid="2">
+<map version="1.0" orientation="orthogonal" renderorder="right-up" width="45" height="75" tilewidth="32" tileheight="32" nextobjectid="9">
  <tileset firstgid="1" name="collision" tilewidth="32" tileheight="32" tilecount="15">
   <image source="../../assets/terrain/standard.collision.png" width="160" height="96"/>
  </tileset>
@@ -274,6 +274,18 @@
     <property name="leads_to_area" value="AREA_TESTZONE_TWO"/>
     <property name="leads_to_x" value="10 * 32"/>
     <property name="leads_to_y" value="4 * 32"/>
+   </properties>
+  </object>
+ </objectgroup>
+ <objectgroup name="Pon Spawns">
+  <object id="6" type="spawn" x="744.666" y="2186.67" width="606" height="84">
+   <properties>
+    <property name="MOB_PON" value="100%"/>
+   </properties>
+  </object>
+  <object id="8" type="spawn" x="726.667" y="2298.67" width="198.666" height="46.6667">
+   <properties>
+    <property name="MOB_PON" value="100%"/>
    </properties>
   </object>
  </objectgroup>

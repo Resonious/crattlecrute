@@ -7,6 +7,7 @@
 #include "SDL.h"
 #endif
 #include "types.h"
+#include "mob.h"
 #define TILE_HEIGHT_FOR_SENSOR(heights, tile_index, sensor_dir) \
   ((int*)(&heights[tile_index.index]) + (sensor_dir * 32))
 
@@ -67,11 +68,12 @@ typedef struct {
 struct Game;
 struct Character;
 
+void set_collision_sensors(struct GenericBody* body, float width, float height, float y_offset);
 TileIndex tile_from_int(int raw_tile_index);
-TileCollision process_side_sensor(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor);
-TileCollision process_top_sensor(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
-TileCollision process_bottom_sensor(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
-TileCollision process_bottom_sensor_one_tile_down(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
+TileCollision process_side_sensor(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor);
+TileCollision process_top_sensor(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
+TileCollision process_bottom_sensor(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
+TileCollision process_bottom_sensor_one_tile_down(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor);
 void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/SensedTile* result);
 void draw_tilemap(struct Game* game, Tilemap* tilemap);
     /* NOTE HERE IS THE 2-PASS COLLISION THAT I DON'T USE
@@ -104,15 +106,52 @@ typedef struct Door {
     int dest_x, dest_y, dest_area;
 } Door;
 
+typedef struct MobSpawnRate {
+    int mob_type_id;
+    int percentage;
+} MobSpawnRate;
+
+typedef struct MobSpawnZone {
+    int countdown_until_next_spawn_attempt;
+
+    int x, y, width, height;
+    int number_of_spawns;
+    MobSpawnRate* spawns;
+} MobSpawnZone;
+
+#define MAP_STATE_MAX_SMALL_MOBS 10
+#define MAP_STATE_MAX_MEDIUM_MOBS 5
+#define MAP_STATE_MAX_LARGE_MOBS 2
+typedef struct MapState {
+    SmallMob  small_mobs[MAP_STATE_MAX_SMALL_MOBS];
+    MediumMob medium_mobs[MAP_STATE_MAX_MEDIUM_MOBS];
+    LargeMob  large_mobs[MAP_STATE_MAX_LARGE_MOBS];
+} MapState;
+#define MAP_STATE_MAX_MOBS (MAP_STATE_MAX_SMALL_MOBS + MAP_STATE_MAX_MEDIUM_MOBS + MAP_STATE_MAX_LARGE_MOBS)
+
 typedef struct Map {
+  // TODO TODO ADD GRAVITY AND DRAG - REMOVE FROM WORLDSCENE
+    SDL_mutex* locked;
+    struct Game* game;
+
+    int area_id;
+    int asset_id;
     CollisionMap tile_collision;
+
     int number_of_tilemaps;
     Tilemap* tilemaps;
+
     int number_of_backgrounds;
     int width, height;
     ParallaxBackground* backgrounds;
+
     int number_of_doors;
     Door* doors;
+
+    int number_of_spawn_zones;
+    MobSpawnZone* spawn_zones;
+
+    MapState* state;
 } Map;
 
 typedef struct CmFileHeader {
@@ -122,7 +161,11 @@ typedef struct CmFileHeader {
     Uint8 tilemap_count;
     Uint8 background_count;
     Uint8 door_count;
+    Uint8 spawn_zone_count;
+    Uint16 total_spawn_rate_count;
 } CmFileHeader;
+
+void increment_src_rect(SDL_Rect* src, int n, int image_width, int image_height);
 
 void world_render_copy(
     struct Game* game,
@@ -143,5 +186,21 @@ void load_map(const int asset, /*out*/Map* map);
 void draw_map(struct Game* game, Map* map);
 void draw_parallax_background(struct Game* game, struct Map* map, struct ParallaxBackground* background);
 void draw_door(struct Game* game, struct Door* door);
+void update_map(
+    Map* map, struct Game* game,
+    void* data,
+    void(*spawn_mob_from_spawn_zone)(void*, Map*, struct Game*, int, vec2),
+    void(*after_mob_update)(void*, Map*, struct Game*, MobCommon*)
+);
+MobCommon* spawn_mob(Map* map, struct Game* game, int mob_type_id, vec2 pos);
+int mob_id(Map* map, MobCommon* mob);
+MobCommon* mob_from_id(Map* map, int id);
+int index_from_mob_id(int id);
+
+void clear_map_state(Map* map);
+void write_map_state(Map* map, byte* buffer, int* pos);
+void read_map_state(Map* map, byte* buffer, int* pos);
+
+void collide_generic_body(struct GenericBody* body, CollisionMap* tile_collision);
 
 #endif // TILEMAP_H

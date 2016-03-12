@@ -3,10 +3,35 @@
 #include "game.h"
 #include "assets.h"
 #include "coords.h"
+#include "mob.h"
 #ifdef _DEBUG
 extern bool debug_pause;
 #endif
 #include <math.h>
+
+void set_collision_sensors(struct GenericBody* body, float width, float height, float y_offset) {
+    float hw = width  / 2.0f;
+    float hh = height / 2.0f;
+    body->top_sensors.x[S1X] = -hw;
+    body->top_sensors.x[S1Y] = hh + y_offset;
+    body->top_sensors.x[S2X] = hw;
+    body->top_sensors.x[S2Y] = hh + y_offset;
+
+    body->bottom_sensors.x[S1X] = -hw;
+    body->bottom_sensors.x[S1Y] = -hh + y_offset;
+    body->bottom_sensors.x[S2X] = hw;
+    body->bottom_sensors.x[S2Y] = -hh + y_offset;
+
+    body->left_sensors.x[S1X] = -hw - 1;
+    body->left_sensors.x[S1Y] = hh + y_offset;
+    body->left_sensors.x[S2X] = -hw - 1;
+    body->left_sensors.x[S2Y] = -hh + y_offset;
+
+    body->right_sensors.x[S1X] = hw + 1;
+    body->right_sensors.x[S1Y] = hh + y_offset;
+    body->right_sensors.x[S2X] = hw + 1;
+    body->right_sensors.x[S2Y] = -hh + y_offset;
+}
 
 TileIndex tile_from_int(int raw_tile_index) {
     TileIndex result;
@@ -99,7 +124,7 @@ void sense_tile(vec4* guy_pos_f, vec4i* tilemap_dim, vec4i* sensors, /*out*/Sens
     );
 }
 
-TileCollision process_bottom_sensor_one_tile_down(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
+TileCollision process_bottom_sensor_one_tile_down(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
     TileCollision result;
     result.hit = false;
     result.new_position = guy->position.x[Y];
@@ -128,7 +153,7 @@ TileCollision process_bottom_sensor_one_tile_down(struct Character* guy, Collisi
     return result;
 }
 
-TileCollision process_bottom_sensor(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
+TileCollision process_bottom_sensor(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
     TileCollision result;
     result.hit = false;
     result.new_position = guy->position.x[Y];
@@ -197,7 +222,7 @@ TileCollision process_bottom_sensor(struct Character* guy, CollisionMap* tilemap
     return result;
 }
 
-TileCollision dont_call_me(CollisionMap* tilemap, SensedTile* t, struct Character* guy, int height, const int sensor) {
+TileCollision dont_call_me(CollisionMap* tilemap, SensedTile* t, GenericBody* guy, int height, const int sensor) {
     // This should never happen!!!
 #ifdef _DEBUG
     SDL_assert(false);
@@ -205,19 +230,19 @@ TileCollision dont_call_me(CollisionMap* tilemap, SensedTile* t, struct Characte
     TileCollision r = {false, 0};
     return r;
 }
-TileCollision left_sensor_placement(CollisionMap* tilemap, SensedTile* t, struct Character* guy, int height, const int sensor) {
+TileCollision left_sensor_placement(CollisionMap* tilemap, SensedTile* t, GenericBody* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + height + 1 - guy->left_sensors.x[sensor+X]);
     result.hit = result.new_position > guy->position.x[X] && (result.new_position <= guy->old_position.x[X]);
     return result;
 }
-TileCollision right_sensor_placement(CollisionMap* tilemap, SensedTile* t, struct Character* guy, int height, const int sensor) {
+TileCollision right_sensor_placement(CollisionMap* tilemap, SensedTile* t, GenericBody* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + 31 - height - guy->right_sensors.x[sensor+X]);
     result.hit = result.new_position < guy->position.x[X] && (result.new_position >= guy->old_position.x[X]);
     return result;
 }
-TileCollision top_sensor_placement(CollisionMap* tilemap, SensedTile* t, struct Character* guy, int height, const int sensor) {
+TileCollision top_sensor_placement(CollisionMap* tilemap, SensedTile* t, GenericBody* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+Y] + height - 1 - guy->top_sensors.x[sensor+Y]);
     result.hit = result.new_position < guy->position.x[Y];// && result.new_position >= guy->old_position.x[Y];
@@ -225,14 +250,14 @@ TileCollision top_sensor_placement(CollisionMap* tilemap, SensedTile* t, struct 
 }
 
 // NOTE the functions in here should line up with BOTTOM_SENSOR, TOP_SENSOR, RIGHT_SENSOR, and LEFT_SENSOR.
-const static TileCollision(*placement_functions[])(CollisionMap* tilemap, SensedTile* t, struct Character* guy, int height, const int sensor) = {
-    dont_call_me, // Bottom sensors are special case
-    top_sensor_placement,
-    right_sensor_placement,
-    left_sensor_placement
+const static TileCollision(*placement_functions[])(CollisionMap* tilemap, SensedTile* t, GenericBody* guy, int height, const int sensor) = {
+    (void*)dont_call_me, // Bottom sensors are special case
+    (void*)top_sensor_placement,
+    (void*)right_sensor_placement,
+    (void*)left_sensor_placement
 };
 
-TileCollision process_top_sensor(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
+TileCollision process_top_sensor(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor) {
     if (t->indices_are_valid.x[sensor + X] && t->indices_are_valid.x[sensor + Y]) {
 
         TileIndex tile_index = tile_at(tilemap, &t->tilespace, sensor);
@@ -288,7 +313,7 @@ TileCollision process_top_sensor(struct Character* guy, CollisionMap* tilemap, S
     return result;
 }
 
-TileCollision process_side_sensor(struct Character* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor) {
+TileCollision process_side_sensor(GenericBody* guy, CollisionMap* tilemap, SensedTile* t, const int sensor_dir, const int sensor) {
     if (t->indices_are_valid.x[sensor + X] && t->indices_are_valid.x[sensor + Y]) {
 
         TileIndex tile_index = tile_at(tilemap, &t->tilespace, sensor);
@@ -578,6 +603,14 @@ void draw_tilemap(struct Game* game, Tilemap* tilemap) {
     }// while (dest.y < height)
 }
 
+void increment_src_rect(SDL_Rect* src, int n, int image_width, int image_height) {
+    src->x += src->w * n;
+    while (src->x >= image_width) {
+        src->x -= image_width;
+        src->y -= src->h;
+    }
+}
+
 void draw_map(struct Game* game, Map* map) {
     for (int i = 0; i < map->number_of_backgrounds; i++)
         draw_parallax_background(game, map, &map->backgrounds[i]);
@@ -618,9 +651,30 @@ void draw_map(struct Game* game, Map* map) {
         SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
         SDL_RenderFillRects(game->renderer, topbot_borders, 2);
     }
+
+    BENCH_START(small_mobs);
+    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
+        MobCommon* mob = (MobCommon*)&map->state->small_mobs[i];
+        if (mob->mob_type_id != -1) {
+            SDL_assert(mob->mob_type_id >= 0);
+            mob_registry[mob->mob_type_id].render(mob, game, map);
+        }
+    }
+    BENCH_END(small_mobs);
+    SDL_assert(small_mobs_seconds < 0.01);
+    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
+        MobCommon* mob = (MobCommon*)&map->state->medium_mobs[i];
+        if (mob->mob_type_id != -1)
+            mob_registry[mob->mob_type_id].render(mob, game, map);
+    }
+    for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++) {
+        MobCommon* mob = (MobCommon*)&map->state->large_mobs[i];
+        if (mob->mob_type_id != -1)
+            mob_registry[mob->mob_type_id].render(mob, game, map);
+    }
 }
 
-static void do_bottom_sensors(struct Character* guy, CollisionMap* tile_collision, vec4i* tilemap_dim) {
+static void do_bottom_sensors(GenericBody* guy, CollisionMap* tile_collision, vec4i* tilemap_dim) {
     SensedTile t;
     // == BOTTOM SENSORS ==
     sense_tile(&guy->position, tilemap_dim, &guy->bottom_sensors, &t);
@@ -628,8 +682,6 @@ static void do_bottom_sensors(struct Character* guy, CollisionMap* tile_collisio
     TileCollision b_collision_2 = process_bottom_sensor(guy, tile_collision, &t, SENSOR_2);
 
     guy->grounded = b_collision_1.hit || b_collision_2.hit;
-    if (guy->grounded)
-        guy->dy = 0;
     if (b_collision_1.hit && b_collision_2.hit) {
         guy->position.x[Y] = fmaxf(b_collision_1.new_position, b_collision_2.new_position);
         guy->ground_angle = atan2f(
@@ -663,6 +715,87 @@ static void do_bottom_sensors(struct Character* guy, CollisionMap* tile_collisio
     }
 }
 
+void collide_generic_body(struct GenericBody* body, CollisionMap* tile_collision) {
+    // === These are needed for all sensor operations ===
+    // tilemap dimensions twice (w,h,w,h)
+    vec4i tilemap_dim;
+    tilemap_dim.simd = _mm_set_epi32(
+        tile_collision->height, tile_collision->width,
+        tile_collision->height, tile_collision->width
+    );
+
+    bool guy_was_grounded = body->grounded;
+    if (guy_was_grounded)
+        do_bottom_sensors(body, tile_collision, &tilemap_dim);
+
+    vec4 guy_new_x_position;
+    guy_new_x_position.x[X] = body->position.x[X];
+    guy_new_x_position.x[Y] = body->grounded ? body->position.x[Y] : body->old_position.x[Y];
+    vec4 guy_new_y_position;
+    guy_new_y_position.x[X] = body->old_position.x[X];
+    guy_new_y_position.x[Y] = body->position.x[Y];
+    // vec4 displacement;
+    // displacement.simd = _mm_sub_ps(body->position.simd, body->old_position.simd);
+
+    SensedTile t;
+    bool left_hit, right_hit, top_hit;
+    // NOTE don't access these if the corrosponding *_hit == false
+    TileCollision l_collision_1, l_collision_2,
+                  r_collision_1, r_collision_2,
+                  t_collision_1, t_collision_2;
+
+    // NOTE Adding '=' to these comparisons will make the collision work for moving tilemaps,
+    // but causes a bug when landing on a slope that curves up into a wall.
+
+    // == LEFT SENSORS ==
+    if (body->position.x[X] < body->old_position.x[X]) {
+        sense_tile(&guy_new_x_position, &tilemap_dim, &body->left_sensors, &t);
+        l_collision_1 = process_side_sensor(body, tile_collision, &t,   LEFT_SENSOR, SENSOR_1);
+        l_collision_2 = process_side_sensor(body, tile_collision, &t,   LEFT_SENSOR, SENSOR_2);
+        left_hit = l_collision_1.hit || l_collision_2.hit;
+    }
+    else
+        left_hit = false;
+
+    // == RIGHT SENSORS ==
+    if (body->position.x[X] > body->old_position.x[X]) {
+        sense_tile(&guy_new_x_position, &tilemap_dim, &body->right_sensors, &t);
+        r_collision_1 = process_side_sensor(body, tile_collision, &t, RIGHT_SENSOR, SENSOR_1);
+        r_collision_2 = process_side_sensor(body, tile_collision, &t, RIGHT_SENSOR, SENSOR_2);
+        right_hit = r_collision_1.hit || r_collision_2.hit;
+    }
+    else
+        right_hit = false;
+
+    // == TOP SENSORS ==
+    if (body->position.x[Y] > body->old_position.x[Y]) {
+        sense_tile(&guy_new_y_position, &tilemap_dim, &body->top_sensors, &t);
+        t_collision_1 = process_top_sensor(body, tile_collision, &t, SENSOR_1);
+        t_collision_2 = process_top_sensor(body, tile_collision, &t, SENSOR_2);
+        top_hit = t_collision_1.hit || t_collision_2.hit;
+    }
+    else
+        top_hit = false;
+
+    if (left_hit)
+        body->position.x[X] = fmaxf(l_collision_1.new_position, l_collision_2.new_position);
+    if (right_hit)
+        body->position.x[X] = fminf(r_collision_1.new_position, r_collision_2.new_position);
+    if (top_hit) {
+        body->position.x[Y] = fminf(t_collision_1.new_position, t_collision_2.new_position);
+        body->hit_ceiling = true;
+    }
+    else
+        body->hit_ceiling = false;
+    body->hit_wall = ((left_hit && l_collision_1.hit && l_collision_2.hit) || (right_hit && r_collision_1.hit && r_collision_2.hit));
+
+    if (!guy_was_grounded)
+        do_bottom_sensors(body, tile_collision, &tilemap_dim);
+
+    body->left_hit = left_hit;
+    body->right_hit = right_hit;
+}
+
 void collide_character(struct Character* guy, CollisionMap* tile_collision) {
     // === These are needed for all sensor operations ===
     // tilemap dimensions twice (w,h,w,h)
@@ -672,9 +805,11 @@ void collide_character(struct Character* guy, CollisionMap* tile_collision) {
         tile_collision->height, tile_collision->width
     );
 
+    GenericBody* body = (GenericBody*)guy;
+
     bool guy_was_grounded = guy->grounded;
     if (guy_was_grounded)
-        do_bottom_sensors(guy, tile_collision, &tilemap_dim);
+        do_bottom_sensors(body, tile_collision, &tilemap_dim);
 
     vec4 guy_new_x_position;
     guy_new_x_position.x[X] = guy->position.x[X];
@@ -701,9 +836,9 @@ void collide_character(struct Character* guy, CollisionMap* tile_collision) {
     // == LEFT SENSORS ==
     if (guy->position.x[X] < guy->old_position.x[X]) {
         sense_tile(&guy_new_x_position, &tilemap_dim, &guy->left_sensors, &t);
-        l_collision_1 = process_side_sensor(guy, tile_collision, &t,   LEFT_SENSOR, SENSOR_1);
-        l_collision_2 = process_side_sensor(guy, tile_collision, &t,   LEFT_SENSOR, SENSOR_2);
-        l_collision_3 = process_side_sensor(guy, tile_collision, &m_t, LEFT_SENSOR, SENSOR_1);
+        l_collision_1 = process_side_sensor(body, tile_collision, &t,   LEFT_SENSOR, SENSOR_1);
+        l_collision_2 = process_side_sensor(body, tile_collision, &t,   LEFT_SENSOR, SENSOR_2);
+        l_collision_3 = process_side_sensor(body, tile_collision, &m_t, LEFT_SENSOR, SENSOR_1);
         left_hit = l_collision_1.hit || l_collision_2.hit || l_collision_3.hit;
     }
     else
@@ -712,9 +847,9 @@ void collide_character(struct Character* guy, CollisionMap* tile_collision) {
     // == RIGHT SENSORS ==
     if (guy->position.x[X] > guy->old_position.x[X]) {
         sense_tile(&guy_new_x_position, &tilemap_dim, &guy->right_sensors, &t);
-        r_collision_1 = process_side_sensor(guy, tile_collision, &t,   RIGHT_SENSOR, SENSOR_1);
-        r_collision_2 = process_side_sensor(guy, tile_collision, &t,   RIGHT_SENSOR, SENSOR_2);
-        r_collision_3 = process_side_sensor(guy, tile_collision, &m_t, RIGHT_SENSOR, SENSOR_2);
+        r_collision_1 = process_side_sensor(body, tile_collision, &t,   RIGHT_SENSOR, SENSOR_1);
+        r_collision_2 = process_side_sensor(body, tile_collision, &t,   RIGHT_SENSOR, SENSOR_2);
+        r_collision_3 = process_side_sensor(body, tile_collision, &m_t, RIGHT_SENSOR, SENSOR_2);
         right_hit = r_collision_1.hit || r_collision_2.hit || r_collision_3.hit;
     }
     else
@@ -723,8 +858,8 @@ void collide_character(struct Character* guy, CollisionMap* tile_collision) {
     // == TOP SENSORS ==
     if (guy->position.x[Y] > guy->old_position.x[Y]) {
         sense_tile(&guy_new_y_position, &tilemap_dim, &guy->top_sensors, &t);
-        t_collision_1 = process_top_sensor(guy, tile_collision, &t, SENSOR_1);
-        t_collision_2 = process_top_sensor(guy, tile_collision, &t, SENSOR_2);
+        t_collision_1 = process_top_sensor(body, tile_collision, &t, SENSOR_1);
+        t_collision_2 = process_top_sensor(body, tile_collision, &t, SENSOR_2);
         top_hit = t_collision_1.hit || t_collision_2.hit;
     }
     else
@@ -744,7 +879,9 @@ void collide_character(struct Character* guy, CollisionMap* tile_collision) {
     }
 
     if (!guy_was_grounded)
-        do_bottom_sensors(guy, tile_collision, &tilemap_dim);
+        do_bottom_sensors(body, tile_collision, &tilemap_dim);
+    if (guy->grounded)
+        guy->dy = 0;
 
     guy->left_hit = left_hit;
     guy->right_hit = right_hit;
@@ -776,6 +913,159 @@ void slide_character(float gravity, struct Character* guy) {
     }
 }
 
+
+#define FIND_SPAWN_SLOT(size, mob_list)\
+    case size:\
+        for (int k = 0; k < MAP_STATE_MAX_##size##_MOBS ; k++) {\
+            if (map->state->mob_list[k].mob_type_id == -1) {\
+                mob_data = (MobCommon*)&map->state->mob_list[k];\
+                mob_data->index = k;\
+                goto spawn_it;\
+            }\
+        } return NULL;
+
+MobCommon* spawn_mob(Map* map, struct Game* game, int mob_type_id, vec2 pos) {
+    MobType* mob_to_spawn = &mob_registry[mob_type_id];
+    SDL_assert(mob_to_spawn->id == mob_type_id);
+
+    MobCommon* mob_data;
+    switch (mob_to_spawn->size_class) {
+        FIND_SPAWN_SLOT(SMALL,  small_mobs)
+        FIND_SPAWN_SLOT(MEDIUM, medium_mobs)
+        FIND_SPAWN_SLOT(LARGE,  large_mobs)
+    default:
+        printf("UNKNOWN SIZE CLASS. mob_type_id: %i, spawn class: %i", mob_to_spawn->id, mob_to_spawn->size_class);
+        return NULL;
+    }
+
+spawn_it:
+    mob_data->mob_type_id = mob_type_id;
+    mob_to_spawn->initialize((void*)mob_data, game, map, pos);
+    return mob_data;
+}
+
+int mob_id(Map* map, MobCommon* mob) {
+    int offset = 0;
+    MobType* mob_type = &mob_registry[mob->mob_type_id];
+    switch (mob_type->size_class) {
+    case SMALL:
+        break;
+    case LARGE:  offset += MAP_STATE_MAX_MEDIUM_MOBS;
+    case MEDIUM: offset += MAP_STATE_MAX_SMALL_MOBS;
+        break;
+    default:
+        SDL_assert(false);
+        return -1;
+    }
+    return offset + mob->index;
+}
+
+int index_from_mob_id(int id) {
+    if (id > MAP_STATE_MAX_SMALL_MOBS) {
+        id -= MAP_STATE_MAX_SMALL_MOBS;
+        if (id > MAP_STATE_MAX_MEDIUM_MOBS)
+            id -= MAP_STATE_MAX_MEDIUM_MOBS;
+    }
+    SDL_assert(id >= 0);
+    return id;
+}
+
+MobCommon* mob_from_id(Map* map, int id) {
+    MobCommon* mob_list = map->state->small_mobs;
+    int offset = sizeof(SmallMob);
+
+    if (id > MAP_STATE_MAX_SMALL_MOBS) {
+        id -= MAP_STATE_MAX_SMALL_MOBS;
+        mob_list = map->state->medium_mobs;
+        offset = sizeof(MediumMob);
+
+        if (id > MAP_STATE_MAX_MEDIUM_MOBS) {
+            id -= MAP_STATE_MAX_MEDIUM_MOBS;
+            mob_list = map->state->large_mobs;
+            SDL_assert(id < MAP_STATE_MAX_LARGE_MOBS);
+            offset = sizeof(LargeMob);
+        }
+    }
+    SDL_assert(id >= 0);
+
+    return (MobCommon*)(((byte*)mob_list) + id * offset);
+}
+
+void update_map(
+    Map* map, struct Game* game,
+    void* data,
+    void(*spawn_mob_from_spawn_zone)(void*, Map*, struct Game*, int, vec2),
+    void(*after_mob_update)(void*, Map*, struct Game*, MobCommon*)
+) {
+    wait_for_then_use_lock(map->locked);
+    if (spawn_mob_from_spawn_zone == NULL)
+        goto update_mobs;
+    // Spawn mobs when needed.
+    for (int i = 0; i < map->number_of_spawn_zones; i++) {
+        MobSpawnZone* zone = &map->spawn_zones[i];
+
+        if (zone->countdown_until_next_spawn_attempt >= 0) {
+            zone->countdown_until_next_spawn_attempt -= 1;
+        }
+        else {
+            int random = rand() % 100;
+
+            for (int j = 0; j < zone->number_of_spawns; j++) {
+                MobSpawnRate* spawn = &zone->spawns[j];
+                if (spawn->percentage != 0 && random <= spawn->percentage) {
+                    vec2 target_pos = {
+                        zone->x + (rand() % zone->width),
+                        zone->y + (rand() % zone->height)
+                    };
+                    spawn_mob_from_spawn_zone(data, map, game, spawn->mob_type_id, target_pos);
+
+                    // TODO add spawn frequency or something to maps.
+                    zone->countdown_until_next_spawn_attempt = 60 * 10;
+                    goto update_mobs;
+                }
+            }
+        }
+    }
+
+    /*
+#define UPDATE_MOBS(size, mob_list)\
+    for (int i = 0; i < MAP_STATE_MAX_##size##_MOBS; i++) {\
+        MobCommon* mob = &map->state->mob_list[i];\
+        if (mob->mob_type_id != -1)\
+            mob_registry[mob->mob_type_id].update(mob, game, map);\
+    }
+    UPDATE_MOBS(SMALL,  small_mobs);
+    UPDATE_MOBS(MEDIUM, medium_mobs);
+    UPDATE_MOBS(LARGE,  large_mobs);
+    */
+update_mobs:
+    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
+        MobCommon* mob = &map->state->small_mobs[i];
+        if (mob->mob_type_id != -1) {
+            mob_registry[mob->mob_type_id].update(mob, game, map);
+            if (after_mob_update != NULL)
+                after_mob_update(data, map, game, mob);
+        }
+    }
+    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
+        MobCommon* mob = &map->state->medium_mobs[i];
+        if (mob->mob_type_id != -1) {
+            mob_registry[mob->mob_type_id].update(mob, game, map);
+            if (after_mob_update != NULL)
+                after_mob_update(data, map, game, mob);
+        }
+    }
+    for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++) {
+        MobCommon* mob = &map->state->large_mobs[i];
+        if (mob->mob_type_id != -1) {
+            mob_registry[mob->mob_type_id].update(mob, game, map);
+            if (after_mob_update != NULL)
+                after_mob_update(data, map, game, mob);
+        }
+    }
+    SDL_UnlockMutex(map->locked);
+}
+
 #define READ(type, dest) \
     type dest; \
     SDL_memcpy(&dest, file.bytes + pos, sizeof(type)); \
@@ -799,11 +1089,17 @@ CmFileHeader read_cm_file_header(const int asset) {
     pos += sizeof(Uint8);
     SDL_memcpy(&header.door_count, file.bytes + pos, sizeof(Uint8));
     pos += sizeof(Uint8);
+    SDL_memcpy(&header.total_spawn_rate_count, file.bytes + pos, sizeof(Uint16));
+    pos += sizeof(Uint16);
+    SDL_memcpy(&header.spawn_zone_count, file.bytes + pos, sizeof(Uint8));
+    pos += sizeof(Uint8);
 
     return header;
 }
 
 // Here we're assuming map is just some empty chunk of memory with enough size lol...
+// Enough memory can be allocated ahead of time by reading the file header. (like in assets.c)
+// ALSO ASSUMES THE MUTEX IS ALREADY INITIALIZED... (like in assets.c)
 void load_map(const int asset, /*out*/ Map* map) {
     AssetFile file = load_asset(asset);
     SDL_assert(file.bytes[0] == 'C');
@@ -816,7 +1112,10 @@ void load_map(const int asset, /*out*/ Map* map) {
     READ(Uint8, tilemap_count);
     READ(Uint8, background_count);
     READ(Uint8, door_count);
+    READ(Uint16, total_spawn_rate_count);
+    READ(Uint8, spawn_zone_count);
 
+    map->asset_id = asset;
     map->width  = tiles_wide * 32;
     map->height = tiles_high * 32;
     map->tile_collision.width   = (int)tiles_wide;
@@ -825,6 +1124,7 @@ void load_map(const int asset, /*out*/ Map* map) {
     map->number_of_tilemaps     = (int)tilemap_count;
     map->number_of_backgrounds  = (int)background_count;
     map->number_of_doors        = (int)door_count;
+    map->number_of_spawn_zones  = (int)spawn_zone_count;
     // We're gonna just put tilemap structs sequentially after the map struct
     map->tilemaps = (Tilemap*)(map + 1);
 
@@ -907,5 +1207,75 @@ void load_map(const int asset, /*out*/ Map* map) {
         map->doors[i].dest_y = dest_y;
     }
 
+    MobSpawnRate* next_spawn_rate = (MobSpawnRate*)(map->doors + door_count);
+    map->spawn_zones = (MobSpawnZone*)(next_spawn_rate + total_spawn_rate_count);
+    for (int i = 0; i < spawn_zone_count; i++) {
+        READ(int, x);
+        READ(int, y);
+        READ(int, width);
+        READ(int, height);
+        READ(byte, spawn_rate_count);
+
+        map->spawn_zones[i].x = x;
+        map->spawn_zones[i].y = y;
+        map->spawn_zones[i].width  = width;
+        map->spawn_zones[i].height = height;
+        map->spawn_zones[i].number_of_spawns = spawn_rate_count;
+        map->spawn_zones[i].countdown_until_next_spawn_attempt = 60 * 2;
+
+        map->spawn_zones[i].spawns = next_spawn_rate;
+        next_spawn_rate += spawn_rate_count;
+
+        for (int j = 0; j < spawn_rate_count; j++) {
+            READ(int, mob_type_id);
+            READ(int, percentage);
+
+            map->spawn_zones[i].spawns[j].mob_type_id = mob_type_id;
+            map->spawn_zones[i].spawns[j].percentage  = percentage;
+        }
+    }
+
+    // DONE reading the file - now just initializing map state.
     SDL_assert(file.size == pos);
+
+    byte* map_state = (byte*)(map->spawn_zones + spawn_zone_count);
+    int remainder = ((size_t)map_state) % 16;
+    map_state += (16 - remainder);
+
+    map->state = (MapState*)map_state;
+    clear_map_state(map);
+}
+
+void clear_map_state(Map* map) {
+    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
+        map->state->small_mobs[i].mob_type_id = -1;
+    }
+    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
+        map->state->medium_mobs[i].mob_type_id = -1;
+    }
+    for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++) {
+        map->state->large_mobs[i].mob_type_id = -1;
+    }
+}
+
+#define SYNC_MAP_STATE(size, mob_list, buffer_op, mob_op)\
+    for (int i = 0; i < MAP_STATE_MAX_##size##_MOBS; i++) {\
+        MobCommon* mob = (MobCommon*)&map->state->mob_list[i];\
+        buffer_op(buffer, &mob->mob_type_id, pos, sizeof(int));\
+\
+        if (mob->mob_type_id != -1) {\
+            mob->index = i;\
+            mob_registry[mob->mob_type_id].mob_op(mob, map, buffer, pos);\
+        }\
+    }
+
+void write_map_state(Map* map, byte* buffer, int* pos) {
+    SYNC_MAP_STATE(SMALL,  small_mobs,  write_to_buffer, save);
+    SYNC_MAP_STATE(MEDIUM, medium_mobs, write_to_buffer, save);
+    SYNC_MAP_STATE(LARGE,  large_mobs,  write_to_buffer, save);
+}
+void read_map_state(Map* map, byte* buffer, int* pos) {
+    SYNC_MAP_STATE(SMALL,  small_mobs,  read_from_buffer, load);
+    SYNC_MAP_STATE(MEDIUM, medium_mobs, read_from_buffer, load);
+    SYNC_MAP_STATE(LARGE,  large_mobs,  read_from_buffer, load);
 }

@@ -9,11 +9,19 @@ def debug_flags
     end
 end
 
+def mruby_path
+    if ARGV.include? 'release'
+        'MRuby/build/host/lib'
+    else
+        'MRuby/build/host-debug/lib'
+    end
+end
+
 if ARGV.include? 'noembed'
     system "gcc src/*.c -std=c99 -ISTB -ISDL/include -lSDL2 -lm -o build/crattlecrute #{debug_flags}"
 else
     system "ld -r -b binary -o build/crattlecrute.assets.o build/crattlecrute.assets"
-    system "gcc src/*.c -std=c99 build/crattlecrute.assets.o -ISTB -ISDL/include -lSDL2 -lm -DEMBEDDED_ASSETS -o build/crattlecrute #{debug_flags}"
+    system "gcc src/*.c -std=c99 build/crattlecrute.assets.o -ISTB -ISDL/include -IMRuby/include -L#{mruby_path} -lSDL2 -lm -lmruby -DEMBEDDED_ASSETS -o build/crattlecrute #{debug_flags}"
     File.unlink 'build/crattlecrute.assets', 'build/crattlecrute.assets.o'
 end
 puts "DONE"
