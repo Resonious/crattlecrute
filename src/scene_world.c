@@ -577,7 +577,7 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
             clear_map_state(map);
             read_map_state(map, buffer, &pos);
 
-            SDL_UnlockMutex(scene->map->locked);
+            SDL_UnlockMutex(map->locked);
 
             printf("PROCESSED MAP STATE EVENT\n");
         }
