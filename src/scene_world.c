@@ -106,7 +106,6 @@ typedef struct WorldScene {
     float gravity;
     float drag;
     Character guy;
-    CharacterView guy_view;
     AudioWave* music;
     AudioWave* test_sound;
     int current_area;
@@ -254,7 +253,7 @@ struct BufferChanges {
     return change;
 }
 
-RemotePlayer* allocate_new_player(int id, struct sockaddr_in* addr) {
+RemotePlayer* allocate_new_player(WorldScene* scene, int id, struct sockaddr_in* addr) {
     RemotePlayer* new_player = aligned_malloc(sizeof(RemotePlayer));
     memset(new_player, 0, sizeof(RemotePlayer));
 
@@ -264,6 +263,8 @@ RemotePlayer* allocate_new_player(int id, struct sockaddr_in* addr) {
     SDL_AtomicSet(&new_player->just_switched_maps, false);
 
     default_character(&new_player->guy);
+    // NOTE loading textures in network thread - problem or no problem? Just add a mutex to cached assets if necessary.
+    default_character_animations(scene->game, &new_player->guy);
     new_player->guy.player_id = id;
     new_player->guy.position.x[X] = 0.0f;
     new_player->guy.position.x[Y] = 0.0f;
@@ -354,7 +355,7 @@ RemotePlayer* netop_initialize_state(WorldScene* scene, byte* buffer, struct soc
         if (player == NULL) {
             if (addr == NULL) {
                 SDL_assert(scene->net.status == JOINING);
-                player = allocate_new_player(player_id, &scene->net.server_address);
+                player = allocate_new_player(scene, player_id, &scene->net.server_address);
                 scene->net.players[scene->net.number_of_players++] = player;
             }
             else {
@@ -841,7 +842,7 @@ int network_server_loop(void* vdata) {
         case NETOP_WANT_ID: {
             SDL_assert(scene->net.next_id < 255);
             int new_id = scene->net.next_id++;
-            RemotePlayer* player = allocate_new_player(new_id, &loop->address);
+            RemotePlayer* player = allocate_new_player(scene, new_id, &loop->address);
             SDL_AtomicSet(&player->just_switched_maps, true);
 
             int pos = 0;
@@ -1248,10 +1249,10 @@ int network_client_loop(void* vdata) {
             case NETOP_HERES_YOUR_ID: {
                 scene->net.remote_id = buffer[1];
                 // Allocate players for when update_position comes in
-                scene->net.players[scene->net.number_of_players++] = allocate_new_player(0, &other_address);
+                scene->net.players[scene->net.number_of_players++] = allocate_new_player(scene, 0, &other_address);
                 for (int i = 2; i < recv_len; i++) {
                     // NOTE as client I guess all `other_address`es will just be the server's address..
-                    scene->net.players[scene->net.number_of_players++] = allocate_new_player(buffer[i], &other_address);
+                    scene->net.players[scene->net.number_of_players++] = allocate_new_player(scene, buffer[i], &other_address);
                 }
                 scene->net.connected = true;
                 SET_LOCKED_STRING_F(scene->net.status_message, "Client ID: %i", scene->net.remote_id);
@@ -1343,9 +1344,8 @@ void scene_world_initialize(void* vdata, Game* game) {
     }
 
     BENCH_START(loading_crattle1);
-    default_character_animations(game, &data->guy_view);
-
     default_character(&data->guy);
+    default_character_animations(game, &data->guy);
     data->guy.position.x[X] = 150.0f;
     data->guy.position.x[Y] = 170.0f;
     data->guy.position.x[2] = 0.0f;
@@ -1382,7 +1382,6 @@ void scene_world_initialize(void* vdata, Game* game) {
     game->audio.looped_waves[0] = data->music;
 
     data->test_sound = cached_sound(game, ASSET_SOUNDS_JUMP_OGG);
-    data->guy_view.jump_sound = data->test_sound;
     BENCH_END(loading_sound);
 
     for (int i = 0; i < game->argc; i++) {
@@ -1979,11 +1978,11 @@ void scene_world_render(void* vs, Game* game) {
     BENCH_START(characters);
     // Draw guys
     {
-        draw_character(game, &s->guy, &s->guy_view);
+        draw_character(game, &s->guy, s->guy.view);
         for (int i = 0; i < s->net.number_of_players; i++) {
             RemotePlayer* player = s->net.players[i];
             if (player && SDL_AtomicGet(&player->area_id) == s->current_area)
-                draw_character(game, &player->guy, &s->guy_view);
+                draw_character(game, &player->guy, player->guy.view);
         }
     }
     BENCH_END(characters);

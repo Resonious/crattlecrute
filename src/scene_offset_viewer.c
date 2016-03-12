@@ -13,7 +13,7 @@ typedef struct {
 
 void scene_offset_viewer_initialize(void* vdata, Game* game) {
     OffsetViewer* data = (OffsetViewer*)vdata;
-    default_character_animations(game, &data->crattleview);
+    default_character_animations(game, &data->crattlecrute);
     default_character(&data->crattlecrute);
 
     data->scale = 5;

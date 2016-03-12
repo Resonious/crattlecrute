@@ -114,6 +114,7 @@ vec2 v2_add(vec2 u, vec2 v);
 vec2 v2_sub(vec2 u, vec2 v);
 vec2 v2_mul(float s, vec2 u);
 void v2_addeq(vec2* u, vec2 v);
+#define v2_add_to v2_addeq
 
 typedef struct GenericBody {
     // (x[0] left to right, x[1] down to up)

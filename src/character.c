@@ -385,6 +385,9 @@ void default_character(Character* target) {
 
     target->just_went_through_door = false;
 
+    target->body_type = CRATTLECRUTE_STANDARD;
+    target->feet_type = CRATTLECRUTE_STANDARD;
+
     target->body_color.r = 0;
     target->body_color.g = 210;
     target->body_color.b = 255;
@@ -403,19 +406,31 @@ void default_character(Character* target) {
     target->eye_type = 0;
 }
 
-void default_character_animations(struct Game* game, CharacterView* view) {
+void default_character_animations(struct Game* game, Character* guy) {
     const int sprite_width = 90, sprite_height = 90;
     const int eye_offset_layer = 4; // 1-based.
+
+    if (!game->renderer) {
+        printf("No renderer - no guy view\n");
+        guy->view = NULL;
+        return;
+    }
+
+    guy->view = malloc(sizeof(CharacterView));
+    CharacterView* view = guy->view;
+
     SDL_Rect* rect = view->rects_for_frames;
     PeripheralOffset* eye_offset = view->offsets_for_frames;
 
     for (int i = 0; i < GUY_ANIMATION_COUNT; i++) {
         AnimationAtlas* animation = &view->animation_textures[i];
 
-        int asset = DEFAULT_ASSETS_FOR_ANIMATIONS[i];
+        // TODO separate textures for body and feet
+        int asset = ASSETS_FOR_ANIMATIONS[guy->body_type][i];
+
         SDL_Surface* image = load_image(asset);
         // NOTE this is kind of an optimization for in case this is the first time this asset
-        // has been loaded - which is probably the case. (So we don't load and free the image twice)
+        // has been loaded (So we don't load and free the image twice)
         CachedAsset* cached_tex = &game->asset_cache.assets[asset];
         if (cached_tex->id == ASSET_NOT_LOADED) {
             cached_tex->id = asset;
@@ -495,4 +510,6 @@ void default_character_animations(struct Game* game, CharacterView* view) {
 
     SDL_assert(rect - view->rects_for_frames < ANIMATION_MAX_FRAMES);
     SDL_assert(eye_offset - view->offsets_for_frames < ANIMATION_MAX_PERIPHERALS);
+
+    view->jump_sound = cached_sound(game, ASSET_SOUNDS_JUMP_OGG);
 }
