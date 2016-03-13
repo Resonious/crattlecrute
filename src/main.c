@@ -165,6 +165,7 @@ int main(int argc, char** argv) {
     mrb_value rgame = mrb_class_new_instance(game.mrb, 0, NULL, game.ruby.game_class);
     DATA_PTR(rgame) = &game;
     game.ruby.game = rgame;
+
     BENCH_END(loading_ruby);
 
     // Main loop bitch

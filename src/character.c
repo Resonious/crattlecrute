@@ -415,9 +415,6 @@ void default_character(Character* target) {
 }
 
 void default_character_animations(struct Game* game, Character* guy) {
-    const int sprite_width = 90, sprite_height = 90;
-    const int eye_offset_layer = 4; // 1-based.
-
     if (!game->renderer) {
         printf("No renderer - no guy view\n");
         guy->view = NULL;
@@ -428,8 +425,8 @@ void default_character_animations(struct Game* game, Character* guy) {
     CharacterView* view = guy->view;
 
     for (int i = 0; i < GUY_ANIMATION_COUNT; i++) {
-        view->body_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->body_type][i], sprite_width, sprite_height, eye_offset_layer);
-        view->feet_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->feet_type][i], sprite_width, sprite_height, eye_offset_layer);
+        view->body_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->body_type][i], CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, CHARACTER_EYE_LAYER);
+        view->feet_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->feet_type][i], CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, CHARACTER_EYE_LAYER);
     }
 
     view->jump_sound = cached_sound(game, ASSET_SOUNDS_JUMP_OGG);

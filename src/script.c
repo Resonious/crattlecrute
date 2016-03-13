@@ -1,5 +1,6 @@
 #include "script.h"
 #include "game.h"
+#include "character.h"
 
 mrb_value mrb_controls_init(mrb_state* mrb, mrb_value self) {
     mrb_bool dont_allocate;
@@ -97,14 +98,91 @@ mrb_value mrb_map_spawn_script_mob(mrb_state* mrb, mrb_value self) {
     return mrb_nil_value();
 }
 
+mrb_value mrb_character_init(mrb_state* mrb, mrb_value self) {
+    mrb_data_init(self, NULL, &mrb_character_type);
+    return self;
+}
+
+mrb_value mrb_character_body_type(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    Game* game = (Game*)mrb->ud;
+    return mrb_hash_get(mrb, game->ruby.cc_type_to_sym, mrb_fixnum_value(guy->body_type));
+}
+
+mrb_value mrb_character_feet_type(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    Game* game = (Game*)mrb->ud;
+    return mrb_hash_get(mrb, game->ruby.cc_type_to_sym, mrb_fixnum_value(guy->feet_type));
+}
+
+mrb_value mrb_character_body_type_eq(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    Game* game = (Game*)mrb->ud;
+    mrb_value nil = mrb_nil_value();
+
+    mrb_sym value_sym;
+    mrb_get_args(mrb, "n", &value_sym);
+
+    mrb_value value_int = mrb_hash_get(mrb, game->ruby.cc_sym_to_type, mrb_symbol_value(value_sym));
+    if (mrb_equal(mrb, value_int, nil))
+        return mrb_false_value();
+
+    guy->body_type = mrb_fixnum(value_int);
+
+    for (int i = 0; i < GUY_ANIMATION_COUNT; i++) {
+        guy->view->body_animation_textures[i] = cached_atlas(
+            game,
+            ASSETS_FOR_ANIMATIONS[guy->body_type][i],
+            CHARACTER_SPRITE_WIDTH,
+            CHARACTER_SPRITE_HEIGHT,
+            CHARACTER_EYE_LAYER
+        );
+    }
+
+    return mrb_true_value();
+}
+
+mrb_value mrb_character_feet_type_eq(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    Game* game = (Game*)mrb->ud;
+    mrb_value nil = mrb_nil_value();
+
+    mrb_sym value_sym;
+    mrb_get_args(mrb, "n", &value_sym);
+
+    mrb_value value_int = mrb_hash_get(mrb, game->ruby.cc_sym_to_type, mrb_symbol_value(value_sym));
+    if (mrb_equal(mrb, value_int, nil))
+        return mrb_false_value();
+
+    guy->feet_type = mrb_fixnum(value_int);
+
+    for (int i = 0; i < GUY_ANIMATION_COUNT; i++) {
+        guy->view->feet_animation_textures[i] = cached_atlas(
+            game,
+            ASSETS_FOR_ANIMATIONS[guy->feet_type][i],
+            CHARACTER_SPRITE_WIDTH,
+            CHARACTER_SPRITE_HEIGHT,
+            CHARACTER_EYE_LAYER
+        );
+    }
+
+    return mrb_true_value();
+}
+
+#define RUBY_CRATTLETYPE_SYM(val, rval)\
+    mrb_hash_set(game->mrb, game->ruby.cc_type_to_sym, mrb_fixnum_value(val), mrb_symbol_value(mrb_intern_lit(game->mrb, #rval)));\
+    mrb_hash_set(game->mrb, game->ruby.cc_sym_to_type, mrb_symbol_value(mrb_intern_lit(game->mrb, #rval)), mrb_fixnum_value(val));
+
 // World functions are defined in scene_world.c
 
 void script_init(struct Game* game) {
-    game->ruby.sym_atcontrols = mrb_intern_lit(game->mrb, "@controls");
-    game->ruby.sym_atworld    = mrb_intern_lit(game->mrb, "@world");
-    game->ruby.sym_atgame     = mrb_intern_lit(game->mrb, "@game");
-    game->ruby.sym_atmap      = mrb_intern_lit(game->mrb, "@map");
-    game->ruby.sym_update     = mrb_intern_lit(game->mrb, "update");
+    game->ruby.sym_atcontrols        = mrb_intern_lit(game->mrb, "@controls");
+    game->ruby.sym_atworld           = mrb_intern_lit(game->mrb, "@world");
+    game->ruby.sym_atgame            = mrb_intern_lit(game->mrb, "@game");
+    game->ruby.sym_atmap             = mrb_intern_lit(game->mrb, "@map");
+    game->ruby.sym_atlocal_character = mrb_intern_lit(game->mrb, "@local_character");
+    game->ruby.sym_update            = mrb_intern_lit(game->mrb, "update");
+    game->mrb->ud = game;
 
     // ==================================== class Controls =============================
     game->ruby.controls_class = mrb_define_class(game->mrb, "Controls", game->mrb->object_class);
@@ -143,6 +221,7 @@ void script_init(struct Game* game) {
 
     mrb_define_method(game->mrb, game->ruby.world_class, "initialize", mrb_world_init, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.world_class, "current_map", mrb_world_current_map, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.world_class, "local_character", mrb_world_local_character, MRB_ARGS_NONE());
 
     // ==================================== class Map =================================
     game->ruby.map_class = mrb_define_class(game->mrb, "Map", game->mrb->object_class);
@@ -157,6 +236,22 @@ void script_init(struct Game* game) {
     MRB_SET_INSTANCE_TT(game->ruby.mob_class, MRB_TT_DATA);
 
     // mrb_define_method(game->mrb, game->ruby.map_class, "initialize", mrb_mob_init, MRB_ARGS_NONE());
+
+    // ==================================== class Character ===========================
+    game->ruby.character_class = mrb_define_class(game->mrb, "Crattlecrute", game->mrb->object_class);
+    MRB_SET_INSTANCE_TT(game->ruby.character_class, MRB_TT_DATA);
+
+    game->ruby.cc_type_to_sym = mrb_hash_new_capa(game->mrb, CRATTLECRUTE_TYPE_COUNT);
+    game->ruby.cc_sym_to_type = mrb_hash_new_capa(game->mrb, CRATTLECRUTE_TYPE_COUNT);
+
+    RUBY_CRATTLETYPE_SYM(CRATTLECRUTE_YOUNG,    young);
+    RUBY_CRATTLETYPE_SYM(CRATTLECRUTE_STANDARD, standard);
+
+    mrb_define_method(game->mrb, game->ruby.character_class, "body_type", mrb_character_body_type, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "feet_type", mrb_character_feet_type, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "body_type=", mrb_character_body_type_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.character_class, "feet_type=", mrb_character_feet_type_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.character_class, "initialize", mrb_character_init, MRB_ARGS_NONE());
 }
 
 // Pasted in from mirb code lol.

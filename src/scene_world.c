@@ -118,6 +118,7 @@ typedef struct WorldScene {
     MapTransition transition;
 
     mrb_value script_obj;
+    mrb_value rguy;
 
     struct NetInfo {
         int remote_id;
@@ -1400,6 +1401,9 @@ void scene_world_initialize(void* vdata, Game* game) {
 
     mrb_iv_check(game->mrb, game->ruby.sym_atgame);
     mrb_iv_set(game->mrb, data->script_obj, game->ruby.sym_atgame, game->ruby.game);
+
+    data->rguy = mrb_obj_new(game->mrb, game->ruby.character_class, 0, NULL);
+    mrb_data_init(data->rguy, &data->guy, &mrb_character_type);
 }
 
 void set_camera_target(Game* game, Map* map, Character* guy) {
@@ -2097,4 +2101,9 @@ mrb_value mrb_world_current_map(mrb_state* mrb, mrb_value self) {
     }
     mrb_data_init(rmap, scene->map, &mrb_map_type);
     return rmap;
+}
+
+mrb_value mrb_world_local_character(mrb_state* mrb, mrb_value self) {
+    WorldScene* scene = DATA_PTR(self);
+    return scene->rguy;
 }

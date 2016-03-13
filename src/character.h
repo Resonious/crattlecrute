@@ -84,6 +84,10 @@ typedef struct Character {
     SDL_Color right_foot_color;
 } Character;
 
+#define CHARACTER_SPRITE_WIDTH 90
+#define CHARACTER_SPRITE_HEIGHT 90
+#define CHARACTER_EYE_LAYER 4 
+
 // So, all eyes must be the same dimensions
 #define EYE_SPRITE_WIDTH 3
 #define EYE_SPRITE_HEIGHT 6

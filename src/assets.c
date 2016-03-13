@@ -314,14 +314,14 @@ void free_cached_atlas(void* ptr) {
 #include "character.h"
 
 AnimationAtlas* cached_atlas(struct Game* game, int asset, int sprite_width, int sprite_height, int eye_offset_layer) {
-    SDL_Surface* image = load_image(asset);
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(game->renderer, image);
-
     CachedAsset* cached_asset = &game->asset_cache.assets[asset];
     if (cached_asset->id != ASSET_NOT_LOADED) {
         SDL_assert(cached_asset->id == asset);
         return cached_asset->atlas;
     }
+
+    SDL_Surface* image = load_image(asset);
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(game->renderer, image);
 
     AnimationAtlas* animation = aligned_malloc(sizeof(AnimationAtlas));
 

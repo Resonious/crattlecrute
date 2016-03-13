@@ -10,6 +10,7 @@
 #include <mruby/string.h>
 #include <mruby/proc.h>
 #include <mruby/dump.h>
+#include <mruby/hash.h>
 
 static void mrb_dont_free(mrb_state* mrb, void* p) { }
 
@@ -20,6 +21,7 @@ static const struct mrb_data_type mrb_map_type = { "Map", mrb_dont_free };
 // TODO perhaps a special free method that despawns the mob if it's spawned?
 // We don't currently have any mob spawning.
 static const struct mrb_data_type mrb_mob_type = { "Mob", mrb_free };
+static const struct mrb_data_type mrb_character_type = { "Character", mrb_dont_free };
 
 mrb_value mrb_controls_init(mrb_state* mrb, mrb_value self);
 mrb_value mrb_controls_just_pressed(mrb_state* mrb, mrb_value self);
@@ -31,6 +33,7 @@ mrb_value mrb_game_world(mrb_state* mrb, mrb_value self);
 
 mrb_value mrb_world_init(mrb_state* mrb, mrb_value self);
 mrb_value mrb_world_current_map(mrb_state* mrb, mrb_value self);
+mrb_value mrb_world_local_character(mrb_state* mrb, mrb_value self);
 
 mrb_value mrb_map_init(mrb_state* mrb, mrb_value self);
 // mrb_value mrb_map_spawn_mob(mrb_state* mrb, mrb_value self);

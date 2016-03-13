@@ -46,6 +46,7 @@ typedef struct Game {
         mrb_sym sym_atworld;
         mrb_sym sym_atgame;
         mrb_sym sym_atmap;
+        mrb_sym sym_atlocal_character;
         mrb_sym sym_update;
         mrb_value game;
         struct RClass* controls_class;
@@ -53,6 +54,9 @@ typedef struct Game {
         struct RClass* world_class;
         struct RClass* map_class;
         struct RClass* mob_class;
+        struct RClass* character_class;
+        mrb_value cc_type_to_sym;
+        mrb_value cc_sym_to_type;
     } ruby;
     struct {
         int text_buf_size;
