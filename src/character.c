@@ -154,7 +154,7 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
     }
 
     // DRAW GUY
-    AnimationAtlas* atlas = guy_view->animation_textures[guy->animation_state];
+    AnimationAtlas* atlas = guy_view->body_animation_textures[guy->animation_state];
     const int sprite_width = 90, sprite_height = 90;
     const int number_of_layers = 3;
     SDL_Rect src = atlas->frames[guy->animation_frame];
@@ -192,18 +192,25 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
     }
     SDL_SetTextureAlphaMod(atlas->texture, 255);
     // Second pass: draw character with color
+
+    atlas = guy_view->feet_animation_textures[guy->animation_state];
+    // Assuming the frames line up with each different atlas.
     src = atlas->frames[guy->animation_frame];
     for (int i = 0; i < number_of_layers; i++) {
         SDL_Color* color;
-        if (i == 1)
+        if (i == 1) {
             color = &guy->body_color;
+            atlas = guy_view->body_animation_textures[guy->animation_state];
+        }
         else if (guy->flip == SDL_FLIP_HORIZONTAL) {
+            atlas = guy_view->feet_animation_textures[guy->animation_state];
             if (i == 0)
                 color = &guy->right_foot_color;
             else
                 color = &guy->left_foot_color;
         }
         else {
+            atlas = guy_view->feet_animation_textures[guy->animation_state];
             if (i == 0)
                 color = &guy->left_foot_color;
             else
@@ -217,13 +224,14 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
             360 - guy->ground_angle, center, guy->flip
         );
         src.x += sprite_width;
-        if (src.x >= atlas->width) {
+        while (src.x >= atlas->width) {
             src.x -= atlas->width;
             src.y -= sprite_height;
         }
     }
 
     // And now the eye.
+    atlas = guy_view->body_animation_textures[guy->animation_state];
     SDL_Texture* eye_texture = cached_texture(game, EYE_TYPE_ASSETS[guy->eye_type]);
     src.x = 0; src.y = 0;
     src.w = EYE_SPRITE_WIDTH;
@@ -420,7 +428,8 @@ void default_character_animations(struct Game* game, Character* guy) {
     CharacterView* view = guy->view;
 
     for (int i = 0; i < GUY_ANIMATION_COUNT; i++) {
-        view->animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->body_type][i], sprite_width, sprite_height, eye_offset_layer);
+        view->body_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->body_type][i], sprite_width, sprite_height, eye_offset_layer);
+        view->feet_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->feet_type][i], sprite_width, sprite_height, eye_offset_layer);
     }
 
     view->jump_sound = cached_sound(game, ASSET_SOUNDS_JUMP_OGG);

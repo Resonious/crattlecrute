@@ -21,14 +21,8 @@ enum CharacterAnimation {
 };
 
 typedef struct CharacterView {
-    AnimationAtlas* animation_textures[GUY_ANIMATION_COUNT];
-
-    /*
-    // Rather than mallocing when loading animation frames, we can just use this space.
-    SDL_Rect rects_for_frames[ANIMATION_MAX_FRAMES];
-    // Rather than mallocing when loading peripheral offsets (like eyes), we can just use this space.
-    PeripheralOffset offsets_for_frames[ANIMATION_MAX_PERIPHERALS];
-    */
+    AnimationAtlas* body_animation_textures[GUY_ANIMATION_COUNT];
+    AnimationAtlas* feet_animation_textures[GUY_ANIMATION_COUNT];
 
     AudioWave* jump_sound;
 } CharacterView;
