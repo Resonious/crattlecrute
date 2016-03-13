@@ -303,3 +303,103 @@ void cached_texture_dimensions(struct Game* game, int asset, /*out*/TextureDimen
     int result = SDL_QueryTexture(dims->tex, NULL, NULL, &dims->width, &dims->height);
     SDL_assert(result == 0);
 }
+
+void free_cached_atlas(void* ptr) {
+    AnimationAtlas* atlas = (AnimationAtlas*)ptr;
+    aligned_free(atlas->frames);
+    aligned_free(atlas->eye_offsets);
+    aligned_free(atlas);
+}
+
+#include "character.h"
+
+AnimationAtlas* cached_atlas(struct Game* game, int asset, int sprite_width, int sprite_height, int eye_offset_layer) {
+    SDL_Surface* image = load_image(asset);
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(game->renderer, image);
+
+    CachedAsset* cached_asset = &game->asset_cache.assets[asset];
+    if (cached_asset->id != ASSET_NOT_LOADED) {
+        SDL_assert(cached_asset->id == asset);
+        return cached_asset->atlas;
+    }
+
+    AnimationAtlas* animation = aligned_malloc(sizeof(AnimationAtlas));
+
+    int number_of_frames = (image->w / sprite_width * image->h / sprite_height) / CHARACTER_LAYERS;
+
+    SDL_Rect* rect = aligned_malloc(number_of_frames * CHARACTER_LAYERS * sizeof(SDL_Rect));
+    PeripheralOffset* eye_offset = aligned_malloc(number_of_frames * sizeof(PeripheralOffset));
+
+    animation->width       = image->w;
+    animation->height      = image->h;
+    animation->texture     = tex;
+    animation->frames      = rect;
+    animation->eye_offsets = eye_offset;
+
+    for (int frame = 0; frame < number_of_frames; frame++, rect++, eye_offset++) {
+        rect->x = sprite_width * frame * CHARACTER_LAYERS;
+        rect->y = animation->height - sprite_height;
+        rect->w = sprite_width;
+        rect->h = sprite_height;
+
+        while (rect->x >= animation->width) {
+            rect->x -= animation->width;
+            rect->y -= sprite_height;
+        }
+
+        SDL_assert(rect->x >= 0);
+        SDL_assert(rect->x + sprite_width <= animation->width);
+        SDL_assert(rect->y >= 0);
+        SDL_assert(rect->y + sprite_height <= animation->height);
+
+        SDL_Rect eye_layer = *rect;
+        eye_layer.x += sprite_width * (eye_offset_layer - 1);
+        while (eye_layer.x >= animation->width) {
+            eye_layer.x -= animation->width;
+            eye_layer.y -= sprite_height;
+        }
+
+        SDL_Point eye_bottom = { 0,0 }, eye_top = { 0,0 };
+
+        for (int y = eye_layer.y; y < eye_layer.y + eye_layer.h; y++) {
+            for (int x = eye_layer.x; x < eye_layer.x + eye_layer.w; x++) {
+                int p = y * animation->width + x;
+                Uint32 pixel = ((Uint32*)image->pixels)[p];
+
+                if (pixel & AMASK) {
+                    int pixel_x = x - eye_layer.x - eye_layer.w / 2;
+                    int pixel_y = eye_layer.h - (y - eye_layer.y) - eye_layer.h / 2;
+
+                    // Red indicates top
+                    if (pixel == (AMASK | RMASK)) {
+                        eye_top.x = pixel_x;
+                        eye_top.y = pixel_y;
+                    }
+                    // Black indicates bottom
+                    else if (pixel == (AMASK)) {
+                        eye_bottom.x = pixel_x;
+                        eye_bottom.y = pixel_y;
+                    }
+                    // No other pixels should be present
+                    else {
+                        SDL_assert(false);
+                    }
+                }
+                if (eye_bottom.x != 0 && eye_top.x != 0)
+                    goto FoundOffsets;
+            }
+        }
+        continue;
+        FoundOffsets:;
+
+        eye_offset->x = eye_bottom.x;
+        eye_offset->y = eye_bottom.y;
+        eye_offset->angle = atan2f(eye_top.y - eye_bottom.y, eye_top.x - eye_bottom.x) / (float)M_PI * 180.0f;
+    }
+    free_image(image);
+
+    cached_asset->id = asset;
+    cached_asset->atlas = animation;
+    cached_asset->free = free_cached_atlas;
+    return animation;
+}

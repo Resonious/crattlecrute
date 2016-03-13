@@ -154,7 +154,7 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
     }
 
     // DRAW GUY
-    AnimationAtlas* atlas = &guy_view->animation_textures[guy->animation_state];
+    AnimationAtlas* atlas = guy_view->animation_textures[guy->animation_state];
     const int sprite_width = 90, sprite_height = 90;
     const int number_of_layers = 3;
     SDL_Rect src = atlas->frames[guy->animation_frame];
@@ -419,97 +419,9 @@ void default_character_animations(struct Game* game, Character* guy) {
     guy->view = malloc(sizeof(CharacterView));
     CharacterView* view = guy->view;
 
-    SDL_Rect* rect = view->rects_for_frames;
-    PeripheralOffset* eye_offset = view->offsets_for_frames;
-
     for (int i = 0; i < GUY_ANIMATION_COUNT; i++) {
-        AnimationAtlas* animation = &view->animation_textures[i];
-
-        // TODO separate textures for body and feet
-        int asset = ASSETS_FOR_ANIMATIONS[guy->body_type][i];
-
-        SDL_Surface* image = load_image(asset);
-        // NOTE this is kind of an optimization for in case this is the first time this asset
-        // has been loaded (So we don't load and free the image twice)
-        CachedAsset* cached_tex = &game->asset_cache.assets[asset];
-        if (cached_tex->id == ASSET_NOT_LOADED) {
-            cached_tex->id = asset;
-            cached_tex->texture = SDL_CreateTextureFromSurface(game->renderer, image);
-            cached_tex->free = SDL_DestroyTexture;
-        }
-
-        animation->width       = image->w;
-        animation->height      = image->h;
-        animation->texture     = cached_tex->texture;
-        animation->frames      = rect;
-        animation->eye_offsets = eye_offset;
-
-        int number_of_frames = (animation->width / sprite_width * animation->height / sprite_height) / CHARACTER_LAYERS;
-        for (int frame = 0; frame < number_of_frames; frame++, rect++, eye_offset++) {
-            rect->x = sprite_width * frame * CHARACTER_LAYERS;
-            rect->y = animation->height - sprite_height;
-            rect->w = sprite_width;
-            rect->h = sprite_height;
-
-            while (rect->x >= animation->width) {
-                rect->x -= animation->width;
-                rect->y -= sprite_height;
-            }
-
-            SDL_assert(rect->x >= 0);
-            SDL_assert(rect->x + sprite_width <= animation->width);
-            SDL_assert(rect->y >= 0);
-            SDL_assert(rect->y + sprite_height <= animation->height);
-
-            SDL_Rect eye_layer = *rect;
-            eye_layer.x += sprite_width * (eye_offset_layer - 1);
-            while (eye_layer.x >= animation->width) {
-                eye_layer.x -= animation->width;
-                eye_layer.y -= sprite_height;
-            }
-
-            SDL_Point eye_bottom = { 0,0 }, eye_top = { 0,0 };
-
-            for (int y = eye_layer.y; y < eye_layer.y + eye_layer.h; y++) {
-                for (int x = eye_layer.x; x < eye_layer.x + eye_layer.w; x++) {
-                    int p = y * animation->width + x;
-                    Uint32 pixel = ((Uint32*)image->pixels)[p];
-
-                    if (pixel & AMASK) {
-                        int pixel_x = x - eye_layer.x - eye_layer.w / 2;
-                        int pixel_y = eye_layer.h - (y - eye_layer.y) - eye_layer.h / 2;
-
-                        // Red indicates top
-                        if (pixel == (AMASK | RMASK)) {
-                            eye_top.x = pixel_x;
-                            eye_top.y = pixel_y;
-                        }
-                        // Black indicates bottom
-                        else if (pixel == (AMASK)) {
-                            eye_bottom.x = pixel_x;
-                            eye_bottom.y = pixel_y;
-                        }
-                        // No other pixels should be present
-                        else {
-                            SDL_assert(false);
-                        }
-                    }
-                    if (eye_bottom.x != 0 && eye_top.x != 0)
-                        goto FoundOffsets;
-                }
-            }
-            continue;
-            FoundOffsets:;
-
-            eye_offset->x = eye_bottom.x;
-            eye_offset->y = eye_bottom.y;
-            eye_offset->angle = atan2f(eye_top.y - eye_bottom.y, eye_top.x - eye_bottom.x) / (float)M_PI * 180.0f;
-        }
-        free_image(image);
+        view->animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->body_type][i], sprite_width, sprite_height, eye_offset_layer);
     }
-
-    SDL_assert(rect - view->rects_for_frames < ANIMATION_MAX_FRAMES);
-    SDL_assert(eye_offset - view->offsets_for_frames < ANIMATION_MAX_PERIPHERALS);
 
     view->jump_sound = cached_sound(game, ASSET_SOUNDS_JUMP_OGG);
 }

@@ -4,6 +4,7 @@
 #include "types.h"
 #include "sound.h"
 #include "assets.h"
+#include "cache.h"
 
 struct Game;
 struct Controls;
@@ -19,34 +20,15 @@ enum CharacterAnimation {
     GUY_ANIMATION_COUNT
 };
 
-typedef struct PeripheralOffset {
-    // Dimensions of bottom relative to frame center point.
-    int x, y;
-    // Angle from bottom to top in degrees as usual.
-    float angle;
-} PeripheralOffset;
-
-typedef struct AnimationAtlas {
-    int width, height;
-    SDL_Texture* texture;
-
-    //[number_of_frames_in_the_texture]
-    // Each entry is the rect of the FIRST LAYER of the frame.
-    // The rectangle must be incremented within the atlas manually
-    // to retrieve the other layers.
-    SDL_Rect* frames;
-
-    //[number_of_frames_in_the_texture]
-    PeripheralOffset* eye_offsets;
-} AnimationAtlas;
-
 typedef struct CharacterView {
-    AnimationAtlas animation_textures[GUY_ANIMATION_COUNT];
+    AnimationAtlas* animation_textures[GUY_ANIMATION_COUNT];
 
+    /*
     // Rather than mallocing when loading animation frames, we can just use this space.
     SDL_Rect rects_for_frames[ANIMATION_MAX_FRAMES];
     // Rather than mallocing when loading peripheral offsets (like eyes), we can just use this space.
     PeripheralOffset offsets_for_frames[ANIMATION_MAX_PERIPHERALS];
+    */
 
     AudioWave* jump_sound;
 } CharacterView;
