@@ -49,6 +49,7 @@ typedef struct Game {
         mrb_sym sym_atlocal_character;
         mrb_sym sym_update;
         mrb_value game;
+        struct RClass* color_class;
         struct RClass* controls_class;
         struct RClass* game_class;
         struct RClass* world_class;

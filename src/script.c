@@ -2,6 +2,42 @@
 #include "game.h"
 #include "character.h"
 
+mrb_value mrb_color_init(mrb_state* mrb, mrb_value self) {
+    mrb_int r = 0, g = 0, b = 0, a = 255, noalloc = false;
+    mrb_get_args(mrb, "|iiiii", &r, &g, &b, &a, &noalloc);
+
+    if (noalloc) {
+        mrb_data_init(self, NULL, &mrb_dont_free_type);
+    }
+    else {
+        SDL_Color* color = mrb_malloc(mrb, sizeof(SDL_Color));
+        color->r = r;
+        color->g = g;
+        color->b = b;
+        color->a = a;
+        mrb_data_init(self, color, &mrb_color_type);
+    }
+    return self;
+}
+
+#define DEF_RUBY_COLOR_ATTR(x) \
+    mrb_value mrb_color_##x(mrb_state* mrb, mrb_value self) { \
+        SDL_Color* color = DATA_PTR(self); \
+        return mrb_fixnum_value(color->x); \
+    } \
+    mrb_value mrb_color_##x##_eq(mrb_state* mrb, mrb_value self) { \
+        SDL_Color* color = DATA_PTR(self); \
+        mrb_value value; \
+        mrb_get_args(mrb, "i", &value); \
+        color->x = mrb_fixnum(value); \
+        return mrb_fixnum_value(color->x); \
+    }
+
+DEF_RUBY_COLOR_ATTR(r);
+DEF_RUBY_COLOR_ATTR(g);
+DEF_RUBY_COLOR_ATTR(b);
+DEF_RUBY_COLOR_ATTR(a);
+
 mrb_value mrb_controls_init(mrb_state* mrb, mrb_value self) {
     mrb_bool dont_allocate;
     mrb_get_args(mrb, "|b", &dont_allocate);
@@ -128,16 +164,7 @@ mrb_value mrb_character_body_type_eq(mrb_state* mrb, mrb_value self) {
         return mrb_false_value();
 
     guy->body_type = mrb_fixnum(value_int);
-
-    for (int i = 0; i < GUY_ANIMATION_COUNT; i++) {
-        guy->view->body_animation_textures[i] = cached_atlas(
-            game,
-            ASSETS_FOR_ANIMATIONS[guy->body_type][i],
-            CHARACTER_SPRITE_WIDTH,
-            CHARACTER_SPRITE_HEIGHT,
-            CHARACTER_EYE_LAYER
-        );
-    }
+    load_character_atlases(game, guy);
 
     return mrb_true_value();
 }
@@ -155,16 +182,7 @@ mrb_value mrb_character_feet_type_eq(mrb_state* mrb, mrb_value self) {
         return mrb_false_value();
 
     guy->feet_type = mrb_fixnum(value_int);
-
-    for (int i = 0; i < GUY_ANIMATION_COUNT; i++) {
-        guy->view->feet_animation_textures[i] = cached_atlas(
-            game,
-            ASSETS_FOR_ANIMATIONS[guy->feet_type][i],
-            CHARACTER_SPRITE_WIDTH,
-            CHARACTER_SPRITE_HEIGHT,
-            CHARACTER_EYE_LAYER
-        );
-    }
+    load_character_atlases(game, guy);
 
     return mrb_true_value();
 }
@@ -207,6 +225,28 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.controls_class, "just_pressed", mrb_controls_just_pressed, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.controls_class, "just_released", mrb_controls_just_released, MRB_ARGS_REQ(1));
 
+    // ==================================== class Color ================================
+    game->ruby.color_class = mrb_define_class(game->mrb, "Color", game->mrb->object_class);
+    MRB_SET_INSTANCE_TT(game->ruby.color_class, MRB_TT_DATA);
+
+    mrb_define_method(game->mrb, game->ruby.color_class, "initialize", mrb_color_init, MRB_ARGS_OPT(5));
+    mrb_define_method(game->mrb, game->ruby.color_class, "r", mrb_color_r, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.color_class, "g", mrb_color_g, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.color_class, "b", mrb_color_b, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.color_class, "a", mrb_color_a, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.color_class, "r=", mrb_color_r_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.color_class, "g=", mrb_color_g_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.color_class, "b=", mrb_color_b_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.color_class, "a=", mrb_color_a_eq, MRB_ARGS_REQ(1));
+    mrb_define_alias(game->mrb,  game->ruby.color_class, "red",   "r");
+    mrb_define_alias(game->mrb,  game->ruby.color_class, "blue",  "b");
+    mrb_define_alias(game->mrb,  game->ruby.color_class, "green", "g");
+    mrb_define_alias(game->mrb,  game->ruby.color_class, "alpha", "a");
+    mrb_define_alias(game->mrb,  game->ruby.color_class, "red=",   "r=");
+    mrb_define_alias(game->mrb,  game->ruby.color_class, "blue=",  "b=");
+    mrb_define_alias(game->mrb,  game->ruby.color_class, "green=", "g=");
+    mrb_define_alias(game->mrb,  game->ruby.color_class, "alpha=", "a=");
+
     // ==================================== class Game ================================
     game->ruby.game_class = mrb_define_class(game->mrb, "Game", game->mrb->object_class);
     MRB_SET_INSTANCE_TT(game->ruby.game_class, MRB_TT_DATA);
@@ -247,11 +287,12 @@ void script_init(struct Game* game) {
     RUBY_CRATTLETYPE_SYM(CRATTLECRUTE_YOUNG,    young);
     RUBY_CRATTLETYPE_SYM(CRATTLECRUTE_STANDARD, standard);
 
+    mrb_define_method(game->mrb, game->ruby.character_class, "initialize", mrb_character_init, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "body_type", mrb_character_body_type, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "feet_type", mrb_character_feet_type, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "body_type=", mrb_character_body_type_eq, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.character_class, "feet_type=", mrb_character_feet_type_eq, MRB_ARGS_REQ(1));
-    mrb_define_method(game->mrb, game->ruby.character_class, "initialize", mrb_character_init, MRB_ARGS_NONE());
+    // mrb_define_method(game->mrb, game->ruby.character_class, "color", mrb_character_body_type, MRB_ARGS_NONE());
 }
 
 // Pasted in from mirb code lol.

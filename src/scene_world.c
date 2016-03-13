@@ -319,10 +319,17 @@ RemotePlayer* player_of_id(WorldScene* scene, int id, struct sockaddr_in* addr) 
 void read_guy_info_from_buffer(byte* buffer, Character* guy, int* area_id, int* pos) {
     read_from_buffer(buffer, guy->position.x, pos,  sizeof(guy->position.x));
     memcpy(guy->old_position.x, guy->position.x,    sizeof(guy->position.x));
-    read_from_buffer(buffer, &guy->flip, pos,       sizeof(guy->flip));
+    read_from_buffer(buffer, &guy->flip,       pos, sizeof(guy->flip));
     read_from_buffer(buffer, &guy->body_color, pos, sizeof(SDL_Color) * 3);
     read_from_buffer(buffer, &guy->eye_type,   pos, sizeof(guy->eye_type));
     read_from_buffer(buffer, &guy->eye_color,  pos, sizeof(SDL_Color));
+    read_from_buffer(buffer, &guy->body_type,  pos, sizeof(guy->body_type));
+    read_from_buffer(buffer, &guy->feet_type,  pos, sizeof(guy->feet_type));
+    read_from_buffer(buffer, &guy->ground_speed_max,    pos, sizeof(guy->ground_speed_max));
+    read_from_buffer(buffer, &guy->ground_acceleration, pos, sizeof(guy->ground_acceleration));
+    read_from_buffer(buffer, &guy->ground_deceleration, pos, sizeof(guy->ground_deceleration));
+    read_from_buffer(buffer, &guy->jump_acceleration,   pos, sizeof(guy->jump_acceleration));
+    read_from_buffer(buffer, &guy->jump_cancel_dy,      pos, sizeof(guy->jump_cancel_dy));
     read_from_buffer(buffer, area_id,          pos, sizeof(int));
 }
 
@@ -332,7 +339,14 @@ void write_guy_info_to_buffer(byte* buffer, Character* guy, int area_id, int* po
     write_to_buffer(buffer, &guy->body_color, pos, sizeof(guy->body_color) * 3);
     write_to_buffer(buffer, &guy->eye_type,   pos, sizeof(guy->eye_type));
     write_to_buffer(buffer, &guy->eye_color,  pos, sizeof(guy->eye_color));
-    write_to_buffer(buffer, &area_id,         pos, sizeof(int));
+    write_to_buffer(buffer, &guy->body_type,  pos, sizeof(guy->body_type));
+    write_to_buffer(buffer, &guy->feet_type,  pos, sizeof(guy->feet_type));
+    write_to_buffer(buffer, &guy->ground_speed_max,    pos, sizeof(guy->ground_speed_max));
+    write_to_buffer(buffer, &guy->ground_acceleration, pos, sizeof(guy->ground_acceleration));
+    write_to_buffer(buffer, &guy->ground_deceleration, pos, sizeof(guy->ground_deceleration));
+    write_to_buffer(buffer, &guy->jump_acceleration,   pos, sizeof(guy->jump_acceleration));
+    write_to_buffer(buffer, &guy->jump_cancel_dy,      pos, sizeof(guy->jump_cancel_dy));
+    write_to_buffer(buffer, &area_id, pos, sizeof(int));
 }
 
 // balls
@@ -369,6 +383,7 @@ RemotePlayer* netop_initialize_state(WorldScene* scene, byte* buffer, struct soc
 
         int area_id = SDL_AtomicGet(&player->area_id);
         read_guy_info_from_buffer(buffer, &player->guy, &area_id, &pos);
+        load_character_atlases(scene->game, &player->guy);
         SDL_AtomicSet(&player->area_id, area_id);
     }
 

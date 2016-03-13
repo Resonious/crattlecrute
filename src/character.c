@@ -2,6 +2,7 @@
 #include "game.h"
 #include "character.h"
 #include "tilemap.h"
+#include "script.h"
 #include <math.h>
 
 #define TERMINAL_VELOCITY 17.0f
@@ -45,11 +46,11 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
     if (controls) {
         // Get accelerations from controls
         if (controls->this_frame[C_LEFT]) {
-            guy->ground_speed -= guy->ground_acceleration;
+            guy->ground_speed -= CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
             guy->flip = SDL_FLIP_HORIZONTAL;
         }
         if (controls->this_frame[C_RIGHT]) {
-            guy->ground_speed += guy->ground_acceleration;
+            guy->ground_speed += CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
             guy->flip = SDL_FLIP_NONE;
         }
         // JUMP
@@ -62,29 +63,30 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
                 guy->grounded = false;
                 guy->jumped = true;
                 guy->just_jumped = true;
-                guy->dy = guy->jump_acceleration;
+                guy->dy = CHARA_JUMP_ACCELERATION * guy->jump_acceleration;
             }
         }
         else if (just_released(controls, C_JUMP) && guy->jumped) {
-            const float jump_cancel_dy = 10.0f;
-            if (guy->dy > jump_cancel_dy)
-                guy->dy = jump_cancel_dy;
+            float cancel_point = guy->jump_cancel_dy * CHARA_JUMP_CANCEL_DY;
+            if (guy->dy > cancel_point)
+                guy->dy = cancel_point;
             guy->jumped = false;
         }
 
 
         // TODO having ground_deceleration > ground_acceleration will have a weird effect here.
         if (!controls->this_frame[C_LEFT] && !controls->this_frame[C_RIGHT]) {
-            MOVE_TOWARDS(guy->ground_speed, 0, guy->ground_deceleration);
+            MOVE_TOWARDS(guy->ground_speed, 0, (CHARA_GROUND_DECELERATION * guy->ground_deceleration));
         }
         guy->animation_state = controls->this_frame[C_LEFT] || controls->this_frame[C_RIGHT] ? GUY_WALKING : GUY_IDLE;
     }
 
     // Cap speeds
-    if (guy->ground_speed > guy->ground_speed_max)
-        guy->ground_speed = guy->ground_speed_max;
-    else if (guy->ground_speed < -guy->ground_speed_max)
-        guy->ground_speed = -guy->ground_speed_max;
+    float max_speed = CHARA_GROUND_SPEED_MAX * guy->ground_speed_max;
+    if (guy->ground_speed > max_speed)
+        guy->ground_speed = max_speed;
+    else if (guy->ground_speed < -max_speed)
+        guy->ground_speed = -max_speed;
     if (guy->dy < -TERMINAL_VELOCITY)
         guy->dy = -TERMINAL_VELOCITY;
 
@@ -330,7 +332,7 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
 #endif
 }
 
-void default_character(Character* target) {
+void default_character(struct Game* game, Character* target) {
     target->player_id = -1;
     target->animation_counter = 0;
     target->width  = 90;
@@ -339,9 +341,14 @@ void default_character(Character* target) {
     target->center_y = 45;
     target->dy = 0;
     target->ground_speed = 0.0f;
-    target->ground_speed_max = 6.0f;
-    target->ground_acceleration = 0.8f;
-    target->ground_deceleration = 0.5f;
+
+    // "Attributes"
+    target->ground_speed_max = 1.0f;
+    target->ground_acceleration = 1.0f;
+    target->ground_deceleration = 1.0f;
+    target->jump_acceleration = 1.0f;
+    target->jump_cancel_dy = 1.0f;
+
     target->ground_angle = 0.0f;
     target->slide_speed = 0.0f;
     target->position.x[0] = 0.0f;
@@ -351,7 +358,6 @@ void default_character(Character* target) {
     target->grounded = false;
     target->jumped = false;
     target->just_jumped = false;
-    target->jump_acceleration = 20.0f;
     target->animation_state = GUY_IDLE;
     target->animation_frame = 0;
     target->flip = SDL_FLIP_NONE;
@@ -412,6 +418,20 @@ void default_character(Character* target) {
     target->eye_color.g = 255;
     target->eye_color.b = 255;
     target->eye_type = 0;
+
+    // Script stuff:
+
+    mrb_value nil = mrb_nil_value();
+    mrb_value color_args[] = {nil, nil, nil, nil, mrb_fixnum_value(1)};
+}
+
+void load_character_atlases(struct Game* game, Character* guy) {
+    if (!game->renderer) return;
+
+    for (int i = 0; i < GUY_ANIMATION_COUNT; i++) {
+        guy->view->body_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->body_type][i], CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, CHARACTER_EYE_LAYER);
+        guy->view->feet_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->feet_type][i], CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, CHARACTER_EYE_LAYER);
+    }
 }
 
 void default_character_animations(struct Game* game, Character* guy) {
@@ -424,10 +444,7 @@ void default_character_animations(struct Game* game, Character* guy) {
     guy->view = malloc(sizeof(CharacterView));
     CharacterView* view = guy->view;
 
-    for (int i = 0; i < GUY_ANIMATION_COUNT; i++) {
-        view->body_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->body_type][i], CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, CHARACTER_EYE_LAYER);
-        view->feet_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->feet_type][i], CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, CHARACTER_EYE_LAYER);
-    }
+    load_character_atlases(game, guy);
 
     view->jump_sound = cached_sound(game, ASSET_SOUNDS_JUMP_OGG);
 }

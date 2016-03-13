@@ -15,6 +15,13 @@ struct Controls;
 #define ANIMATION_MAX_FRAMES 128
 #define ANIMATION_MAX_PERIPHERALS 128
 
+// Physics baselines - character stats are factors of these.
+#define CHARA_GROUND_SPEED_MAX    (6.0f)
+#define CHARA_GROUND_ACCELERATION (0.8f)
+#define CHARA_GROUND_DECELERATION (0.5f)
+#define CHARA_JUMP_ACCELERATION   (20.0f)
+#define CHARA_JUMP_CANCEL_DY      (10.0f)
+
 enum CharacterAnimation {
     GUY_IDLE, GUY_WALKING, GUY_JUMPING,
     GUY_ANIMATION_COUNT
@@ -54,13 +61,17 @@ typedef struct Character {
     int animation_counter;
     float dy;
     float ground_speed;
+
+    // === attributes ===
     float ground_speed_max;
     float ground_acceleration;
     float ground_deceleration;
+    float jump_acceleration;
+    float jump_cancel_dy;
+
     float slide_speed;
     bool jumped;
     bool just_jumped;
-    float jump_acceleration;
     int width, height;
     int center_x, center_y;
     // Animation shit
@@ -78,10 +89,16 @@ typedef struct Character {
     int eye_type;
     int body_type;
     int feet_type;
+
     SDL_Color eye_color;
     SDL_Color body_color;
     SDL_Color left_foot_color;
     SDL_Color right_foot_color;
+
+    mrb_value reye_color;
+    mrb_value rbody_color;
+    mrb_value rleft_foot_color;
+    mrb_value rright_foot_color;
 } Character;
 
 #define CHARACTER_SPRITE_WIDTH 90
@@ -122,6 +139,8 @@ static const int EYE_TYPE_ASSETS[] = {
 // === Routine character functions === //
 void default_character(Character* target);
 void default_character_animations(struct Game* game, Character* guy);
+// This should be called after changing the body or feet type.
+void load_character_atlases(struct Game* game, Character* guy);
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag);
 void update_character_animation(Character* guy);
 

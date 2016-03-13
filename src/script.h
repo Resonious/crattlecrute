@@ -14,6 +14,8 @@
 
 static void mrb_dont_free(mrb_state* mrb, void* p) { }
 
+static const struct mrb_data_type mrb_dont_free_type = { "DontFree", mrb_dont_free };
+static const struct mrb_data_type mrb_color_type = { "Color", mrb_free };
 static const struct mrb_data_type mrb_controls_type = { "Controls", mrb_free };
 static const struct mrb_data_type mrb_game_type = { "Game", mrb_dont_free };
 static const struct mrb_data_type mrb_world_type = { "World", mrb_dont_free };

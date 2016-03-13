@@ -9,4 +9,8 @@ def update(game)
     puts game.world.local_character.body_type = :standard
     puts game.world.local_character.feet_type = :standard
   end
+  if game.controls.just_pressed(Controls::D)
+    puts game.world.local_character.body_type = :standard
+    puts game.world.local_character.feet_type = :standard
+  end
 end
