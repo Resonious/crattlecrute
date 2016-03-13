@@ -2,7 +2,6 @@
 #include "game.h"
 #include "character.h"
 #include "tilemap.h"
-#include "script.h"
 #include <math.h>
 
 #define TERMINAL_VELOCITY 17.0f
@@ -422,7 +421,19 @@ void default_character(struct Game* game, Character* target) {
     // Script stuff:
 
     mrb_value nil = mrb_nil_value();
-    mrb_value color_args[] = {nil, nil, nil, nil, mrb_fixnum_value(1)};
+    mrb_value color_args[5];
+    color_args[0] = nil; color_args[1] = nil; color_args[2] = nil; color_args[3] = nil;
+    color_args[4] = mrb_fixnum_value(1);
+
+#define RUBY_COLOR(attr) \
+    target->r##attr = mrb_obj_new(game->mrb, game->ruby.color_class, 5, color_args); \
+    SDL_assert(DATA_PTR(target->r##attr) == NULL); \
+    mrb_data_init(target->r##attr, &target->attr, &mrb_dont_free_type);
+
+    RUBY_COLOR(body_color);
+    RUBY_COLOR(eye_color);
+    RUBY_COLOR(left_foot_color);
+    RUBY_COLOR(right_foot_color);
 }
 
 void load_character_atlases(struct Game* game, Character* guy) {

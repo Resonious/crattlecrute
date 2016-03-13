@@ -263,7 +263,7 @@ RemotePlayer* allocate_new_player(WorldScene* scene, int id, struct sockaddr_in*
     SDL_AtomicSet(&new_player->area_id, -1);
     SDL_AtomicSet(&new_player->just_switched_maps, false);
 
-    default_character(&new_player->guy);
+    default_character(scene->game, &new_player->guy);
     // NOTE loading textures in network thread - problem or no problem? Just add a mutex to cached assets if necessary.
     default_character_animations(scene->game, &new_player->guy);
     new_player->guy.player_id = id;
@@ -1360,7 +1360,7 @@ void scene_world_initialize(void* vdata, Game* game) {
     }
 
     BENCH_START(loading_crattle1);
-    default_character(&data->guy);
+    default_character(game, &data->guy);
     default_character_animations(game, &data->guy);
     data->guy.position.x[X] = 150.0f;
     data->guy.position.x[Y] = 170.0f;

@@ -5,6 +5,7 @@
 #include "sound.h"
 #include "assets.h"
 #include "cache.h"
+#include "script.h"
 
 struct Game;
 struct Controls;
@@ -137,7 +138,7 @@ static const int EYE_TYPE_ASSETS[] = {
 };
 
 // === Routine character functions === //
-void default_character(Character* target);
+void default_character(struct Game* game, Character* target);
 void default_character_animations(struct Game* game, Character* guy);
 // This should be called after changing the body or feet type.
 void load_character_atlases(struct Game* game, Character* guy);

@@ -20,6 +20,15 @@ mrb_value mrb_color_init(mrb_state* mrb, mrb_value self) {
     return self;
 }
 
+mrb_value mrb_color_inspect(mrb_state* mrb, mrb_value self) {
+    SDL_Color* color = DATA_PTR(self);
+
+    char strbuf[64];
+    sprintf(strbuf, "Color {r=%i,g=%i,b=%i,a=%i}", color->r, color->g, color->b, color->a);
+
+    return mrb_str_new_cstr(mrb, strbuf);
+}
+
 #define DEF_RUBY_COLOR_ATTR(x) \
     mrb_value mrb_color_##x(mrb_state* mrb, mrb_value self) { \
         SDL_Color* color = DATA_PTR(self); \
@@ -187,6 +196,17 @@ mrb_value mrb_character_feet_type_eq(mrb_state* mrb, mrb_value self) {
     return mrb_true_value();
 }
 
+#define SIMPLE_CHARACTER_ATTR(name)\
+    mrb_value mrb_character_##name(mrb_state* mrb, mrb_value self) { \
+        Character* guy = DATA_PTR(self); \
+        return guy->r##name; \
+    }
+
+SIMPLE_CHARACTER_ATTR(body_color);
+SIMPLE_CHARACTER_ATTR(eye_color);
+SIMPLE_CHARACTER_ATTR(left_foot_color);
+SIMPLE_CHARACTER_ATTR(right_foot_color);
+
 #define RUBY_CRATTLETYPE_SYM(val, rval)\
     mrb_hash_set(game->mrb, game->ruby.cc_type_to_sym, mrb_fixnum_value(val), mrb_symbol_value(mrb_intern_lit(game->mrb, #rval)));\
     mrb_hash_set(game->mrb, game->ruby.cc_sym_to_type, mrb_symbol_value(mrb_intern_lit(game->mrb, #rval)), mrb_fixnum_value(val));
@@ -230,6 +250,7 @@ void script_init(struct Game* game) {
     MRB_SET_INSTANCE_TT(game->ruby.color_class, MRB_TT_DATA);
 
     mrb_define_method(game->mrb, game->ruby.color_class, "initialize", mrb_color_init, MRB_ARGS_OPT(5));
+    mrb_define_method(game->mrb, game->ruby.color_class, "inspect", mrb_color_inspect, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.color_class, "r", mrb_color_r, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.color_class, "g", mrb_color_g, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.color_class, "b", mrb_color_b, MRB_ARGS_NONE());
@@ -292,6 +313,10 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.character_class, "feet_type", mrb_character_feet_type, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "body_type=", mrb_character_body_type_eq, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.character_class, "feet_type=", mrb_character_feet_type_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.character_class, "body_color", mrb_character_body_color, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "eye_color", mrb_character_eye_color, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "left_foot_color", mrb_character_left_foot_color, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "right_foot_color", mrb_character_right_foot_color, MRB_ARGS_NONE());
     // mrb_define_method(game->mrb, game->ruby.character_class, "color", mrb_character_body_type, MRB_ARGS_NONE());
 }
 

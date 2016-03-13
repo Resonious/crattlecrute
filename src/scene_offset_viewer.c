@@ -14,7 +14,7 @@ typedef struct {
 void scene_offset_viewer_initialize(void* vdata, Game* game) {
     OffsetViewer* data = (OffsetViewer*)vdata;
     default_character_animations(game, &data->crattlecrute);
-    default_character(&data->crattlecrute);
+    default_character(game, &data->crattlecrute);
 
     data->scale = 5;
 // font image is 320x448
