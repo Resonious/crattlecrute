@@ -902,7 +902,7 @@ void slide_character(float gravity, struct Character* guy) {
             guy->slide_speed -= slide_accel;
 
             // Cap slide speed based on angle.
-            const float slide_speed_max = guy->ground_speed_max * fabsf(sin_ground_angle);
+            const float slide_speed_max = (CHARA_GROUND_SPEED_MAX * guy->ground_speed_max) * fabsf(sin_ground_angle);
             if (guy->slide_speed > slide_speed_max)
                 guy->slide_speed = slide_speed_max;
             else if (guy->slide_speed < -slide_speed_max)
