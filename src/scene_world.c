@@ -1314,6 +1314,17 @@ int set_tcp_nodelay(SOCKET socket) {
     return result;
 }
 
+mrb_value rb_world(mrb_state* mrb, mrb_value self) {
+    Game* game = (Game*)mrb->ud;
+    if (game->current_scene->id == SCENE_WORLD) {
+        WorldScene* scene = (WorldScene*)game->current_scene_data;
+        return scene->script_obj;
+    }
+    else {
+        return mrb_nil_value();
+    }
+}
+
 void scene_world_initialize(void* vdata, Game* game) {
     WorldScene* data = (WorldScene*)vdata;
     data->game = game;
@@ -1419,6 +1430,8 @@ void scene_world_initialize(void* vdata, Game* game) {
 
     data->rguy = mrb_obj_new(game->mrb, game->ruby.character_class, 0, NULL);
     mrb_data_init(data->rguy, &data->guy, &mrb_character_type);
+
+    mrb_define_singleton_method(game->mrb, game->mrb->top_self, "world", rb_world, MRB_ARGS_NONE());
 }
 
 void set_camera_target(Game* game, Map* map, Character* guy) {

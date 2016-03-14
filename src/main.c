@@ -59,6 +59,27 @@ Uint64 ticks_per_second;
                 case SDL_SCANCODE_F2:          this_frame[C_F2]        = to; break; \
                 case SDL_SCANCODE_LEFTBRACKET: this_frame[C_DEBUG_ADV] = to; break;
 
+#ifdef _DEBUG
+int ruby_io_thread(void* vdata) {
+    Game* game = (Game*)vdata;
+
+    while (true) {
+        char c = getchar();
+        SDL_LockMutex(game->ruby.io_locked);
+        game->ruby.io_buffer[game->ruby.io_pos++] = c;
+
+        if (c == '\n')
+            SDL_AtomicSet(&game->ruby.io_ready, true);
+        SDL_UnlockMutex(game->ruby.io_locked);
+    }
+}
+#endif
+
+mrb_value rb_game(mrb_state* mrb, mrb_value self) {
+    Game* game = (Game*)mrb->ud;
+    return game->ruby.game;
+}
+
 int main(int argc, char** argv) {
     BENCH_START(total_initialization);
     srand((unsigned int)time(0));
@@ -151,11 +172,20 @@ int main(int argc, char** argv) {
         SDL_ShowSimpleMessageBox(0, "NO MRUBY?", "ARE YOU KIDDING ME", game.window);
         return 0;
     }
-    mrb_load_string(game.mrb, "puts 'RUBY READY TO RUMBLE'");
     script_init(&game);
 
     mrb_value ruby_context = mrb_obj_value(game.mrb->top_self);
 #ifdef _DEBUG
+    game.ruby.io_locked = SDL_CreateMutex();
+    if (!game.ruby.io_locked)
+        printf("RUBY I/O IS MESSED UP.\n");
+    else {
+        memset(game.ruby.io_buffer, 0, sizeof(game.ruby.io_buffer));
+        game.ruby.io_pos = 0;
+        SDL_AtomicSet(&game.ruby.io_ready, false);
+        SDL_CreateThread(ruby_io_thread, "Ruby I/O", &game);
+    }
+
     if (load_script_file(game.mrb))
         printf("script.rb loaded\n");
     else
@@ -165,6 +195,8 @@ int main(int argc, char** argv) {
     mrb_value rgame = mrb_class_new_instance(game.mrb, 0, NULL, game.ruby.game_class);
     DATA_PTR(rgame) = &game;
     game.ruby.game = rgame;
+
+    mrb_define_singleton_method(game.mrb, game.mrb->top_self, "game", rb_game, MRB_ARGS_NONE());
 
     BENCH_END(loading_ruby);
 
@@ -267,6 +299,16 @@ int main(int argc, char** argv) {
             mrb_funcall(game.mrb, ruby_context, "update", 1, rgame);
 
 #if _DEBUG
+        // Execute ruby code from console i/o
+        if (SDL_AtomicGet(&game.ruby.io_ready)) {
+            SDL_LockMutex(game.ruby.io_locked);
+            mrb_p(game.mrb, mrb_load_nstring(game.mrb, game.ruby.io_buffer, game.ruby.io_pos));
+            game.ruby.io_pos = 0;
+            SDL_AtomicSet(&game.ruby.io_ready, false);
+            SDL_UnlockMutex(game.ruby.io_locked);
+        }
+
+        // Freeze-frame
         if (just_pressed(&game.controls, C_PAUSE))
             debug_pause = !debug_pause;
         if (!debug_pause || just_pressed(&game.controls, C_DEBUG_ADV))
@@ -316,7 +358,7 @@ int main(int argc, char** argv) {
         {
             Uint64 i = SDL_GetPerformanceCounter();
             if (last_frame_ticks > 2 * ticks_per_frame) {
-                printf("Frame %I64i took longer than 16ms\n", game.frame_count);
+                printf("Frame %l took longer than 16ms\n", game.frame_count);
             }
             Uint64 f = SDL_GetPerformanceCounter();
             last_frame_ticks += f - i;

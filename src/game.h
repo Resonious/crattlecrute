@@ -42,6 +42,12 @@ typedef struct Game {
     SDL_Renderer* renderer;
     mrb_state* mrb;
     struct {
+#ifdef _DEBUG
+        SDL_mutex* io_locked;
+        SDL_atomic_t io_ready;
+        int io_pos;
+        char io_buffer[512];
+#endif
         mrb_sym sym_atcontrols;
         mrb_sym sym_atworld;
         mrb_sym sym_atgame;

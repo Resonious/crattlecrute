@@ -661,7 +661,9 @@ void draw_map(struct Game* game, Map* map) {
         }
     }
     BENCH_END(small_mobs);
+#ifdef _DEBUG
     SDL_assert(small_mobs_seconds < 0.01);
+#endif
     for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
         MobCommon* mob = (MobCommon*)&map->state->medium_mobs[i];
         if (mob->mob_type_id != -1)
