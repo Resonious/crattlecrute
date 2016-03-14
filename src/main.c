@@ -214,6 +214,13 @@ no_renderer:
     mrb_define_singleton_method(game.mrb, game.mrb->top_self, "game", rb_game, MRB_ARGS_NONE());
     mrb_define_singleton_method(game.mrb, game.mrb->top_self, "exit", rb_exit, MRB_ARGS_NONE());
     mrb_define_singleton_method(game.mrb, game.mrb->top_self, "quit", rb_exit, MRB_ARGS_NONE());
+
+    mrb_const_set(
+        game.mrb,
+        mrb_obj_value(game.ruby.game_class),
+        mrb_intern_lit(game.mrb, "TICKS_PER_SECOND"),
+        mrb_fixnum_value(ticks_per_second)
+    );
     SDL_assert(!game.mrb->exc);
 
     BENCH_END(loading_ruby);
