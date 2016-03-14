@@ -87,6 +87,30 @@ mrb_value mrb_controls_just_released(mrb_state* mrb, mrb_value self) {
     return mrb_bool_value(just_released(controls, arg));
 }
 
+mrb_value mrb_controls_access(mrb_state* mrb, mrb_value self) {
+    Controls* controls = DATA_PTR(self);
+
+    mrb_int arg;
+    mrb_get_args(mrb, "i", &arg);
+
+    if (arg < 0 || arg > NUM_CONTROLS)
+        return mrb_nil_value();
+
+    return mrb_bool_value(controls->this_frame[arg]);
+}
+
+mrb_value mrb_controls_access_eq(mrb_state* mrb, mrb_value self) {
+    Controls* controls = DATA_PTR(self);
+
+    mrb_int index;
+    mrb_bool value;
+    mrb_get_args(mrb, "ib", &index, &value);
+
+    controls->this_frame[index] = value;
+
+    return mrb_fixnum_value(value);
+}
+
 #define RUBY_CONST_CTRL(ctrl, rctrl)\
     mrb_const_set(\
         game->mrb, mrb_obj_value(game->ruby.controls_class),\
@@ -281,6 +305,8 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.controls_class, "initialize", mrb_controls_init, MRB_ARGS_OPT(1));
     mrb_define_method(game->mrb, game->ruby.controls_class, "just_pressed", mrb_controls_just_pressed, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.controls_class, "just_released", mrb_controls_just_released, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.controls_class, "[]", mrb_controls_access, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.controls_class, "[]=", mrb_controls_access_eq, MRB_ARGS_REQ(2));
 
     // ==================================== class Color ================================
     game->ruby.color_class = mrb_define_class(game->mrb, "Color", game->mrb->object_class);
