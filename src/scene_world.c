@@ -1371,8 +1371,11 @@ void scene_world_initialize(void* vdata, Game* game) {
     }
 
     BENCH_START(loading_crattle1);
+    SDL_assert(!game->mrb->exc);
     default_character(game, &data->guy);
+    SDL_assert(!game->mrb->exc);
     default_character_animations(game, &data->guy);
+    SDL_assert(!game->mrb->exc);
     data->guy.position.x[X] = 150.0f;
     data->guy.position.x[Y] = 170.0f;
     data->guy.position.x[2] = 0.0f;
@@ -1420,7 +1423,9 @@ void scene_world_initialize(void* vdata, Game* game) {
     }
 
     // Add ruby object to game!
+    SDL_assert(!game->mrb->exc);
     mrb_iv_check(game->mrb, game->ruby.sym_atworld);
+    SDL_assert(!game->mrb->exc);
     data->script_obj = mrb_obj_new(game->mrb, game->ruby.world_class, 0, NULL);
     mrb_data_init(data->script_obj, data, &mrb_world_type);
     mrb_iv_set(game->mrb, game->ruby.game, game->ruby.sym_atworld, data->script_obj);

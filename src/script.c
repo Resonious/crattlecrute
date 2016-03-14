@@ -4,7 +4,7 @@
 
 mrb_value mrb_color_init(mrb_state* mrb, mrb_value self) {
     mrb_int r = 0, g = 0, b = 0, a = 255, noalloc = false;
-    mrb_get_args(mrb, "|iiiii", &r, &g, &b, &a, &noalloc);
+    mrb_get_args(mrb, "|ooooo", &r, &g, &b, &a, &noalloc);
 
     if (noalloc) {
         mrb_data_init(self, NULL, &mrb_dont_free_type);
@@ -202,12 +202,23 @@ mrb_value mrb_character_feet_type_eq(mrb_state* mrb, mrb_value self) {
         return guy->r##name; \
     } \
     mrb_value mrb_character_##name##_eq(mrb_state* mrb, mrb_value self) { \
-        Character* guy = DATA_PTR(self); \
+        Character* guy  = DATA_PTR(self); \
+        Game* game = (Game*)mrb->ud; \
         mrb_value value; \
         mrb_get_args(mrb, "o", &value); \
-        SDL_Color* color = DATA_PTR(value); \
-        guy->name = *color; \
-        return guy->r##name; \
+        struct RClass* value_class = mrb_obj_class(mrb, value); \
+        if (value_class == game->ruby.color_class) { \
+            SDL_Color* color = DATA_PTR(value); \
+            guy->name = *color; \
+            return guy->r##name; \
+        } \
+        else if (value_class == NULL) \
+            mrb_raise(mrb, mrb_class_get(mrb, "StandardError"), "Passed value has no class!"); \
+        else { \
+            char err[128]; sprintf(err, "Expected Color, got %s", mrb_class_name(mrb, value_class)); \
+            mrb_raise(mrb, mrb_class_get(mrb, "StandardError"), err); \
+        } \
+        return mrb_nil_value(); \
     }
 
 #define FLOAT_CHARACTER_ATTR(name)\

@@ -179,6 +179,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     script_init(&game);
+    SDL_assert(!game.mrb->exc);
 
     mrb_value ruby_context = mrb_obj_value(game.mrb->top_self);
 #ifdef _DEBUG
@@ -205,6 +206,7 @@ int main(int argc, char** argv) {
     mrb_define_singleton_method(game.mrb, game.mrb->top_self, "game", rb_game, MRB_ARGS_NONE());
     mrb_define_singleton_method(game.mrb, game.mrb->top_self, "exit", rb_exit, MRB_ARGS_NONE());
     mrb_define_singleton_method(game.mrb, game.mrb->top_self, "quit", rb_exit, MRB_ARGS_NONE());
+    SDL_assert(!game.mrb->exc);
 
     BENCH_END(loading_ruby);
 
@@ -222,7 +224,9 @@ int main(int argc, char** argv) {
     bool keys_up[NUM_CONTROLS];
     bool keys_down[NUM_CONTROLS];
 
+    SDL_assert(!game.mrb->exc);
     game.current_scene->initialize(game.current_scene_data, &game);
+    SDL_assert(!game.mrb->exc);
 
     BENCH_END(total_initialization);
 
