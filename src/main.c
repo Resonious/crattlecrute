@@ -80,6 +80,12 @@ mrb_value rb_game(mrb_state* mrb, mrb_value self) {
     return game->ruby.game;
 }
 
+mrb_value rb_exit(mrb_state* mrb, mrb_value self) {
+    Game* game = (Game*)mrb->ud;
+    game->running = false;
+    return mrb_str_new_cstr(mrb, "bye");
+}
+
 int main(int argc, char** argv) {
     BENCH_START(total_initialization);
     srand((unsigned int)time(0));
@@ -197,12 +203,14 @@ int main(int argc, char** argv) {
     game.ruby.game = rgame;
 
     mrb_define_singleton_method(game.mrb, game.mrb->top_self, "game", rb_game, MRB_ARGS_NONE());
+    mrb_define_singleton_method(game.mrb, game.mrb->top_self, "exit", rb_exit, MRB_ARGS_NONE());
+    mrb_define_singleton_method(game.mrb, game.mrb->top_self, "quit", rb_exit, MRB_ARGS_NONE());
 
     BENCH_END(loading_ruby);
 
     // Main loop bitch
     SDL_Event event;
-    bool running = true;
+    game.running = true;
     const Uint64 milliseconds_per_tick = 1000 / ticks_per_second;
     const Uint64 ticks_per_frame = ticks_per_second / 60;
     Uint64 frame_start, frame_end;
@@ -218,7 +226,7 @@ int main(int argc, char** argv) {
 
     BENCH_END(total_initialization);
 
-    while (running) {
+    while (game.running) {
         frame_start = SDL_GetPerformanceCounter();
         game.frame_count += 1;
         frame_count_this_second += 1;
@@ -236,7 +244,7 @@ int main(int argc, char** argv) {
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
             case SDL_QUIT:
-                running = false;
+                game.running = false;
                 break;
 
             case SDL_TEXTINPUT:

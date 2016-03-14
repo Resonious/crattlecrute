@@ -196,16 +196,42 @@ mrb_value mrb_character_feet_type_eq(mrb_state* mrb, mrb_value self) {
     return mrb_true_value();
 }
 
-#define SIMPLE_CHARACTER_ATTR(name)\
+#define SIMPLE_CHARACTER_RATTR(name)\
     mrb_value mrb_character_##name(mrb_state* mrb, mrb_value self) { \
         Character* guy = DATA_PTR(self); \
         return guy->r##name; \
+    } \
+    mrb_value mrb_character_##name##_eq(mrb_state* mrb, mrb_value self) { \
+        Character* guy = DATA_PTR(self); \
+        mrb_value value; \
+        mrb_get_args(mrb, "o", &value); \
+        SDL_Color* color = DATA_PTR(value); \
+        guy->name = *color; \
+        return guy->r##name; \
     }
 
-SIMPLE_CHARACTER_ATTR(body_color);
-SIMPLE_CHARACTER_ATTR(eye_color);
-SIMPLE_CHARACTER_ATTR(left_foot_color);
-SIMPLE_CHARACTER_ATTR(right_foot_color);
+#define FLOAT_CHARACTER_ATTR(name)\
+    mrb_value mrb_character_##name(mrb_state* mrb, mrb_value self) { \
+        Character* guy = DATA_PTR(self); \
+        return mrb_float_value(mrb, guy->name); \
+    } \
+    mrb_value mrb_character_##name##_eq(mrb_state* mrb, mrb_value self) { \
+        Character* guy = DATA_PTR(self); \
+        mrb_value value; \
+        mrb_get_args(mrb, "f", &value); \
+        guy->name = mrb_float(value); \
+        return mrb_float_value(mrb, guy->name); \
+    }
+
+SIMPLE_CHARACTER_RATTR(body_color);
+SIMPLE_CHARACTER_RATTR(eye_color);
+SIMPLE_CHARACTER_RATTR(left_foot_color);
+SIMPLE_CHARACTER_RATTR(right_foot_color);
+FLOAT_CHARACTER_ATTR(ground_speed_max);
+FLOAT_CHARACTER_ATTR(ground_acceleration);
+FLOAT_CHARACTER_ATTR(ground_deceleration);
+FLOAT_CHARACTER_ATTR(jump_acceleration);
+FLOAT_CHARACTER_ATTR(jump_cancel_dy);
 
 #define RUBY_CRATTLETYPE_SYM(val, rval)\
     mrb_hash_set(game->mrb, game->ruby.cc_type_to_sym, mrb_fixnum_value(val), mrb_symbol_value(mrb_intern_lit(game->mrb, #rval)));\
@@ -317,7 +343,21 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.character_class, "eye_color", mrb_character_eye_color, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "left_foot_color", mrb_character_left_foot_color, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "right_foot_color", mrb_character_right_foot_color, MRB_ARGS_NONE());
-    // mrb_define_method(game->mrb, game->ruby.character_class, "color", mrb_character_body_type, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "body_color=", mrb_character_body_color_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.character_class, "eye_color=", mrb_character_eye_color_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.character_class, "left_foot_color=", mrb_character_left_foot_color_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.character_class, "right_foot_color=", mrb_character_right_foot_color_eq, MRB_ARGS_REQ(1));
+
+    mrb_define_method(game->mrb, game->ruby.character_class, "ground_speed_max", mrb_character_ground_speed_max, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "ground_acceleration", mrb_character_ground_acceleration, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "ground_deceleration", mrb_character_ground_deceleration, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "jump_acceleration", mrb_character_jump_acceleration, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "jump_cancel_dy", mrb_character_jump_cancel_dy, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "ground_speed_max=", mrb_character_ground_speed_max_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.character_class, "ground_acceleration=", mrb_character_ground_acceleration_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.character_class, "ground_deceleration=", mrb_character_ground_deceleration_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.character_class, "jump_acceleration=", mrb_character_jump_acceleration_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.character_class, "jump_cancel_dy=", mrb_character_jump_cancel_dy_eq, MRB_ARGS_REQ(1));
 }
 
 // Pasted in from mirb code lol.

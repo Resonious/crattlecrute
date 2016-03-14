@@ -91,6 +91,8 @@ typedef struct Game {
     vec4 camera_target;
     vec4 camera;
     double frames_per_second;
+    // DON'T FUCK WITH THIS. I REALLY HOPE AN OVERRUN DOESN'T TRIP THIS.
+    bool running;
 } Game;
 
 // Switch to a new scene (COMING SOON: fade to scene!?)
