@@ -4,7 +4,7 @@
 
 mrb_value mrb_color_init(mrb_state* mrb, mrb_value self) {
     mrb_int r = 0, g = 0, b = 0, a = 255, noalloc = false;
-    mrb_get_args(mrb, "|ooooo", &r, &g, &b, &a, &noalloc);
+    mrb_get_args(mrb, "|iiiii", &r, &g, &b, &a, &noalloc);
 
     if (noalloc) {
         mrb_data_init(self, NULL, &mrb_dont_free_type);
@@ -395,11 +395,14 @@ void ruby_p(mrb_state *mrb, mrb_value obj, int prompt) {
 bool load_script_file(mrb_state* mrb) {
     FILE* file = fopen("script.rb", "r");
     if (file == NULL) {
-        file = fopen("C:\\Users\\Metre\\game\\crattlecrute\\build\\script.rb", "r");
+        file = fopen("build/script.rb", "r");
         if (file == NULL) {
-            file = fopen("C:\\Users\\Nigel\\game\\crattle\\build\\script.rb", "r");
-            if (file == NULL)
-                return false;
+            file = fopen("C:\\Users\\Metre\\game\\crattlecrute\\build\\script.rb", "r");
+            if (file == NULL) {
+                file = fopen("C:\\Users\\Nigel\\game\\crattle\\build\\script.rb", "r");
+                if (file == NULL)
+                    return false;
+            }
         }
     }
     mrb_load_file(mrb, file);

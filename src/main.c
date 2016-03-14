@@ -121,11 +121,17 @@ int main(int argc, char** argv) {
     BENCH_START(loading_sdl);
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
     open_assets_file();
-    initialize_sound(&game.audio);
     memset(&game.controls, 0, sizeof(game.controls));
     BENCH_END(loading_sdl);
 
     BENCH_START(loading_window);
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "-x") == 0 || strcmp(argv[i], "--headless") == 0) {
+          goto no_renderer;
+        }
+    }
+    initialize_sound(&game.audio);
+
     game.window = SDL_CreateWindow(
         "Crattlecrute",
         SDL_WINDOWPOS_UNDEFINED,
@@ -134,7 +140,9 @@ int main(int argc, char** argv) {
         SDL_WINDOW_RESIZABLE
     );
     main_window = game.window;
+
     game.renderer = SDL_CreateRenderer(game.window, -1, 0);
+no_renderer:
     if (game.renderer == NULL) printf("No renderer!\n");
     SDL_SetRenderDrawColor(game.renderer, 20, 20, 20, 255);
     BENCH_END(loading_window);

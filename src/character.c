@@ -420,9 +420,9 @@ void default_character(struct Game* game, Character* target) {
 
     // Script stuff:
 
-    mrb_value nil = mrb_nil_value();
+    mrb_value zero = mrb_fixnum_value(0);
     mrb_value color_args[5];
-    color_args[0] = nil; color_args[1] = nil; color_args[2] = nil; color_args[3] = nil;
+    color_args[0] = zero; color_args[1] = zero; color_args[2] = zero; color_args[3] = zero;
     color_args[4] = mrb_fixnum_value(1);
 
 #define RUBY_COLOR(attr) \
