@@ -201,7 +201,7 @@ no_renderer:
         game.ruby.io_pos = 0;
         game.ruby.io_cxt = mrbc_context_new(game.mrb);
         game.ruby.io_cxt->capture_errors = true;
-        mrbc_filename(game.mrb, game.ruby.io_cxt, "(crattlecrute console)");
+        mrbc_filename(game.mrb, game.ruby.io_cxt, "(crattlecrute)");
         SDL_AtomicSet(&game.ruby.io_ready, false);
         SDL_CreateThread(ruby_io_thread, "Ruby I/O", &game);
     }
@@ -210,6 +210,12 @@ no_renderer:
         printf("script.rb loaded\n");
     else
         printf("script.rb not loaded\n");
+
+    if (game.mrb->exc) {
+        printf("ERROR in script.rb: ");
+        ruby_p(game.mrb, mrb_obj_value(game.mrb->exc), 0);
+        game.mrb->exc = NULL;
+    }
 #endif
 
     mrb_value rgame = mrb_class_new_instance(game.mrb, 0, NULL, game.ruby.game_class);
@@ -226,7 +232,6 @@ no_renderer:
         mrb_intern_lit(game.mrb, "TICKS_PER_SECOND"),
         mrb_fixnum_value(ticks_per_second)
     );
-    SDL_assert(!game.mrb->exc);
 
     BENCH_END(loading_ruby);
 
@@ -339,7 +344,7 @@ no_renderer:
             struct mrb_parser_state* parser = mrb_parser_new(game.mrb);
             parser->s = game.ruby.io_buffer;
             parser->send = game.ruby.io_buffer + game.ruby.io_pos;
-            parser->lineno = game.ruby.io_cxt->lineno;
+            parser->lineno = ++game.ruby.io_cxt->lineno;
             mrb_parser_parse(parser, game.ruby.io_cxt);
 
             if (0 < parser->nerr) {
