@@ -35,6 +35,14 @@ mrb_value mrb_game_controls(mrb_state* mrb, mrb_value self);
 mrb_value mrb_game_world(mrb_state* mrb, mrb_value self);
 
 mrb_value mrb_world_init(mrb_state* mrb, mrb_value self);
+
+// These are defined in scene_world.c of course
+mrb_value mrb_world_host(mrb_state* mrb, mrb_value self);
+mrb_value mrb_world_join(mrb_state* mrb, mrb_value self);
+mrb_value mrb_world_is_connected(mrb_state* mrb, mrb_value self);
+mrb_value mrb_world_is_hosting(mrb_state* mrb, mrb_value self);
+mrb_value mrb_world_is_joining(mrb_state* mrb, mrb_value self);
+
 mrb_value mrb_world_current_map(mrb_state* mrb, mrb_value self);
 mrb_value mrb_world_local_character(mrb_state* mrb, mrb_value self);
 

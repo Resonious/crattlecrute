@@ -1370,6 +1370,17 @@ int set_tcp_nodelay(SOCKET socket) {
     return result;
 }
 
+void net_host(WorldScene* data) {
+    data->net.status = HOSTING;
+    SDL_CreateThread(network_server_listen, "Network server listen", data);
+}
+
+void net_join(WorldScene* data) {
+    data->net.status = JOINING;
+    SDL_CreateThread(network_client_loop, "Network client loop", data);
+    printf("Created client loop thread\n");
+}
+
 mrb_value rb_world(mrb_state* mrb, mrb_value self) {
     Game* game = (Game*)mrb->ud;
     if (game->current_scene->id == SCENE_WORLD) {
@@ -1379,6 +1390,68 @@ mrb_value rb_world(mrb_state* mrb, mrb_value self) {
     else {
         return mrb_nil_value();
     }
+}
+
+mrb_value mrb_world_host(mrb_state* mrb, mrb_value self) {
+    WorldScene* scene = DATA_PTR(self);
+    if (scene->net.status != NOT_CONNECTED) {
+        mrb_raise(mrb, mrb_class_get(mrb, "StandardError"), "Can't host while already in a netgame");
+        return mrb_nil_value();
+    }
+
+    mrb_value port = mrb_nil_value();
+    mrb_get_args(mrb, "|o", &port);
+    if (!mrb_nil_p(port)) {
+        if (!mrb_string_p(port))
+            if (mrb_respond_to(mrb, port, mrb_intern_lit(mrb, "to_s")))
+                port = mrb_funcall(mrb, port, "to_s", 0);
+            else
+                goto just_connect;
+
+        char* port_cstr = mrb_string_value_cstr(mrb, &port);
+        SDL_strlcpy(scene->net.textinput_port, port_cstr, EDITABLE_TEXT_BUFFER_SIZE);
+    }
+
+just_connect:
+    net_host(scene);
+    return mrb_true_value();
+}
+mrb_value mrb_world_join(mrb_state* mrb, mrb_value self) {
+    WorldScene* scene = DATA_PTR(self);
+    if (scene->net.status != NOT_CONNECTED) {
+        mrb_raise(mrb, mrb_class_get(mrb, "StandardError"), "Can't join while already in a netgame");
+        return mrb_nil_value();
+    }
+
+    mrb_value addr = mrb_nil_value();
+    mrb_get_args(mrb, "|o", &addr);
+    if (!mrb_nil_p(addr)) {
+        if (!mrb_string_p(addr))
+            if (mrb_respond_to(mrb, addr, mrb_intern_lit(mrb, "to_s")))
+                addr = mrb_funcall(mrb, addr, "to_s", 0);
+            else
+                goto just_connect;
+
+        char* addr_cstr = mrb_string_value_cstr(mrb, &addr);
+        SDL_strlcpy(scene->net.textinput_ip_address, addr_cstr, EDITABLE_TEXT_BUFFER_SIZE);
+    }
+
+just_connect:
+    net_join(scene);
+    return mrb_true_value();
+}
+
+mrb_value mrb_world_is_connected(mrb_state* mrb, mrb_value self) {
+    WorldScene* scene = DATA_PTR(self);
+    return scene->net.status == NOT_CONNECTED ? mrb_false_value() : mrb_true_value();
+}
+mrb_value mrb_world_is_hosting(mrb_state* mrb, mrb_value self) {
+    WorldScene* scene = DATA_PTR(self);
+    return scene->net.status == HOSTING ? mrb_true_value() : mrb_false_value();
+}
+mrb_value mrb_world_is_joining(mrb_state* mrb, mrb_value self) {
+    WorldScene* scene = DATA_PTR(self);
+    return scene->net.status == JOINING ? mrb_true_value() : mrb_false_value();
 }
 
 void scene_world_initialize(void* vdata, Game* game) {
@@ -1473,8 +1546,7 @@ void scene_world_initialize(void* vdata, Game* game) {
     for (int i = 0; i < game->argc; i++) {
         if (strcmp(game->argv[i], "-h") == 0 || strcmp(game->argv[i], "--host") == 0) {
             printf("Starting server now!!!\n");
-            data->net.status = HOSTING;
-            SDL_CreateThread(network_server_listen, "Network server listen", data);
+            net_host(data);
         }
     }
 
@@ -1999,11 +2071,10 @@ void scene_world_update(void* vs, Game* game) {
             stop_editing_text(game);
             switch (s->net.status) {
             case HOSTING:
-                SDL_CreateThread(network_server_listen, "Network server listen", s);
+                net_host(s);
                 break;
             case JOINING:
-                SDL_CreateThread(network_client_loop, "Network client loop", s);
-                printf("Created client loop thread\n");
+                net_join(s);
                 break;
             default:
                 SDL_assert(false);

@@ -352,6 +352,11 @@ void script_init(struct Game* game) {
     MRB_SET_INSTANCE_TT(game->ruby.world_class, MRB_TT_DATA);
 
     mrb_define_method(game->mrb, game->ruby.world_class, "initialize", mrb_world_init, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.world_class, "host", mrb_world_host, MRB_ARGS_OPT(1));
+    mrb_define_method(game->mrb, game->ruby.world_class, "join", mrb_world_join, MRB_ARGS_OPT(1));
+    mrb_define_method(game->mrb, game->ruby.world_class, "connected?", mrb_world_is_connected, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.world_class, "joining?", mrb_world_is_joining, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.world_class, "hosting?", mrb_world_is_hosting, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.world_class, "current_map", mrb_world_current_map, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.world_class, "local_character", mrb_world_local_character, MRB_ARGS_NONE());
 
