@@ -333,6 +333,7 @@ void read_guy_info_from_buffer(byte* buffer, Character* guy, int* area_id, int* 
     read_from_buffer(buffer, &guy->body_type,  pos, sizeof(guy->body_type));
     read_from_buffer(buffer, &guy->feet_type,  pos, sizeof(guy->feet_type));
     read_from_buffer(buffer, &guy->ground_speed_max,    pos, sizeof(guy->ground_speed_max));
+    read_from_buffer(buffer, &guy->run_speed_max,       pos, sizeof(guy->run_speed_max));
     read_from_buffer(buffer, &guy->ground_acceleration, pos, sizeof(guy->ground_acceleration));
     read_from_buffer(buffer, &guy->ground_deceleration, pos, sizeof(guy->ground_deceleration));
     read_from_buffer(buffer, &guy->jump_acceleration,   pos, sizeof(guy->jump_acceleration));
@@ -349,6 +350,7 @@ void write_guy_info_to_buffer(byte* buffer, Character* guy, int area_id, int* po
     write_to_buffer(buffer, &guy->body_type,  pos, sizeof(guy->body_type));
     write_to_buffer(buffer, &guy->feet_type,  pos, sizeof(guy->feet_type));
     write_to_buffer(buffer, &guy->ground_speed_max,    pos, sizeof(guy->ground_speed_max));
+    write_to_buffer(buffer, &guy->run_speed_max,       pos, sizeof(guy->run_speed_max));
     write_to_buffer(buffer, &guy->ground_acceleration, pos, sizeof(guy->ground_acceleration));
     write_to_buffer(buffer, &guy->ground_deceleration, pos, sizeof(guy->ground_deceleration));
     write_to_buffer(buffer, &guy->jump_acceleration,   pos, sizeof(guy->jump_acceleration));
