@@ -612,6 +612,8 @@ void increment_src_rect(SDL_Rect* src, int n, int image_width, int image_height)
 }
 
 void draw_map(struct Game* game, Map* map) {
+    wait_for_then_use_lock(map->locked);
+
     for (int i = 0; i < map->number_of_backgrounds; i++)
         draw_parallax_background(game, map, &map->backgrounds[i]);
     for (int i = 0; i < map->number_of_tilemaps; i++)
@@ -674,6 +676,8 @@ void draw_map(struct Game* game, Map* map) {
         if (mob->mob_type_id != -1)
             mob_registry[mob->mob_type_id].render(mob, game, map);
     }
+
+    SDL_UnlockMutex(map->locked);
 }
 
 static void do_bottom_sensors(GenericBody* guy, CollisionMap* tile_collision, vec4i* tilemap_dim) {
