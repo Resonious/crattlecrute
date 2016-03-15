@@ -61,6 +61,7 @@ typedef struct PhysicsState {
     int flip;
     float dy;
     float ground_speed;
+    float run_speed;
 } PhysicsState;
 
 typedef struct MapTransition {
@@ -167,6 +168,7 @@ void sync_player_frame_if_should(int status, RemotePlayer* plr) {
         plr->guy.flip          = plr->sync.flip;
         plr->guy.dy            = plr->sync.dy;
         plr->guy.ground_speed  = plr->sync.ground_speed;
+        plr->guy.run_speed     = plr->sync.run_speed;
 
         // printf("SYNCED POSITION OF %i\n", plr->id);
     }
@@ -558,6 +560,7 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
             read_from_buffer(buffer, &player->sync.flip, &pos, sizeof(int));
             read_from_buffer(buffer, &player->sync.dy, &pos, sizeof(float));
             read_from_buffer(buffer, &player->sync.ground_speed, &pos, sizeof(int));
+            read_from_buffer(buffer, &player->sync.run_speed, &pos, sizeof(int));
             if (frame_of_position == -1)
                 SDL_AtomicSet(&player->frames_until_sync, 0);
             else
@@ -729,6 +732,7 @@ int netwrite_guy_position(byte* buffer, ControlsBuffer* controls_stream, Charact
     write_to_buffer(buffer, &guy->flip, pos, sizeof(int));
     write_to_buffer(buffer, &guy->dy, pos, sizeof(float));
     write_to_buffer(buffer, &guy->ground_speed, pos, sizeof(float));
+    write_to_buffer(buffer, &guy->run_speed, pos, sizeof(float));
     return *pos;
 }
 
