@@ -263,6 +263,7 @@ SIMPLE_CHARACTER_RATTR(eye_color);
 SIMPLE_CHARACTER_RATTR(left_foot_color);
 SIMPLE_CHARACTER_RATTR(right_foot_color);
 FLOAT_CHARACTER_ATTR(ground_speed_max);
+FLOAT_CHARACTER_ATTR(run_ground_speed_max);
 FLOAT_CHARACTER_ATTR(ground_acceleration);
 FLOAT_CHARACTER_ATTR(ground_deceleration);
 FLOAT_CHARACTER_ATTR(jump_acceleration);
@@ -292,6 +293,7 @@ void script_init(struct Game* game) {
     RUBY_CONST_CTRL(C_LEFT, LEFT);
     RUBY_CONST_CTRL(C_RIGHT, RIGHT);
     RUBY_CONST_CTRL(C_JUMP, JUMP);
+    RUBY_CONST_CTRL(C_RUN, RUN);
     RUBY_CONST_CTRL(C_W, W);
     RUBY_CONST_CTRL(C_S, S);
     RUBY_CONST_CTRL(C_A, A);
@@ -386,11 +388,13 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.character_class, "right_foot_color=", mrb_character_right_foot_color_eq, MRB_ARGS_REQ(1));
 
     mrb_define_method(game->mrb, game->ruby.character_class, "ground_speed_max", mrb_character_ground_speed_max, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "run_ground_speed_max", mrb_character_run_ground_speed_max, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "ground_acceleration", mrb_character_ground_acceleration, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "ground_deceleration", mrb_character_ground_deceleration, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "jump_acceleration", mrb_character_jump_acceleration, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "jump_cancel_dy", mrb_character_jump_cancel_dy, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "ground_speed_max=", mrb_character_ground_speed_max_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.character_class, "run_ground_speed_max=", mrb_character_run_ground_speed_max_eq, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.character_class, "ground_acceleration=", mrb_character_ground_acceleration_eq, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.character_class, "ground_deceleration=", mrb_character_ground_deceleration_eq, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.character_class, "jump_acceleration=", mrb_character_jump_acceleration_eq, MRB_ARGS_REQ(1));

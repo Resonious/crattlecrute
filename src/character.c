@@ -42,7 +42,10 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
     if (!guy->grounded)
         MOVE_TOWARDS(guy->slide_speed, 0, drag);
 
+    bool running = false;
     if (controls) {
+        // Running?
+        running = controls->this_frame[C_RUN];
         // Get accelerations from controls
         if (controls->this_frame[C_LEFT]) {
             guy->ground_speed -= CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
@@ -81,7 +84,9 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
     }
 
     // Cap speeds
-    float max_speed = CHARA_GROUND_SPEED_MAX * guy->ground_speed_max;
+    // TODO this kind of sucks: releasing the run button immediately brings you back to max ground speed.
+    // Perhaps speed from running should be another separate velocity.
+    float max_speed = running ? (CHARA_RUN_GROUND_SPEED_MAX * guy->run_ground_speed_max) : (CHARA_GROUND_SPEED_MAX * guy->ground_speed_max);
     if (guy->ground_speed > max_speed)
         guy->ground_speed = max_speed;
     else if (guy->ground_speed < -max_speed)
@@ -116,15 +121,19 @@ void update_character_animation(Character* guy) {
         if (guy->animation_frame >= 8)
             guy->animation_frame = 0;
         break;
-    case GUY_WALKING:
-        // increment every 5 frames
-        if (guy->animation_counter % 5 == 0)
+    case GUY_WALKING: {
+        // the standard walking animation "walks" at about 10 pixels per frame. (as if this is based on that and not me just trying values)
+        float disp = fabsf(guy->position.x[0] - guy->old_position.x[0]);
+        int advance_every = (int)(1 / disp * 25.0f);
+        if (advance_every <= 0)
+            advance_every = 5;
+        if (guy->animation_counter % advance_every == 0)
             guy->animation_frame += 1;
 
         // cap at 8
         if (guy->animation_frame >= 8)
             guy->animation_frame = 0;
-        break;
+    } break;
     case GUY_JUMPING:
         if (guy->dy >= 0)
             guy->animation_frame = 1;
@@ -343,6 +352,7 @@ void default_character(struct Game* game, Character* target) {
 
     // "Attributes"
     target->ground_speed_max = 1.0f;
+    target->run_ground_speed_max = 1.0f;
     target->ground_acceleration = 1.0f;
     target->ground_deceleration = 1.0f;
     target->jump_acceleration = 1.0f;

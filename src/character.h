@@ -17,11 +17,12 @@ struct Controls;
 #define ANIMATION_MAX_PERIPHERALS 128
 
 // Physics baselines - character stats are factors of these.
-#define CHARA_GROUND_SPEED_MAX    (6.0f)
-#define CHARA_GROUND_ACCELERATION (0.8f)
-#define CHARA_GROUND_DECELERATION (0.5f)
-#define CHARA_JUMP_ACCELERATION   (20.0f)
-#define CHARA_JUMP_CANCEL_DY      (10.0f)
+#define CHARA_GROUND_SPEED_MAX     (6.0f)
+#define CHARA_RUN_GROUND_SPEED_MAX (7.5f)
+#define CHARA_GROUND_ACCELERATION  (0.8f)
+#define CHARA_GROUND_DECELERATION  (0.5f)
+#define CHARA_JUMP_ACCELERATION    (20.0f)
+#define CHARA_JUMP_CANCEL_DY       (10.0f)
 
 enum CharacterAnimation {
     GUY_IDLE, GUY_WALKING, GUY_JUMPING,
@@ -65,6 +66,7 @@ typedef struct Character {
 
     // === attributes ===
     float ground_speed_max;
+    float run_ground_speed_max;
     float ground_acceleration;
     float ground_deceleration;
     float jump_acceleration;

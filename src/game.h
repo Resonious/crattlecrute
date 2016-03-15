@@ -12,7 +12,7 @@
 
 enum Control {
     C_UP, C_DOWN, C_LEFT, C_RIGHT,
-    C_JUMP,
+    C_RUN, C_JUMP,
     C_W, C_S, C_A, C_D,
     C_PAUSE,
     C_F1, C_F2, C_SPACE,
