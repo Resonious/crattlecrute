@@ -69,8 +69,9 @@ int ruby_io_thread(void* vdata) {
         SDL_LockMutex(game->ruby.io_locked);
         game->ruby.io_buffer[game->ruby.io_pos++] = c;
 
-        if (c == '\n')
+        if (c == '\n') {
             SDL_AtomicSet(&game->ruby.io_ready, true);
+        }
         SDL_UnlockMutex(game->ruby.io_locked);
     }
 }
@@ -198,6 +199,9 @@ no_renderer:
     else {
         memset(game.ruby.io_buffer, 0, sizeof(game.ruby.io_buffer));
         game.ruby.io_pos = 0;
+        game.ruby.io_cxt = mrbc_context_new(game.mrb);
+        game.ruby.io_cxt->capture_errors = true;
+        mrbc_filename(game.mrb, game.ruby.io_cxt, "(crattlecrute console)");
         SDL_AtomicSet(&game.ruby.io_ready, false);
         SDL_CreateThread(ruby_io_thread, "Ruby I/O", &game);
     }
@@ -330,7 +334,36 @@ no_renderer:
         // Execute ruby code from console i/o
         if (SDL_AtomicGet(&game.ruby.io_ready)) {
             SDL_LockMutex(game.ruby.io_locked);
-            mrb_p(game.mrb, mrb_load_nstring(game.mrb, game.ruby.io_buffer, game.ruby.io_pos));
+
+            // mrb_p(game.mrb, mrb_load_nstring_cxt(game.mrb, game.ruby.io_buffer, game.ruby.io_pos, game.ruby.io_cxt));
+            struct mrb_parser_state* parser = mrb_parser_new(game.mrb);
+            parser->s = game.ruby.io_buffer;
+            parser->send = game.ruby.io_buffer + game.ruby.io_pos;
+            parser->lineno = game.ruby.io_cxt->lineno;
+            mrb_parser_parse(parser, game.ruby.io_cxt);
+
+            if (0 < parser->nerr) {
+                printf("line %d: %s\n", parser->error_buffer[0].lineno, parser->error_buffer[0].message);
+            }
+            else {
+                struct RProc *proc = mrb_generate_code(game.mrb, parser);
+                if (proc == NULL)
+                    printf("ruby parser fucked up.\n");
+                else {
+                    mrb_value result = mrb_toplevel_run_keep(game.mrb, proc, game.ruby.io_locals);
+                    game.ruby.io_locals = proc->body.irep->nlocals;
+
+                    if (game.mrb->exc) {
+                        ruby_p(game.mrb, mrb_obj_value(game.mrb->exc), 0);
+                        game.mrb->exc = 0;
+                    }
+                    else {
+                        ruby_p(game.mrb, result, 0);
+                    }
+                }
+            }
+            mrb_parser_free(parser);
+
             game.ruby.io_pos = 0;
             SDL_AtomicSet(&game.ruby.io_ready, false);
             SDL_UnlockMutex(game.ruby.io_locked);

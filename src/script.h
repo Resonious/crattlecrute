@@ -10,6 +10,7 @@
 #include <mruby/string.h>
 #include <mruby/proc.h>
 #include <mruby/dump.h>
+#include <mruby/array.h>
 #include <mruby/hash.h>
 
 static void mrb_dont_free(mrb_state* mrb, void* p) { }

@@ -37,6 +37,9 @@ void controls_pre_update(Controls* controls);
 #define SCENE_DATA_SIZE (1024 * 50)
 
 struct Scene;
+#ifdef _DEBUG
+struct mrbc_context;
+#endif
 typedef struct Game {
     SDL_Window* window;
     SDL_Renderer* renderer;
@@ -47,6 +50,8 @@ typedef struct Game {
         SDL_atomic_t io_ready;
         int io_pos;
         char io_buffer[512];
+        int io_locals;
+        struct mrbc_context* io_cxt;
 #endif
         mrb_sym sym_atcontrols;
         mrb_sym sym_atworld;
