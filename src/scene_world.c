@@ -618,6 +618,11 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
             int area_id;
             read_from_buffer(buffer, &area_id, &pos, sizeof(int));
 
+            if (total_size_of_events == 0 && number_of_events != 0) {
+                printf("WARNING: 0 event buffer size but %i events!? Setting number_of_events to 0.\n", number_of_events);
+                number_of_events = 0;
+            }
+
             if (area_id == scene->current_area) {
                 for (int i = 0; i < number_of_events; i++) {
                     byte event_type = buffer[pos++];
@@ -659,7 +664,7 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
             }
             else {
                 printf("Got mob events for the wrong area woops!!!! Draining buffer...\n");
-                buffer += total_size_of_events;
+                pos += total_size_of_events;
             }
 
             SDL_UnlockMutex(scene->map->locked);
@@ -1652,16 +1657,19 @@ void write_mob_events(void* vs, Map* map, struct Game* game, MobCommon* mob) {
     MobType* reg = &mob_registry[mob->mob_type_id];
     if (reg->sync_send != NULL && reg->sync_send(mob, map, sync_buffer, &size)) {
         SDL_assert(size <= MOB_EVENT_BUFFER_SIZE);
+        if (size == 0) {
+            printf("WARNING: About to write mob sync of size 0 for some reason.\n");
+        }
 
         for (int i = 0; i < s->net.number_of_players; i++) {
             RemotePlayer* player = s->net.players[i];
             if (player == NULL || SDL_AtomicGet(&player->area_id) != map->area_id || SDL_AtomicGet(&player->just_switched_maps))
                 continue;
+            wait_for_then_use_lock(player->mob_event_buffer_locked);
             SDL_assert(player->mob_event_buffer_pos <= MOB_EVENT_BUFFER_SIZE && player->mob_event_buffer_pos >= 0);
             SDL_assert(player->mob_event_buffer_pos + size < MOB_EVENT_BUFFER_SIZE);
 
             int m_id = mob_id(map, mob);
-            wait_for_then_use_lock(player->mob_event_buffer_locked);
 
             player->mob_event_buffer[player->mob_event_buffer_pos++] = NETF_MOBEVENT_UPDATE;
             write_to_buffer(player->mob_event_buffer, &m_id,       &player->mob_event_buffer_pos, sizeof(int));

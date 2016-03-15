@@ -116,7 +116,7 @@ void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos) {
 }
 bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
-
+    
     if (pon->hop) {
         write_to_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
         write_to_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
