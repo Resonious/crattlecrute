@@ -1281,7 +1281,7 @@ int network_client_loop(void* vdata) {
 
             if (SDL_AtomicGet(&scene->guy.dirty)) {
                 *flags |= NETF_ATTRIBUTES;
-                write_guy_info_to_buffer(buffer, &scene->guy, &scene->current_area, &pos);
+                write_guy_info_to_buffer(buffer, &scene->guy, scene->current_area, &pos);
                 SDL_AtomicSet(&scene->guy.dirty, false);
             }
 
