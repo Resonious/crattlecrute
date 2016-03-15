@@ -18,7 +18,7 @@ struct Controls;
 
 // Physics baselines - character stats are factors of these.
 #define CHARA_GROUND_SPEED_MAX     (6.0f)
-#define CHARA_RUN_GROUND_SPEED_MAX (7.5f)
+#define CHARA_RUN_SPEED_MAX        (1.5f)
 #define CHARA_GROUND_ACCELERATION  (0.8f)
 #define CHARA_GROUND_DECELERATION  (0.5f)
 #define CHARA_JUMP_ACCELERATION    (20.0f)
@@ -63,10 +63,12 @@ typedef struct Character {
     int animation_counter;
     float dy;
     float ground_speed;
+    // This is additional speed, ontop of ground speed, from running
+    float run_speed;
 
     // === attributes ===
     float ground_speed_max;
-    float run_ground_speed_max;
+    float run_speed_max;
     float ground_acceleration;
     float ground_deceleration;
     float jump_acceleration;

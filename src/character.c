@@ -50,10 +50,14 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
         if (controls->this_frame[C_LEFT]) {
             guy->ground_speed -= CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
             guy->flip = SDL_FLIP_HORIZONTAL;
+            if (running && guy->grounded)
+                guy->run_speed -= CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
         }
         if (controls->this_frame[C_RIGHT]) {
             guy->ground_speed += CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
             guy->flip = SDL_FLIP_NONE;
+            if (running && guy->grounded)
+                guy->run_speed += CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
         }
         // JUMP
         if (guy->just_jumped)
@@ -79,23 +83,30 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
         // TODO having ground_deceleration > ground_acceleration will have a weird effect here.
         if (!controls->this_frame[C_LEFT] && !controls->this_frame[C_RIGHT]) {
             MOVE_TOWARDS(guy->ground_speed, 0, (CHARA_GROUND_DECELERATION * guy->ground_deceleration));
+            MOVE_TOWARDS(guy->run_speed, 0, (CHARA_GROUND_DECELERATION * guy->ground_deceleration));
+        }
+        else if (!running) {
+            MOVE_TOWARDS(guy->run_speed, 0, (CHARA_GROUND_DECELERATION * guy->ground_deceleration));
         }
         guy->animation_state = controls->this_frame[C_LEFT] || controls->this_frame[C_RIGHT] ? GUY_WALKING : GUY_IDLE;
     }
 
     // Cap speeds
-    // TODO this kind of sucks: releasing the run button immediately brings you back to max ground speed.
-    // Perhaps speed from running should be another separate velocity.
-    float max_speed = running ? (CHARA_RUN_GROUND_SPEED_MAX * guy->run_ground_speed_max) : (CHARA_GROUND_SPEED_MAX * guy->ground_speed_max);
+    float max_speed = CHARA_GROUND_SPEED_MAX * guy->ground_speed_max;
     if (guy->ground_speed > max_speed)
         guy->ground_speed = max_speed;
     else if (guy->ground_speed < -max_speed)
         guy->ground_speed = -max_speed;
+    float max_run = CHARA_RUN_SPEED_MAX * guy->run_speed_max;
+    if (guy->run_speed > max_run)
+        guy->run_speed = max_run;
+    else if (guy->run_speed < -max_run)
+        guy->run_speed = -max_run;
     if (guy->dy < -TERMINAL_VELOCITY)
         guy->dy = -TERMINAL_VELOCITY;
 
     // Actually move the dude
-    __m128 movement = {guy->ground_speed + guy->slide_speed, guy->dy, 0.0f, 0.0f};
+    __m128 movement = {guy->ground_speed + guy->slide_speed + guy->run_speed, guy->dy, 0.0f, 0.0f};
     guy->position.simd = _mm_add_ps(guy->position.simd, movement);
 
     // Temporary ground @ -100px
@@ -349,10 +360,11 @@ void default_character(struct Game* game, Character* target) {
     target->center_y = 45;
     target->dy = 0;
     target->ground_speed = 0.0f;
+    target->run_speed = 0.0f;
 
     // "Attributes"
     target->ground_speed_max = 1.0f;
-    target->run_ground_speed_max = 1.0f;
+    target->run_speed_max = 1.0f;
     target->ground_acceleration = 1.0f;
     target->ground_deceleration = 1.0f;
     target->jump_acceleration = 1.0f;
