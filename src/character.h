@@ -104,6 +104,9 @@ typedef struct Character {
     mrb_value rbody_color;
     mrb_value rleft_foot_color;
     mrb_value rright_foot_color;
+
+    // For synchronizing attributes over net or whatever.
+    SDL_atomic_t dirty;
 } Character;
 
 #define CHARACTER_SPRITE_WIDTH 90

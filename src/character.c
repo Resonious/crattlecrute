@@ -440,6 +440,8 @@ void default_character(struct Game* game, Character* target) {
     target->eye_color.b = 255;
     target->eye_type = 0;
 
+    SDL_AtomicSet(&target->dirty, false);
+
     // Script stuff:
 
     mrb_value zero = mrb_fixnum_value(0);

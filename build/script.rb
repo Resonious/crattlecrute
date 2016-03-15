@@ -1,7 +1,13 @@
 puts "we're in"
 
-class Controls
-  def hold
+def guy
+  world.local_character
+end
+
+class Crattlecrute
+  def change
+    yield self
+    mark_dirty
   end
 end
 

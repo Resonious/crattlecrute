@@ -172,6 +172,12 @@ mrb_value mrb_character_init(mrb_state* mrb, mrb_value self) {
     return self;
 }
 
+mrb_value mrb_character_mark_dirty(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    SDL_AtomicSet(&guy->dirty, true);
+    return mrb_true_value();
+}
+
 mrb_value mrb_character_body_type(mrb_state* mrb, mrb_value self) {
     Character* guy = DATA_PTR(self);
     Game* game = (Game*)mrb->ud;
@@ -394,11 +400,14 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.character_class, "jump_acceleration", mrb_character_jump_acceleration, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "jump_cancel_dy", mrb_character_jump_cancel_dy, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "ground_speed_max=", mrb_character_ground_speed_max_eq, MRB_ARGS_REQ(1));
-    mrb_define_method(game->mrb, game->ruby.character_class, "run_ground_speed_max=", mrb_character_run_speed_max_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.character_class, "run_speed_max=", mrb_character_run_speed_max_eq, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.character_class, "ground_acceleration=", mrb_character_ground_acceleration_eq, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.character_class, "ground_deceleration=", mrb_character_ground_deceleration_eq, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.character_class, "jump_acceleration=", mrb_character_jump_acceleration_eq, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.character_class, "jump_cancel_dy=", mrb_character_jump_cancel_dy_eq, MRB_ARGS_REQ(1));
+
+    mrb_define_method(game->mrb, game->ruby.character_class, "mark_dirty", mrb_character_mark_dirty, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "dirty!", mrb_character_mark_dirty, MRB_ARGS_NONE());
 }
 
 // Pasted in from mirb code lol.

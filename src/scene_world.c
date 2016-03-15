@@ -86,11 +86,14 @@ typedef struct RemotePlayer {
     int ping, ping_counter;
     SDL_atomic_t poke;
 
-    // Countdown until we SEND this guy's position (as server) (ALSO INDEXED BY ID)
+    // Countdown until we SEND indexed guy's position (as server) (ALSO INDEXED BY ID)
     SDL_atomic_t countdown_until_i_get_position_of[MAX_PLAYERS];
     // Position we have RECEIVED for this guy and plan to set (if we so choose) (i.e. if we are client)
     PhysicsState sync;
     SDL_atomic_t frames_until_sync;
+
+    // Flag for which character
+    SDL_atomic_t i_need_attributes_of[MAX_PLAYERS];
 
     SDL_mutex* mob_event_buffer_locked;
     byte mob_event_buffer[MOB_EVENT_BUFFER_SIZE];
@@ -297,8 +300,10 @@ RemotePlayer* allocate_new_player(WorldScene* scene, int id, struct sockaddr_in*
         printf("BAD MUTEX\n");
     }
 
-    for (int i = 0; i < MAX_PLAYERS; i++)
+    for (int i = 0; i < MAX_PLAYERS; i++) {
         SDL_AtomicSet(&new_player->countdown_until_i_get_position_of[i], 0);
+        SDL_AtomicSet(&new_player->i_need_attributes_of[i], 0);
+    }
     SDL_AtomicSet(&new_player->frames_until_sync, -1);
 
     return new_player;
@@ -447,11 +452,12 @@ int truncate_buffer_to_lowest_spot(WorldScene* scene, RemotePlayer* player) {
 }
 
 // If multiple of these flags comes in an update, their content must be in this order.
-#define NETF_CONTROLS (1 << 0)
-#define NETF_AREA     (1 << 1)
-#define NETF_POSITION (1 << 2)
-#define NETF_MAPSTATE (1 << 3)
-#define NETF_MOBEVENT (1 << 4)
+#define NETF_CONTROLS   (1 << 0)
+#define NETF_AREA       (1 << 1)
+#define NETF_POSITION   (1 << 2)
+#define NETF_MAPSTATE   (1 << 3)
+#define NETF_MOBEVENT   (1 << 4)
+#define NETF_ATTRIBUTES (1 << 5)
 
 #define NETF_MOBEVENT_SPAWN 0
 #define NETF_MOBEVENT_UPDATE 1
@@ -657,6 +663,19 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
             }
 
             SDL_UnlockMutex(scene->map->locked);
+        }
+
+        if (flags & NETF_ATTRIBUTES) {
+            int a;
+            read_guy_info_from_buffer(buffer, &player->guy, &a, &pos);
+            if (scene->net.status == HOSTING) {
+                for (int i = 0; i < scene->net.number_of_players; i++) {
+                    RemotePlayer* other_player = scene->net.players[i];
+                    if (other_player == NULL || other_player->id == player->id)
+                        continue;
+                    SDL_AtomicSet(&other_player->i_need_attributes_of[player->id], true);
+                }
+            }
         }
     }//while (pos < bufsize)
 
@@ -996,6 +1015,13 @@ int network_server_loop(void* vdata) {
                 if (mob_events_locked)
                     SDL_UnlockMutex(player->mob_event_buffer_locked);
 
+                if (SDL_AtomicGet(&scene->guy.dirty)) {
+                    *flags |= NETF_ATTRIBUTES;
+                    write_guy_info_to_buffer(buffer, &scene->guy, scene->current_area, &pos);
+                    SDL_AtomicSet(&scene->guy.dirty, false);
+                    printf("sent local guy attrs.\n");
+                }
+
                 // If there's more than just this guy playing with us, we need to send them the controls
                 // of all other players..
                 if (scene->net.number_of_players > 1) {
@@ -1006,6 +1032,8 @@ int network_server_loop(void* vdata) {
 
                         ControlsBufferSpot* players_spot_of_other_player = &player->stream_spots_of[other_player->id];
                         wait_for_then_use_lock(other_player->controls_playback.locked);
+
+                        byte* flags = NULL;
 
                         int other_player_area = SDL_AtomicGet(&other_player->area_id);
                         if (other_player_area != SDL_AtomicGet(&player->area_id)) {
@@ -1018,11 +1046,12 @@ int network_server_loop(void* vdata) {
 
                             // We also need to inform player that other_player is not in their map...
                             buffer[pos++] = other_player->id;
-                            buffer[pos++] = NETF_AREA | NETF_POSITION;
+                            flags = &buffer[pos++];
+                            *flags = NETF_AREA | NETF_POSITION;
                             netwrite_guy_area(buffer, other_player_area, &pos);
                             netwrite_guy_position(buffer, &other_player->controls_playback, &other_player->guy, &pos);
 
-                            goto UnlockAndContinue;
+                            goto PossiblySendAttributes;
                         }
 
                         if (
@@ -1032,7 +1061,7 @@ int network_server_loop(void* vdata) {
                             players_spot_of_other_player->frame < other_player->controls_playback.bytes[0]
                         ) {
                             buffer[pos++] = other_player->id;
-                            byte* flags = &buffer[pos++];
+                            flags = &buffer[pos++];
                             *flags = 0;
 
                             vec4* position = NULL,* old_position = NULL;
@@ -1073,9 +1102,19 @@ int network_server_loop(void* vdata) {
                             }
                         }
                         else {
-                            // printf("didn't end up sending %i's controls to %i\n", other_player->id, player->id);
+                            goto UnlockAndContinue;
                         }
-                        UnlockAndContinue:
+                    PossiblySendAttributes:
+                        SDL_assert(flags != NULL);
+
+                        if (SDL_AtomicGet(&player->i_need_attributes_of[other_player->id])) {
+                            SDL_AtomicSet(&player->i_need_attributes_of[other_player->id], false);
+                            *flags |= NETF_ATTRIBUTES;
+                            write_guy_info_to_buffer(buffer, &other_player->guy, SDL_AtomicGet(&other_player->area_id), &pos);
+                            printf("sent remote guy %i attrs\n", other_player->id);
+                        }
+
+                    UnlockAndContinue:
                         SDL_UnlockMutex(other_player->controls_playback.locked);
                     }
                 }
@@ -1232,12 +1271,20 @@ int network_client_loop(void* vdata) {
             int pos = 0;
             buffer[pos++] = NETOP_UPDATE_CONTROLS;
             buffer[pos++] = scene->net.remote_id;
-            buffer[pos++] = NETF_CONTROLS;
+            byte* flags = &buffer[pos++];
+            *flags = NETF_CONTROLS;
             netwrite_guy_controls(
                 buffer,
                 &scene->controls_stream,
                 NULL, &pos, false
             );
+
+            if (SDL_AtomicGet(&scene->guy.dirty)) {
+                *flags |= NETF_ATTRIBUTES;
+                write_guy_info_to_buffer(buffer, &scene->guy, &scene->current_area, &pos);
+                SDL_AtomicSet(&scene->guy.dirty, false);
+            }
+
             send_result = send(
                 scene->net.local_socket,
                 buffer,

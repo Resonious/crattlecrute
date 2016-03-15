@@ -368,6 +368,7 @@ no_renderer:
             SDL_AtomicSet(&game.ruby.io_ready, false);
             SDL_UnlockMutex(game.ruby.io_locked);
         }
+        // End of ruby parser
 
         // Freeze-frame
         if (just_pressed(&game.controls, C_PAUSE))
