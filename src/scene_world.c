@@ -1950,6 +1950,7 @@ void scene_world_update(void* vs, Game* game) {
     // Update local player
     bool updated_guy_physics = false;
     if (s->transition.progress_percent <= 100) {
+        // TODO TODO if we're a netgame client, we want to wait until we get the map state event?
         s->transition.progress_percent += TRANSITION_STEP;
         if (s->transition.progress_percent == TRANSITION_POINT) {
             transition_maps(s, game, &s->transition);
