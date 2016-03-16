@@ -787,7 +787,7 @@ int netwrite_guy_mobevents(byte* buffer, RemotePlayer* player, int* pos) {
     return *pos;
 }
 
-int netwrite_guy_mapstate(byte* buffer, Map* map, int* pos) {
+void netwrite_guy_mapstate(byte* buffer, Map* map, int* pos) {
     wait_for_then_use_lock(map->locked);
 
     write_to_buffer(buffer, &map->area_id, pos, sizeof(int));

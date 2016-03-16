@@ -59,12 +59,7 @@ static void* aligned_malloc(size_t size) {
 #define aligned_free free
 #endif
 
-#ifdef _WIN32
-#define ALIGN_16 __declspec(align(16))
-
-#else
 #define ALIGN_16
-#endif
 
 void wait_for_then_use_lock(SDL_mutex* mutex);
 void write_to_buffer(byte* buffer, void* src, int* pos, int size);
