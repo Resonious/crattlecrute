@@ -64,11 +64,17 @@ typedef struct PhysicsState {
     float run_speed;
 } PhysicsState;
 
+#define MAP_DATA_NOT_NEEDED 0
+#define MAP_DATA_NEED 1
+#define MAP_DATA_RECEIVED 2
+
 typedef struct MapTransition {
     SDL_mutex* locked;
+    SDL_atomic_t map_data_status;
     int destination_area;
     vec2 destination_position;
     int progress_percent;
+    void* map_data;
 } MapTransition;
 
 typedef struct RemotePlayer {
@@ -586,30 +592,29 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
         if (flags & NETF_MAPSTATE) {
             int area_id;
             read_from_buffer(buffer, &area_id, &pos, sizeof(int));
+            int map_data_size;
+            read_from_buffer(buffer, &map_data_size, &pos, sizeof(int));
+            SDL_assert(map_data_size >= 0);
 
-            Map* map;
+            if (scene->transition.progress_percent <= TRANSITION_POINT) {
+                if (scene->transition.map_data)
+                    aligned_free(scene->transition.map_data);
 
-            if (area_id == scene->current_area) {
-                wait_for_then_use_lock(scene->map->locked);
-                SDL_assert(area_id == scene->map->area_id);
-                map = scene->map;
+                scene->transition.map_data = aligned_malloc(map_data_size);
+                read_from_buffer(buffer, scene->transition.map_data, &pos, map_data_size);
+                SDL_AtomicSet(&scene->transition.map_data_status, MAP_DATA_RECEIVED);
             }
             else {
-                SDL_assert(scene->transition.destination_area == area_id);
-                SDL_assert(scene->transition.progress_percent <= TRANSITION_POINT);
-                wait_for_then_use_lock(scene->transition.locked);
+                wait_for_then_use_lock(scene->map->locked);
+                SDL_assert(area_id == scene->map->area_id);
+                SDL_assert(area_id == scene->current_area);
 
-                map = cached_map(scene->game, map_asset_for_area(area_id));
-                map->area_id = area_id;
+                clear_map_state(scene->map);
+                read_map_state(scene->map, buffer, &pos);
 
-                SDL_UnlockMutex(scene->transition.locked);
-                wait_for_then_use_lock(map->locked);
+                SDL_UnlockMutex(scene->map->locked);
             }
 
-            clear_map_state(map);
-            read_map_state(map, buffer, &pos);
-
-            SDL_UnlockMutex(map->locked);
 
             printf("PROCESSED MAP STATE EVENT\n");
         }
@@ -791,7 +796,13 @@ void netwrite_guy_mapstate(byte* buffer, Map* map, int* pos) {
     wait_for_then_use_lock(map->locked);
 
     write_to_buffer(buffer, &map->area_id, pos, sizeof(int));
+    int size_pos = *pos;
+    *pos += sizeof(int);
+
+    int before_pos = *pos;
     write_map_state(map, buffer, pos);
+    int bytes_wrote = (*pos) - size_pos;
+    write_to_buffer(buffer, &bytes_wrote, &size_pos, sizeof(int));
 
     SDL_UnlockMutex(map->locked);
 }
@@ -1490,8 +1501,10 @@ void scene_world_initialize(void* vdata, Game* game) {
     data->controls_stream.current_frame = -1;
     data->controls_stream.pos = 1;
 
+    data->transition.map_data = NULL;
     data->transition.progress_percent = 101;
     data->transition.locked = SDL_CreateMutex();
+    SDL_AtomicSet(&data->transition.map_data_status, MAP_DATA_NOT_NEEDED);
     if (!data->transition.locked) {
         printf("BAD TRANSITION MUTEX\n");
     }
@@ -1950,13 +1963,38 @@ void scene_world_update(void* vs, Game* game) {
     // Update local player
     bool updated_guy_physics = false;
     if (s->transition.progress_percent <= 100) {
-        // TODO TODO if we're a netgame client, we want to wait until we get the map state event?
-        s->transition.progress_percent += TRANSITION_STEP;
+        int map_data_status = SDL_AtomicGet(&s->transition.map_data_status);
+        if (map_data_status == MAP_DATA_NOT_NEEDED)
+            s->transition.progress_percent += TRANSITION_STEP;
+        // We still want to increment when we receive map data before the transition reaches 50%.
+        else if (map_data_status == MAP_DATA_RECEIVED && s->transition.progress_percent < TRANSITION_POINT)
+            s->transition.progress_percent += TRANSITION_STEP;
+
         if (s->transition.progress_percent == TRANSITION_POINT) {
-            transition_maps(s, game, &s->transition);
+            if (s->net.status == JOINING) {
+                switch (SDL_AtomicGet(&s->transition.map_data_status)) {
+                case MAP_DATA_NOT_NEEDED:
+                    SDL_AtomicSet(&s->transition.map_data_status, MAP_DATA_NEED);
+                    break;
+
+                case MAP_DATA_RECEIVED: {
+                    SDL_assert(s->transition.map_data);
+                    transition_maps(s, game, &s->transition);
+                    int pos = 0;
+                    clear_map_state(s->map);
+                    read_map_state(s->map, s->transition.map_data, &pos);
+                    aligned_free(s->transition.map_data);
+                    s->transition.map_data = NULL;
+
+                    SDL_AtomicSet(&s->transition.map_data_status, MAP_DATA_NOT_NEEDED);
+                } break;
+                }
+            }
+            else
+                transition_maps(s, game, &s->transition);
         }
     }
-    if (s->transition.progress_percent >= TRANSITION_POINT) {
+    if (s->transition.progress_percent > TRANSITION_POINT) {
         apply_character_physics(game, &s->guy, &game->controls, s->gravity, s->drag);
         collide_character(&s->guy, &s->map->tile_collision);
         slide_character(s->gravity, &s->guy);
