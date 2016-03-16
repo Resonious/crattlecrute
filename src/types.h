@@ -14,8 +14,8 @@
 #define bool int
 #define true 1
 #define false 0
-#define min(x,y) (x < y ? x : y)
-#define max(x,y) (x > y ? x : y)
+#define min(x,y) ((x) < (y) ? (x) : (y))
+#define max(x,y) ((x) > (y) ? (x) : (y))
 
 #ifndef INT_MAX
 #define INT_MAX 2147483647
@@ -50,7 +50,12 @@ extern Uint64 ticks_per_second;
 static void* aligned_malloc(size_t size) { return _aligned_malloc(size, 16); }
 #define aligned_free _aligned_free
 #else
-#define aligned_malloc malloc
+static void* aligned_malloc(size_t size) {
+    void* ptr;
+    int result = posix_memalign(&ptr, 16, size);
+    SDL_assert(result == 0);
+    return ptr;
+}
 #define aligned_free free
 #endif
 
@@ -82,17 +87,17 @@ static __m128i _mm_mul_epi32_x4(__m128i a, __m128i b)
     return _mm_unpacklo_epi32(_mm_shuffle_epi32(tmp1, _MM_SHUFFLE (0,0,2,0)), _mm_shuffle_epi32(tmp2, _MM_SHUFFLE (0,0,2,0))); /* shuffle results to [63..0] and pack */
 }
 
-#define SIGN_OF(x) ((0 < x) - (x < 0))
+#define SIGN_OF(x) ((0 < (x)) - ((x) < 0))
 #define MOVE_TOWARDS(thing, target, by) \
-    if (thing > target) { \
+    if ((thing) > (target)) { \
         thing -= by; \
-        if (thing < target) \
-            thing = target; \
+        if ((thing) < (target)) \
+            (thing) = (target); \
     } \
-    else if (thing < target) { \
-        thing += by; \
-        if (thing > target) \
-            thing = target; \
+    else if ((thing) < (target)) { \
+        (thing) += (by); \
+        if ((thing) > (target)) \
+            (thing) = (target); \
     }
 
 typedef union vec2 {

@@ -33,7 +33,7 @@ extern int b2_tilespace_x, b2_tilespace_y, l2_tilespace_x, l2_tilespace_y, r2_ti
 extern SDL_Window* main_window;
 
 #define EDITABLE_TEXT_BUFFER_SIZE 255
-#define PACKET_SIZE 2000
+#define PACKET_SIZE (1024 * 5)
 #define CONTROLS_BUFFER_SIZE (255 * NUM_CONTROLS)
 #define CONTROL_BLOCK_END NUM_CONTROLS
 #define MAX_PLAYERS 20

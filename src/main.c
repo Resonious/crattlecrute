@@ -425,7 +425,7 @@ no_renderer:
         {
             Uint64 i = SDL_GetPerformanceCounter();
             if (last_frame_ticks > 2 * ticks_per_frame) {
-                printf("Frame %l took longer than 16ms\n", game.frame_count);
+                printf("Frame %i took longer than 16ms\n", (int)game.frame_count);
             }
             Uint64 f = SDL_GetPerformanceCounter();
             last_frame_ticks += f - i;
