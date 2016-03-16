@@ -115,14 +115,13 @@ void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos) {
     pon->frame_inc = 1;
 }
 bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos) {
-    return false;
     MobPon* pon = (MobPon*)vpon;
     
     if (pon->hop) {
         write_to_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
         write_to_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
         write_to_buffer(buffer, pon->body.old_position.x, pos, sizeof(vec4));
-        write_to_buffer(buffer, &pon->body.grounded, pos, sizeof(bool));
+        write_to_buffer(buffer, &pon->body.grounded, pos, 1);
         write_to_buffer(buffer, &pon->body.ground_angle, pos, sizeof(float));
         pon->hop = false;
         return true;
@@ -130,12 +129,11 @@ bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos) {
     else return false;
 }
 void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos) {
-    return;
     MobPon* pon = (MobPon*)vpon;
     read_from_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
     read_from_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
     read_from_buffer(buffer, pon->body.old_position.x, pos, sizeof(vec4));
-    read_from_buffer(buffer, &pon->body.grounded, pos, sizeof(bool));
+    read_from_buffer(buffer, &pon->body.grounded, pos, 1);
     read_from_buffer(buffer, &pon->body.ground_angle, pos, sizeof(float));
 }
 
