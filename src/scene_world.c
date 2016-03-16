@@ -464,10 +464,14 @@ int truncate_buffer_to_lowest_spot(WorldScene* scene, RemotePlayer* player) {
 #define NETF_MOBEVENT_SPAWN 0
 #define NETF_MOBEVENT_UPDATE 1
 
-RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sockaddr_in* addr, int bufsize) {
+RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sockaddr_in* addr) {
     int pos = 1; // [0] is opcode, which we know by now
 
+    short bufsize;
+    read_from_buffer(buffer, &bufsize, &pos, sizeof(short));
+
     RemotePlayer* first_player = NULL;
+
     while (pos < bufsize) {
         int player_id = (int)buffer[pos++];
 
@@ -944,14 +948,20 @@ int network_server_loop(void* vdata) {
 
         // SERVER
         case NETOP_UPDATE_CONTROLS: {
-            RemotePlayer* player = netop_update_controls(scene, buffer, &loop->address, recv_len);
+            RemotePlayer* player = netop_update_controls(scene, buffer, &loop->address);
             if (player) {
                 SDL_AtomicSet(&player->poke, true);
 
                 int pos = 0;
 
                 memset(buffer, 0, PACKET_SIZE);
+
                 buffer[pos++] = NETOP_UPDATE_CONTROLS;
+
+                // Once we're done writing, we will write the number of bytes we wrote to the beginning of the buffer (as a short).
+                int len_pos = pos;
+                pos += sizeof(short);
+
                 buffer[pos++] = scene->net.remote_id;
                 byte* flags = &buffer[pos++];
                 *flags = 0;
@@ -1125,6 +1135,10 @@ int network_server_loop(void* vdata) {
                         SDL_UnlockMutex(other_player->controls_playback.locked);
                     }
                 }
+
+                short size_wrote = (short)pos;
+                write_to_buffer(buffer, &size_wrote, &len_pos, sizeof(short));
+
                 send(loop->socket, buffer, pos, 0);
             }
         } break;
@@ -1277,6 +1291,10 @@ int network_client_loop(void* vdata) {
             memset(buffer, 0, PACKET_SIZE);
             int pos = 0;
             buffer[pos++] = NETOP_UPDATE_CONTROLS;
+
+            int len_pos = pos;
+            pos += sizeof(short);
+
             buffer[pos++] = scene->net.remote_id;
             byte* flags = &buffer[pos++];
             *flags = NETF_CONTROLS;
@@ -1291,6 +1309,9 @@ int network_client_loop(void* vdata) {
                 write_guy_info_to_buffer(buffer, &scene->guy, scene->current_area, &pos);
                 SDL_AtomicSet(&scene->guy.dirty, false);
             }
+
+            short size_wrote = (short)pos;
+            write_to_buffer(buffer, &size_wrote, &len_pos, sizeof(short));
 
             send_result = send(
                 scene->net.local_socket,
@@ -1337,7 +1358,7 @@ int network_client_loop(void* vdata) {
                 break;
 
             case NETOP_UPDATE_CONTROLS: {
-                RemotePlayer* player = netop_update_controls(scene, buffer, NULL, recv_len);
+                RemotePlayer* player = netop_update_controls(scene, buffer, NULL);
                 if (player == NULL) {
                     printf("UPDATING FORF BULLSHIT PLAYER\n");
                 }
