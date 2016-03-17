@@ -88,7 +88,14 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
         else if (!running) {
             MOVE_TOWARDS(guy->run_speed, 0, (CHARA_GROUND_DECELERATION * guy->ground_deceleration));
         }
-        guy->animation_state = controls->this_frame[C_LEFT] || controls->this_frame[C_RIGHT] ? GUY_WALKING : GUY_IDLE;
+
+        if (controls->this_frame[C_LEFT] || controls->this_frame[C_RIGHT])
+            if (running)
+                guy->animation_state = GUY_RUNNING;
+            else
+                guy->animation_state = GUY_WALKING;
+        else
+            guy->animation_state = GUY_IDLE;
     }
 
     // Cap speeds
@@ -132,7 +139,7 @@ void update_character_animation(Character* guy) {
         if (guy->animation_frame >= 8)
             guy->animation_frame = 0;
         break;
-    case GUY_WALKING: {
+    case GUY_WALKING: case GUY_RUNNING: {
         // the standard walking animation "walks" at about 10 pixels per frame. (as if this is based on that and not me just trying values)
         float disp = fabsf(guy->position.x[0] - guy->old_position.x[0]);
         int advance_every = (int)(1 / disp * 25.0f);
