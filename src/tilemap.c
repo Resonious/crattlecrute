@@ -1026,7 +1026,7 @@ void update_map(
                     spawn_mob_from_spawn_zone(data, map, game, spawn->mob_type_id, target_pos);
 
                     // TODO add spawn frequency or something to maps.
-                    zone->countdown_until_next_spawn_attempt = 60 * 10;
+                    zone->countdown_until_next_spawn_attempt = 60 * 60 * 60;
                     goto update_mobs;
                 }
             }

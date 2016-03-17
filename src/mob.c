@@ -137,48 +137,49 @@ void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos) {
     read_from_buffer(buffer, &pon->body.ground_angle, pos, sizeof(float));
 }
 
-// ==== SCRIPT ====
+// ==== FRUIT ====
 
-/*
-void mob_script_initialize(void* vs, struct Game* game, struct Map* map, vec2 pos) {
-    SDL_assert(sizeof(MobScript) <= sizeof(LargeMob));
-    MobScript* mob = (MobScript*)vs;
-    mob->pos = pos;
-    mob->bytecode_size = 0;
-    mob->self = NULL;
-    SDL_memset(mob->bytecode, 0, sizeof(mob->bytecode));
-}
-void mob_script_update(void* vs, struct Game* game, struct Map* map) {
-}
-void mob_script_render(void* vs, struct Game* game, struct Map* map) {
-}
-void mob_script_save(void* vs, struct Map* map, byte* buffer, int* pos) {
-    MobScript* mob = (MobScript*)vs;
+#define set_fruit_sensors(fruit) set_collision_sensors(&fruit->body, 26, 37, 0);
 
-    write_to_buffer(buffer, &mob->pos, pos, sizeof(vec2));
-    write_to_buffer(buffer, &mob->bytecode_size, pos, sizeof(int));
-    write_to_buffer(buffer, mob->bytecode, pos, mob->bytecode_size);
+void mob_fruit_initialize(void* vfruit, struct Game* game, struct Map* map, vec2 pos) {
+    MobFruit* fruit = (MobFruit*)vfruit;
+    set_fruit_sensors(fruit);
+    fruit->body.position.x[X] = pos.x;
+    fruit->body.position.x[Y] = pos.y;
+    fruit->body.old_position.simd = fruit->body.position.simd;
+    fruit->body.grounded = false;
+    fruit->dy = 0;
 }
-void mob_script_load(void* vs, struct Map* map, byte* buffer, int* pos) {
-    MobScript* mob = (MobScript*)vs;
-    mrb_state* mrb = map->game->mrb;
+void mob_fruit_update(void* vfruit, struct Game* game, struct Map* map) {
+    MobFruit* fruit = (MobFruit*)vfruit;
 
-    *pos += SDL_strlcpy(mob->class_name, buffer + *pos, sizeof(mob->class_name));
-    read_from_buffer(buffer, &mob->pos, pos, sizeof(vec2));
-    read_from_buffer(buffer, &mob->bytecode_size, pos, sizeof(int));
+    fruit->dy -= 1.15f;
+    if (fruit->dy < -17.0f)
+        fruit->dy = -17.0f;
+    fruit->body.position.x[Y] += fruit->dy;
 
-    read_from_buffer(buffer, mob->bytecode, pos, mob->bytecode_size);
-    if (!mrb_class_defined(mrb, mob->class_name)) {
-        mrb_load_irep(mrb, mob->bytecode);
-    }
-    struct RClass* mob_class = mrb_class_get(mrb, mob->class_name);
-    mob->self = mrb_obj_new(mrb, mob_class, 0, NULL);
-    // TODO NO MORE SCRIPT MOB IN THIS SENSE!!!
-    // Instead we'll have to implement asset packs that get added to game save data or something...
+    collide_generic_body(&fruit->body, &map->tile_collision);
 }
-bool mob_script_sync_send(void* vs, struct Map* map, byte* buffer, int* pos) {
-    return false;
+void mob_fruit_render(void* vfruit, struct Game* game, struct Map* map) {
+    MobFruit* fruit = (MobFruit*)vfruit;
+
+    vec2 p = { fruit->body.position.x[X], fruit->body.position.x[Y] };
+    vec2 c = { 32, 32 };
+    world_render_copy(game, cached_texture(game, ASSET_FOOD_FRUIT_PNG), NULL, &p, 64, 64, &c);
 }
-void mob_script_sync_receive(void* vs, struct Map* map, byte* buffer, int* pos) {
+void mob_fruit_save(void* vfruit, struct Map* map, byte* buffer, int* pos) {
+    MobFruit* fruit = (MobFruit*)vfruit;
 }
-*/
+void mob_fruit_load(void* vfruit, struct Map* map, byte* buffer, int* pos) {
+    MobFruit* fruit = (MobFruit*)vfruit;
+    set_fruit_sensors(fruit);
+    // TODO
+}
+bool mob_fruit_sync_send(void* vfruit, struct Map* map, byte* buffer, int* pos) {
+    MobFruit* fruit = (MobFruit*)vfruit;
+    // TODO
+}
+void mob_fruit_sync_receive(void* vfruit, struct Map* map, byte* buffer, int* pos) {
+    MobFruit* fruit = (MobFruit*)vfruit;
+    // TODO
+}

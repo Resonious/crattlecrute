@@ -3,10 +3,13 @@
 
 #include "types.h"
 
+struct Map;
+
 typedef struct ItemType {
     int id;
     void(*initialize)(void* vitem, struct Game* game);
     void(*render)(void* vitem, struct Game* game, SDL_Rect* dest);
+    bool(*drop)(void* vitem, struct Game* game, struct Map* map, vec2 position);
 } ItemType;
 
 #define COMMON_ITEM       int item_type_id
@@ -44,6 +47,7 @@ typedef struct ItemFruit {
 } ItemFruit;
 
 void item_fruit_initialize(void* vitem, struct Game* game);
+bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 position);
 
 typedef struct ItemEgg {
     COMMON_ITEM;
@@ -53,12 +57,14 @@ static ItemType item_registry[] = {
     {
         ITEM_FRUIT,
         item_fruit_initialize,
-        render_layered_icon_item
+        render_layered_icon_item,
+        item_fruit_drop
     },
     {
         ITEM_EGG,
         NULL,
-        NULL // TODO probably also layered
+        NULL, // TODO probably also layered
+        NULL
     }
 };
 

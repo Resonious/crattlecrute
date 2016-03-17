@@ -1572,7 +1572,7 @@ void scene_world_initialize(void* vdata, Game* game) {
         data->guy.eye_color.b = rand() % 140;
     }
 
-    data->inv_fade = 0;
+    data->inv_fade = INV_FADE_MAX;
     data->inv_fade_countdown = 0;
 
     SDL_assert(((int)&data->guy.position) % 16 == 0);
@@ -1895,7 +1895,7 @@ void scene_world_update(void* vs, Game* game) {
                 Map* map = cached_map(game, map_asset_for_area(area_id));
                 map->area_id = area_id;
 
-                apply_character_inventory(&plr->guy, &plr->controls);
+                apply_character_inventory(&plr->guy, &plr->controls, game, map);
                 apply_character_physics(game, &plr->guy, &plr->controls, s->gravity, s->drag);
                 collide_character(&plr->guy, &map->tile_collision);
                 slide_character(s->gravity, &plr->guy);
@@ -1982,7 +1982,7 @@ void scene_world_update(void* vs, Game* game) {
         }
     }
     if (s->transition.progress_percent > TRANSITION_POINT) {
-        switch (apply_character_inventory(&s->guy, &game->controls)) {
+        switch (apply_character_inventory(&s->guy, &game->controls, game, s->map)) {
         case INV_TOGGLE:
             if (s->inv_fade_countdown > 0) {
                 s->inv_fade_countdown = 0;

@@ -119,8 +119,8 @@ typedef struct MobSpawnZone {
     MobSpawnRate* spawns;
 } MobSpawnZone;
 
-#define MAP_STATE_MAX_SMALL_MOBS 10
-#define MAP_STATE_MAX_MEDIUM_MOBS 5
+#define MAP_STATE_MAX_SMALL_MOBS 20
+#define MAP_STATE_MAX_MEDIUM_MOBS 20
 #define MAP_STATE_MAX_LARGE_MOBS 2
 typedef struct MapState {
     SmallMob  small_mobs[MAP_STATE_MAX_SMALL_MOBS];

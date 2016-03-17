@@ -37,7 +37,7 @@ void interact_character_with_world(
     }
 }
 
-enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls) {
+enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls, struct Game* game, struct Map* map) {
     enum InventoryAction action_taken = INV_NONE;
     // A:left, D:right
     if (just_pressed(controls, C_A)) {
@@ -54,6 +54,7 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
     if (guy->selected_slot >= guy->inventory.capacity)
         guy->selected_slot = 0;
 
+    // "Grab" or drop grabbed item
     if (just_pressed(controls, C_W)) {
         action_taken = INV_ACTION;
         if (guy->grabbed_slot == -1) {
@@ -61,12 +62,25 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
                 guy->grabbed_slot = guy->selected_slot;
         }
         else {
-            printf("BOOM pretend I just dropped that thing\n");
-            // TODO drop item!
+            ItemCommon* item = &guy->inventory.items[guy->grabbed_slot];
+            SDL_assert(item->item_type_id >= 0 && item->item_type_id < NUMBER_OF_ITEM_TYPES);
+            ItemType* reg = &item_registry[item->item_type_id];
+
+            vec2 pos_offset;
+            pos_offset.x = guy->flip == SDL_FLIP_HORIZONTAL ? -10 : 10;
+            pos_offset.y = 0;
+            vec2 drop_pos = { guy->position.x[X], guy->position.x[Y] };
+            v2_add_to(&drop_pos, pos_offset);
+
+            if (reg->drop(item, game, map, drop_pos)) {
+                guy->inventory.items[guy->grabbed_slot].item_type_id = ITEM_NONE;
+            }
+
             guy->grabbed_slot = -1;
         }
     }
 
+    // Swap grabbed if presetn, or toggle inventory
     if (just_pressed(controls, C_S)) {
         if (guy->grabbed_slot == -1) {
             action_taken = INV_TOGGLE;
@@ -77,7 +91,7 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
                 guy->grabbed_slot = -1;
             }
             else {
-                // Swap grabbed with slot item.
+                // Swap grabbed with slot item
                 ItemCommon swap;
                 SDL_memcpy(&swap, &guy->inventory.items[guy->selected_slot], sizeof(ItemCommon));
                 SDL_memcpy(&guy->inventory.items[guy->selected_slot], &guy->inventory.items[guy->grabbed_slot], sizeof(ItemCommon));
@@ -503,7 +517,7 @@ void default_character(struct Game* game, Character* target) {
     SDL_AtomicSet(&target->dirty, false);
 
     target->selected_slot = 0;
-    target->grabbed_slot = NULL;
+    target->grabbed_slot = -1;
     initialize_inventory(&target->inventory, 10);
 
     // TODO TEMP add fruit to test rendering and swapping
