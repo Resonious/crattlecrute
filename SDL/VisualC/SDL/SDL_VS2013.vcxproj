@@ -246,6 +246,7 @@
     <ClInclude Include="..\..\..\src\coords.h" />
     <ClInclude Include="..\..\..\src\dxsdkver.h" />
     <ClInclude Include="..\..\..\src\game.h" />
+    <ClInclude Include="..\..\..\src\item.h" />
     <ClInclude Include="..\..\..\src\mob.h" />
     <ClInclude Include="..\..\..\src\scene.h" />
     <ClInclude Include="..\..\..\src\script.h" />
@@ -391,6 +392,7 @@
     <ClCompile Include="..\..\..\src\assets.c" />
     <ClCompile Include="..\..\..\src\character.c" />
     <ClCompile Include="..\..\..\src\game.c" />
+    <ClCompile Include="..\..\..\src\item.c" />
     <ClCompile Include="..\..\..\src\main.c" />
     <ClCompile Include="..\..\..\src\mob.c" />
     <ClCompile Include="..\..\..\src\scene_offset_viewer.c" />

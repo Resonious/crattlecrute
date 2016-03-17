@@ -37,6 +37,26 @@ void interact_character_with_world(
     }
 }
 
+bool apply_character_inventory(Character* guy, struct Controls* controls) {
+    bool action_taken = false;
+    // A:left, D:right
+    if (just_pressed(controls, C_A)) {
+        action_taken = true;
+        guy->selected_slot -= 1;
+    }
+    if (just_pressed(controls, C_D)) {
+        action_taken = true;
+        guy->selected_slot += 1;
+    }
+    // Wrap to other side
+    if (guy->selected_slot < 0)
+        guy->selected_slot = guy->inventory.capacity - 1;
+    if (guy->selected_slot >= guy->inventory.capacity)
+        guy->selected_slot = 0;
+
+    return action_taken;
+}
+
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag) {
     guy->dy -= gravity; // times 1 frame
     if (!guy->grounded)
@@ -448,6 +468,10 @@ void default_character(struct Game* game, Character* target) {
     target->eye_type = 0;
 
     SDL_AtomicSet(&target->dirty, false);
+
+    target->selected_slot = 0;
+    target->grabbed_item = NULL;
+    initialize_inventory(&target->inventory, 10);
 
     // Script stuff:
 

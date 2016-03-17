@@ -95,6 +95,11 @@ static __m128i _mm_mul_epi32_x4(__m128i a, __m128i b)
             (thing) = (target); \
     }
 
+typedef union vec2i {
+    struct { int x, y; };
+    int v[2];
+} vec2i;
+
 typedef union vec2 {
     struct { float x, y; };
     float v[2];

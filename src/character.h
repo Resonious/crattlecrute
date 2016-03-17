@@ -6,6 +6,7 @@
 #include "assets.h"
 #include "cache.h"
 #include "script.h"
+#include "item.h"
 
 struct Game;
 struct Controls;
@@ -108,6 +109,10 @@ typedef struct Character {
 
     // For synchronizing attributes over net or whatever.
     SDL_atomic_t dirty;
+
+    int selected_slot;
+    ItemCommon* grabbed_item;
+    Inventory inventory;
 } Character;
 
 #define CHARACTER_SPRITE_WIDTH 90
@@ -152,6 +157,7 @@ void default_character(struct Game* game, Character* target);
 void default_character_animations(struct Game* game, Character* guy);
 // This should be called after changing the body or feet type.
 void load_character_atlases(struct Game* game, Character* guy);
+bool apply_character_inventory(Character* guy, struct Controls* controls);
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag);
 void update_character_animation(Character* guy);
 

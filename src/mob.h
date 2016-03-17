@@ -29,17 +29,17 @@ typedef struct MobCommon { MOB_FIELDS; } MobCommon;
 
 typedef struct SmallMob {
     MOB_FIELDS;
-    byte data[64 - sizeof(int) * 2];
+    byte data[64 - sizeof(MobCommon)];
 } SmallMob;
 
 typedef struct MediumMob {
     MOB_FIELDS;
-    byte data[256 - sizeof(int) * 2];
+    byte data[256 - sizeof(MobCommon)];
 } MediumMob;
 
 typedef struct LargeMob {
     MOB_FIELDS;
-    byte data[1024 - sizeof(int) * 2];
+    byte data[1024 - sizeof(MobCommon)];
 } LargeMob;
 
 // ============== ACTUAL MOBS ===============

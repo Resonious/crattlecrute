@@ -42,6 +42,9 @@ extern SDL_Window* main_window;
 #define TRANSITION_STEP  4
 #define TRANSITION_POINT 52
 
+#define INV_FADE_ZERO_POINT 1
+#define INV_FADE_MAX 11
+
 typedef struct ControlsBuffer {
     SDL_mutex* locked;
     int current_frame;
@@ -116,6 +119,11 @@ typedef struct WorldScene {
     float gravity;
     float drag;
     Character guy;
+
+    // inventory interface stuff
+    int inv_fade;
+    int inv_fade_countdown;
+
     AudioWave* music;
     AudioWave* test_sound;
     int current_area;
@@ -1563,6 +1571,10 @@ void scene_world_initialize(void* vdata, Game* game) {
         data->guy.eye_color.g = rand() % 70;
         data->guy.eye_color.b = rand() % 140;
     }
+
+    data->inv_fade = 0;
+    data->inv_fade_countdown = 0;
+
     SDL_assert(((int)&data->guy.position) % 16 == 0);
     BENCH_END(loading_crattle1);
 
@@ -1825,32 +1837,6 @@ void scene_world_update(void* vs, Game* game) {
             SDL_AtomicAdd(&player->countdown_until_i_get_position_of[j], -1);
     }
 
-    // Stupid AI
-    /*
-    if (game->frame_count % 10 == 0) {
-        bool* c = s->dummy_controls.this_frame;
-        if (PERCENT_CHANCE(50)) {
-            int dir = PERCENT_CHANCE(65) ? C_RIGHT : C_LEFT;
-            int other_dir = dir == C_RIGHT ? C_LEFT : C_RIGHT;
-
-            c[dir] = !c[dir];
-            if (c[dir] && c[other_dir]) {
-                c[PERCENT_CHANCE(50) ? dir : other_dir] = false;
-            }
-        }
-
-        if (s->guy2.left_hit && c[C_LEFT]) {
-            c[C_LEFT] = false;
-            c[C_RIGHT] = true;
-        }
-        else if (s->guy2.right_hit && c[C_RIGHT]) {
-            c[C_RIGHT] = false;
-            c[C_LEFT] = true;
-        }
-
-        c[C_UP] = s->guy2.jumped || PERCENT_CHANCE(20);
-    }
-    */
     // Have net players playback controls
     for (int i = 0; i < s->net.number_of_players; i++) {
         RemotePlayer* plr = s->net.players[i];
@@ -1909,6 +1895,7 @@ void scene_world_update(void* vs, Game* game) {
                 Map* map = cached_map(game, map_asset_for_area(area_id));
                 map->area_id = area_id;
 
+                apply_character_inventory(&plr->guy, &plr->controls);
                 apply_character_physics(game, &plr->guy, &plr->controls, s->gravity, s->drag);
                 collide_character(&plr->guy, &map->tile_collision);
                 slide_character(s->gravity, &plr->guy);
@@ -1960,7 +1947,7 @@ void scene_world_update(void* vs, Game* game) {
     }
     // END OF REMOTE PLAYER CONTROLS PLAYBACK
 
-    // Update local player
+    // Update local player and map transition
     bool updated_guy_physics = false;
     if (s->transition.progress_percent <= 100) {
         int map_data_status = SDL_AtomicGet(&s->transition.map_data_status);
@@ -1995,6 +1982,25 @@ void scene_world_update(void* vs, Game* game) {
         }
     }
     if (s->transition.progress_percent > TRANSITION_POINT) {
+        if (apply_character_inventory(&s->guy, &game->controls)) {
+            s->inv_fade_countdown = 60 * 2;
+        }
+        else {
+            s->inv_fade_countdown -= 1;
+        }
+
+        if (s->inv_fade_countdown <= 0) {
+            s->inv_fade += 1;
+            if (s->inv_fade > INV_FADE_MAX) {
+                s->inv_fade = INV_FADE_MAX;
+            }
+        }
+        else {
+            s->inv_fade -= 1;
+            if (s->inv_fade < 0)
+                s->inv_fade = 0;
+        }
+
         apply_character_physics(game, &s->guy, &game->controls, s->gravity, s->drag);
         collide_character(&s->guy, &s->map->tile_collision);
         slide_character(s->gravity, &s->guy);
@@ -2215,6 +2221,61 @@ void scene_world_render(void* vs, Game* game) {
         }
     }
     BENCH_END(characters);
+
+    // Draw inventory
+    BENCH_START(inventory);
+    {
+        if (s->inv_fade >= INV_FADE_MAX)
+            goto done_with_inventory;
+
+        // Space between slots
+        const float base_padding = 3.0f;
+        const int selection_bump = 4;
+        const int render_y = game->window_height - 36;
+        const int render_x_start = (game->window_width / 2) - ((s->guy.inventory.capacity * 32) / 2);
+
+        int x_padding = (int)((1.0f - (float)s->inv_fade / (float)INV_FADE_ZERO_POINT) * base_padding);
+        int y_padding = base_padding;
+
+        SDL_Rect bar = {
+            render_x_start - base_padding, render_y - y_padding,
+
+            (s->guy.inventory.capacity * 32) + base_padding + (x_padding * s->guy.inventory.capacity),
+            32 + y_padding * 2
+        };
+        SDL_Rect top_bar = bar;
+        top_bar.h /= 2;
+        SDL_Rect bot_bar = top_bar;
+        bot_bar.y += top_bar.h;
+
+        SDL_Color left_color = s->guy.left_foot_color;
+        SDL_Color right_color = s->guy.right_foot_color;
+        SDL_Color slot_color = s->guy.body_color;
+
+        SDL_SetRenderDrawBlendMode(game->renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(game->renderer, left_color.r, left_color.g, left_color.b, 200);
+        SDL_RenderFillRect(game->renderer, &top_bar);
+        SDL_SetRenderDrawColor(game->renderer, right_color.r, right_color.g, right_color.b, 200);
+        SDL_RenderFillRect(game->renderer, &bot_bar);
+        SDL_SetRenderDrawBlendMode(game->renderer, SDL_BLENDMODE_NONE);
+
+        SDL_Texture* slot_tex = cached_texture(game, ASSET_MISC_SLOT_PNG);
+        for (int i = 0; i < s->guy.inventory.capacity; i++) {
+            ItemCommon* item = &s->guy.inventory.items[i];
+
+            SDL_Rect dest = {
+                render_x_start + (i * 32) + (i * x_padding), render_y,
+                32, 32
+            };
+            if (s->inv_fade_countdown > 0 && i == s->guy.selected_slot)
+                dest.y -= selection_bump;
+
+            SDL_SetTextureColorMod(slot_tex, slot_color.r, slot_color.g, slot_color.b);
+            SDL_RenderCopy(game->renderer, slot_tex, NULL, &dest);
+        }
+    }
+done_with_inventory:;
+    BENCH_END(inventory);
 
     // Recording indicator
     /*
