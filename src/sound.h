@@ -18,8 +18,8 @@ typedef struct {
     AudioWave* looped_waves[AUDIO_LOOPED_CHANNELS];
 } AudioQueue;
 
-void initialize_sound();
-AudioWave* open_and_play_music();
+void initialize_sound(AudioQueue* queue);
+AudioWave* open_and_play_music(AudioQueue* queue);
 AudioWave decode_ogg(int asset);
 // Used for free function for cached audio wave assets.
 void free_malloced_audio_wave(void* audio_wave);
