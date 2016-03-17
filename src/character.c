@@ -473,6 +473,11 @@ void default_character(struct Game* game, Character* target) {
     target->grabbed_item = NULL;
     initialize_inventory(&target->inventory, 10);
 
+    // TODO TEMP add fruit to test rendering and swapping
+    ItemFruit* fruit = &target->inventory.items[0];
+    fruit->item_type_id = ITEM_FRUIT;
+    item_registry[ITEM_FRUIT].initialize(fruit, game);
+
     // Script stuff:
 
     mrb_value zero = mrb_fixnum_value(0);

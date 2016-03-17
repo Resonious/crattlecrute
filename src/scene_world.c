@@ -2272,6 +2272,13 @@ void scene_world_render(void* vs, Game* game) {
 
             SDL_SetTextureColorMod(slot_tex, slot_color.r, slot_color.g, slot_color.b);
             SDL_RenderCopy(game->renderer, slot_tex, NULL, &dest);
+
+            if (item->item_type_id != ITEM_NONE) {
+                SDL_assert(item->item_type_id < NUMBER_OF_ITEM_TYPES);
+
+                ItemType* reg = &item_registry[item->item_type_id];
+                reg->render(item, game, &dest);
+            }
         }
     }
 done_with_inventory:;
