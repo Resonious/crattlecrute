@@ -111,7 +111,7 @@ typedef struct Character {
     SDL_atomic_t dirty;
 
     int selected_slot;
-    ItemCommon* grabbed_item;
+    int grabbed_slot;
     Inventory inventory;
 } Character;
 
@@ -152,12 +152,18 @@ static const int EYE_TYPE_ASSETS[] = {
     ASSET_EYES_EYE_BLINK_PNG
 };
 
+enum InventoryAction {
+    INV_NONE,
+    INV_ACTION,
+    INV_TOGGLE
+};
+
 // === Routine character functions === //
 void default_character(struct Game* game, Character* target);
 void default_character_animations(struct Game* game, Character* guy);
 // This should be called after changing the body or feet type.
 void load_character_atlases(struct Game* game, Character* guy);
-bool apply_character_inventory(Character* guy, struct Controls* controls);
+enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls);
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag);
 void update_character_animation(Character* guy);
 

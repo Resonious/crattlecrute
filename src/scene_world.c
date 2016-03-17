@@ -1982,10 +1982,18 @@ void scene_world_update(void* vs, Game* game) {
         }
     }
     if (s->transition.progress_percent > TRANSITION_POINT) {
-        if (apply_character_inventory(&s->guy, &game->controls)) {
+        switch (apply_character_inventory(&s->guy, &game->controls)) {
+        case INV_TOGGLE:
+            if (s->inv_fade_countdown > 0) {
+                s->inv_fade_countdown = 0;
+                break;
+            }
+
+        case INV_ACTION:
             s->inv_fade_countdown = 60 * 2;
-        }
-        else {
+            break;
+
+        default:
             s->inv_fade_countdown -= 1;
         }
 
@@ -2273,12 +2281,26 @@ void scene_world_render(void* vs, Game* game) {
             SDL_SetTextureColorMod(slot_tex, slot_color.r, slot_color.g, slot_color.b);
             SDL_RenderCopy(game->renderer, slot_tex, NULL, &dest);
 
-            if (item->item_type_id != ITEM_NONE) {
+            if (item->item_type_id != ITEM_NONE && i != s->guy.grabbed_slot) {
                 SDL_assert(item->item_type_id < NUMBER_OF_ITEM_TYPES);
 
                 ItemType* reg = &item_registry[item->item_type_id];
                 reg->render(item, game, &dest);
             }
+        }
+
+        if (s->guy.grabbed_slot >= 0 && s->guy.grabbed_slot < s->guy.inventory.capacity) {
+            int sel  = s->guy.selected_slot;
+            int grab = s->guy.grabbed_slot;
+            ItemCommon* item = &s->guy.inventory.items[grab];
+            ItemType* reg    = &item_registry[item->item_type_id];
+
+            SDL_Rect dest = {
+                render_x_start + (sel * 32) + (sel * x_padding), render_y - 32 - y_padding * 2,
+                32, 32
+            };
+
+            reg->render(item, game, &dest);
         }
     }
 done_with_inventory:;
