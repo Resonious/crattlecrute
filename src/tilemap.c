@@ -1000,7 +1000,7 @@ MobCommon* mob_from_id(Map* map, int id) {
 void update_map(
     Map* map, struct Game* game,
     void* data,
-    void(*spawn_mob_from_spawn_zone)(void*, Map*, struct Game*, int, vec2),
+    SpawnMobFunc spawn_mob_from_spawn_zone,
     void(*after_mob_update)(void*, Map*, struct Game*, MobCommon*)
 ) {
     wait_for_then_use_lock(map->locked);

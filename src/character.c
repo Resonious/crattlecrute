@@ -37,7 +37,7 @@ void interact_character_with_world(
     }
 }
 
-enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls, struct Game* game, struct Map* map) {
+enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls, struct Game* game, struct Map* map, SpawnMobFunc spawn) {
     enum InventoryAction action_taken = INV_NONE;
     // A:left, D:right
     if (just_pressed(controls, C_A)) {
@@ -72,7 +72,7 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
             vec2 drop_pos = { guy->position.x[X], guy->position.x[Y] };
             v2_add_to(&drop_pos, pos_offset);
 
-            if (reg->drop(item, game, map, drop_pos)) {
+            if (reg->drop(item, game, map, drop_pos, spawn)) {
                 guy->inventory.items[guy->grabbed_slot].item_type_id = ITEM_NONE;
             }
 

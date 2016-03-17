@@ -141,4 +141,7 @@ typedef struct GenericBody {
     float ground_angle;
 } GenericBody;
 
+struct Map;
+typedef void(*SpawnMobFunc)(void*, struct Map*, struct Game*, int, vec2);
+
 #endif // TYPES_H

@@ -109,8 +109,8 @@ static MobType mob_registry[] = {
         mob_fruit_render,
         mob_fruit_save,
         mob_fruit_load,
-        mob_fruit_sync_send,
-        mob_fruit_sync_receive,
+        NULL, // mob_fruit_sync_send,
+        NULL, // mob_fruit_sync_receive,
     }
 };
 

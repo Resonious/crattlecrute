@@ -169,12 +169,21 @@ void mob_fruit_render(void* vfruit, struct Game* game, struct Map* map) {
 }
 void mob_fruit_save(void* vfruit, struct Map* map, byte* buffer, int* pos) {
     MobFruit* fruit = (MobFruit*)vfruit;
+    write_to_buffer(buffer, fruit->body.position.x, pos, sizeof(vec4));
+    write_to_buffer(buffer, fruit->body.old_position.x, pos, sizeof(vec4));
+    write_to_buffer(buffer, &fruit->body.grounded, pos, 1);
+    write_to_buffer(buffer, &fruit->dy, pos, sizeof(float));
 }
 void mob_fruit_load(void* vfruit, struct Map* map, byte* buffer, int* pos) {
     MobFruit* fruit = (MobFruit*)vfruit;
     set_fruit_sensors(fruit);
-    // TODO
+    read_from_buffer(buffer, fruit->body.position.x, pos, sizeof(vec4));
+    read_from_buffer(buffer, fruit->body.old_position.x, pos, sizeof(vec4));
+    read_from_buffer(buffer, &fruit->body.grounded, pos, 1);
+    read_from_buffer(buffer, &fruit->dy, pos, sizeof(float));
 }
+
+// NOTE these functions are not actually in the registry right now
 bool mob_fruit_sync_send(void* vfruit, struct Map* map, byte* buffer, int* pos) {
     MobFruit* fruit = (MobFruit*)vfruit;
     // TODO

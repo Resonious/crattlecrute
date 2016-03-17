@@ -1736,8 +1736,13 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     SDL_UnlockMutex(player->mob_event_buffer_locked);
 }
 
-void local_spawn_mob(void* vs, Map* map, struct Game* game, int mobtype, vec2 pos) {
-    spawn_mob(map, game, mobtype, pos);
+#define local_spawn_mob(s) (s->net.status == HOSTING ? connected_spawn_mob : unconnected_spawn_mob) 
+
+// Never spawn mobs when joining
+void unconnected_spawn_mob(void* vs, Map* map, struct Game* game, int mobtype, vec2 pos) {
+    WorldScene* s = (WorldScene*)vs;
+    if (s->net.status != JOINING)
+        spawn_mob(map, game, mobtype, pos);
 }
 
 void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id, vec2 pos) {
@@ -1895,7 +1900,7 @@ void scene_world_update(void* vs, Game* game) {
                 Map* map = cached_map(game, map_asset_for_area(area_id));
                 map->area_id = area_id;
 
-                apply_character_inventory(&plr->guy, &plr->controls, game, map);
+                apply_character_inventory(&plr->guy, &plr->controls, game, map, local_spawn_mob(s));
                 apply_character_physics(game, &plr->guy, &plr->controls, s->gravity, s->drag);
                 collide_character(&plr->guy, &map->tile_collision);
                 slide_character(s->gravity, &plr->guy);
@@ -1982,7 +1987,7 @@ void scene_world_update(void* vs, Game* game) {
         }
     }
     if (s->transition.progress_percent > TRANSITION_POINT) {
-        switch (apply_character_inventory(&s->guy, &game->controls, game, s->map)) {
+        switch (apply_character_inventory(&s->guy, &game->controls, game, s->map, local_spawn_mob(s))) {
         case INV_TOGGLE:
             if (s->inv_fade_countdown > 0) {
                 s->inv_fade_countdown = 0;
@@ -2018,18 +2023,12 @@ void scene_world_update(void* vs, Game* game) {
     }
 
     // Update everything else on the map(s)
-    void(*on_mob_spawn)(void*, Map*, struct Game*, int, vec2) = NULL;
-    if (s->net.status == NOT_CONNECTED)
-        on_mob_spawn = local_spawn_mob;
-    else if (s->net.status == HOSTING)
-        on_mob_spawn = connected_spawn_mob;
-
     void(*after_mob_update)(void*, Map*, struct Game*, MobCommon*) = NULL;
     if (s->net.status == HOSTING)
         after_mob_update = write_mob_events;
 
     SDL_assert(s->map->area_id == s->current_area);
-    update_map(s->map, game, s, on_mob_spawn, after_mob_update);
+    update_map(s->map, game, s, local_spawn_mob(s), after_mob_update);
     if (s->net.status == HOSTING) {
         int updated_maps[NUMBER_OF_AREAS];
         memset(updated_maps, 0, sizeof(updated_maps));
