@@ -43,6 +43,7 @@ def parse_enum(enum, file_content)
     match[:entries].split(",").each do |entry|
       entry = entry.strip
       next if entry.empty?
+      next if entry =~ /=\s+-1/
 
       result[entry] = i
       i += 1

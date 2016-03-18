@@ -6,6 +6,8 @@
 
 struct Map;
 struct Game;
+struct Character;
+struct Controls;
 
 enum MobSizeClass { SMALL, MEDIUM, LARGE };
 
@@ -15,6 +17,7 @@ typedef struct MobType {
 
     void(*initialize)(void* mob, struct Game* game, struct Map* map, vec2 pos);
     void(*update)(void* mob, struct Game* game, struct Map* map);
+    void(*interact)(void* mob, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls);
     void(*render)(void* mob, struct Game* game, struct Map* map);
     void(*save)(void* mob, struct Map* map, byte* buffer, int* pos);
     void(*load)(void* mob, struct Map* map, byte* buffer, int* pos);
@@ -49,6 +52,7 @@ typedef struct LargeMob {
 
 // === Mobs === (THIS ENUM IS READ BY A RUBY SCRIPT AT COMPILE TIME)
 enum MobId {
+    MOB_NONE = -1,
     MOB_PON,
     MOB_FRUIT,
     NUMBER_OF_MOB_TYPES
@@ -83,6 +87,7 @@ typedef struct MobFruit {
 } MobFruit;
 void mob_fruit_initialize(void* vfruit, struct Game* game, struct Map* map, vec2 pos);
 void mob_fruit_update(void* vfruit, struct Game* game, struct Map* map);
+void mob_fruit_interact(void* vfruit, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls);
 void mob_fruit_render(void* vfruit, struct Game* game, struct Map* map);
 void mob_fruit_save(void* vfruit, struct Map* map, byte* buffer, int* pos);
 void mob_fruit_load(void* vfruit, struct Map* map, byte* buffer, int* pos);
@@ -95,6 +100,7 @@ static MobType mob_registry[] = {
         MEDIUM,
         mob_pon_initialize,
         mob_pon_update,
+        NULL,
         mob_pon_render,
         mob_pon_save,
         mob_pon_load,
@@ -106,6 +112,7 @@ static MobType mob_registry[] = {
         MEDIUM,
         mob_fruit_initialize,
         mob_fruit_update,
+        mob_fruit_interact,
         mob_fruit_render,
         mob_fruit_save,
         mob_fruit_load,

@@ -18,6 +18,19 @@ void interact_character_with_world(
     void* data,
     void (*go_through_door)(void*, struct Game*, struct Character*, struct Door*)
 ) {
+#define INTERACT_WITH_MOBS(size, list) \
+    for (int i = 0; i < MAP_STATE_MAX_##size##_MOBS; i++) { \
+        MobCommon* mob = &map->state->list[i]; \
+        if (mob->mob_type_id != MOB_NONE) { \
+            MobType* reg = &mob_registry[mob->mob_type_id]; \
+            if (reg->interact) \
+                reg->interact(mob, game, map, guy, controls); \
+        } \
+    }
+    INTERACT_WITH_MOBS(SMALL,  small_mobs);
+    INTERACT_WITH_MOBS(MEDIUM, medium_mobs);
+    INTERACT_WITH_MOBS(LARGE,  large_mobs);
+
     for (int i = 0; i < map->number_of_doors; i++) {
         Door* door = &map->doors[i];
 
@@ -521,9 +534,7 @@ void default_character(struct Game* game, Character* target) {
     initialize_inventory(&target->inventory, 10);
 
     // TODO TEMP add fruit to test rendering and swapping
-    ItemFruit* fruit = &target->inventory.items[0];
-    fruit->item_type_id = ITEM_FRUIT;
-    item_registry[ITEM_FRUIT].initialize(fruit, game);
+    set_item(&target->inventory, game, 0, ITEM_FRUIT);
 
     // Script stuff:
 

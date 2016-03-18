@@ -3,6 +3,7 @@
 #include "assets.h"
 #include "game.h"
 #include "script.h"
+#include "character.h"
 
 // ==== PON ====
 
@@ -159,6 +160,32 @@ void mob_fruit_update(void* vfruit, struct Game* game, struct Map* map) {
     fruit->body.position.x[Y] += fruit->dy;
 
     collide_generic_body(&fruit->body, &map->tile_collision);
+}
+void mob_fruit_interact(void* vfruit, struct Game* game, struct Map* map, struct Character* guy, struct Controls* controls) {
+    MobFruit* fruit = (MobFruit*)vfruit;
+
+    if (
+        just_pressed(controls, C_DOWN) &&
+        guy->position.x[X] > fruit->body.position.x[0] - 13 &&
+        guy->position.x[X] < fruit->body.position.x[0] + 13 &&
+        guy->position.x[Y] > fruit->body.position.x[1] - 20 &&
+        guy->position.x[Y] < fruit->body.position.x[1] + 20
+    ) {
+        /* TODO TODO
+        if (game->net_joining) {
+            // TODO some kind of special request buffer.
+            // Which can maybe also handle mob spawning or whatever? Dunno...
+            // ACTUALLY, going through door seems like a good use case for this.
+        }
+        else {
+        }
+        */
+        int slot = find_good_inventory_slot(&guy->inventory);
+        if (slot > -1) {
+            set_item(&guy->inventory, game, slot, ITEM_FRUIT);
+            despawn_mob(map, game, fruit);
+        }
+    }
 }
 void mob_fruit_render(void* vfruit, struct Game* game, struct Map* map) {
     MobFruit* fruit = (MobFruit*)vfruit;

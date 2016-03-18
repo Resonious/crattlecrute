@@ -31,7 +31,9 @@ typedef struct Inventory {
 
 struct Game;
 void initialize_inventory(Inventory* inv, int cap);
+int find_good_inventory_slot(Inventory* inv);
 void render_layered_icon_item(void* item, struct Game* game, SDL_Rect* dest);
+ItemCommon* set_item(Inventory* inv, struct Game* game, int slot, int item_type_id);
 
 // ============== ACTUAL ITEMS ===============
 

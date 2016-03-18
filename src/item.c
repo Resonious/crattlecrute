@@ -30,6 +30,25 @@ void render_layered_icon_item(void* vitem, struct Game* game, SDL_Rect* dest) {
     }
 }
 
+int find_good_inventory_slot(Inventory* inv) {
+    for (int i = 0; i < inv->capacity; i++) {
+        if (inv->items[i].item_type_id == ITEM_NONE)
+            return i;
+    }
+    return -1;
+}
+
+ItemCommon* set_item(Inventory* inv, struct Game* game, int slot, int type) {
+    if (slot < 0)
+        return NULL;
+
+    ItemCommon* item = &inv->items[slot];
+    item->item_type_id = type;
+    item_registry[type].initialize(item, game);
+
+    return item;
+}
+
 // ================== FRUIT =================
 
 void item_fruit_initialize(void* vitem, struct Game* game) {

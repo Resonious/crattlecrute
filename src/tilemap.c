@@ -950,6 +950,11 @@ spawn_it:
     return mob_data;
 }
 
+void despawn_mob(Map* map, struct Game* game, MobCommon* mob) {
+    int offset = 0;
+    mob->mob_type_id = MOB_NONE;
+}
+
 int mob_id(Map* map, MobCommon* mob) {
     int offset = 0;
     MobType* mob_type = &mob_registry[mob->mob_type_id];
