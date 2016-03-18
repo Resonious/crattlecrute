@@ -166,8 +166,8 @@ void mob_fruit_interact(void* vfruit, struct Game* game, struct Map* map, struct
 
     if (
         just_pressed(controls, C_DOWN) &&
-        guy->position.x[X] > fruit->body.position.x[0] - 13 &&
-        guy->position.x[X] < fruit->body.position.x[0] + 13 &&
+        guy->position.x[X] > fruit->body.position.x[0] - 25 &&
+        guy->position.x[X] < fruit->body.position.x[0] + 25 &&
         guy->position.x[Y] > fruit->body.position.x[1] - 20 &&
         guy->position.x[Y] < fruit->body.position.x[1] + 20
     ) {
