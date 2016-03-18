@@ -52,6 +52,7 @@ ItemCommon* set_item(Inventory* inv, struct Game* game, int slot, int type) {
 // ================== FRUIT =================
 
 void item_fruit_initialize(void* vitem, struct Game* game) {
+    SDL_assert(sizeof(Inventory) <= sizeof(ItemCommon));
     ItemFruit* fruit = (ItemFruit*)vitem;
     fruit->asset = ASSET_FOOD_FRUIT_INV_PNG;
     fruit->layer_count = 2;

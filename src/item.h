@@ -17,7 +17,7 @@ typedef struct ItemType {
 
 typedef struct ItemCommon {
     COMMON_ITEM;
-    byte data[128 - sizeof(int)];
+    byte data[32 - sizeof(int)];
 } ItemCommon;
 
 typedef struct LayeredIconItem {
