@@ -193,6 +193,8 @@ no_renderer:
 
     mrb_value ruby_context = mrb_obj_value(game.mrb->top_self);
 #ifdef _DEBUG
+    SDL_Thread* ruby_repl = NULL;
+
     game.ruby.io_locked = SDL_CreateMutex();
     if (!game.ruby.io_locked)
         printf("RUBY I/O IS MESSED UP.\n");
@@ -203,7 +205,7 @@ no_renderer:
         game.ruby.io_cxt->capture_errors = true;
         mrbc_filename(game.mrb, game.ruby.io_cxt, "(crattlecrute)");
         SDL_AtomicSet(&game.ruby.io_ready, false);
-        SDL_CreateThread(ruby_io_thread, "Ruby I/O", &game);
+        ruby_repl = SDL_CreateThread(ruby_io_thread, "Ruby I/O", &game);
     }
 
     if (load_script_file(game.mrb))
@@ -433,6 +435,10 @@ no_renderer:
 #endif
     }
 
+#ifdef _DEBUG
+    if (ruby_repl)
+        SDL_DetachThread(ruby_repl);
+#endif
     game.current_scene->cleanup(game.current_scene_data, &game);
     SDL_PauseAudio(true);
     SDL_DestroyWindow(game.window);
