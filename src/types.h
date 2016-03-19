@@ -145,6 +145,6 @@ struct Map;
 struct MobCommon;
 typedef void(*SetItemFunc)(void*, struct Character*, struct Game*, int, int);
 typedef void(*SpawnMobFunc)(void*, struct Map*, struct Game*, int, vec2);
-typedef void(*DespawnMobFunc)(void*, struct Map* map, struct Game* game, struct MobCommon* mob);
+typedef void(*DespawnMobFunc)(void*, struct Map*, struct Game*, struct MobCommon*);
 
 #endif // TYPES_H
