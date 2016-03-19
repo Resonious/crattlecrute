@@ -43,6 +43,9 @@ def parse_enum(enum, file_content)
     match[:entries].split(",").each do |entry|
       entry = entry.strip
       next if entry.empty?
+      if /=\s+(?<set_to>-?\d+)/ =~ entry
+        i = set_to.to_i
+      end
 
       result[entry] = i
       i += 1
@@ -100,7 +103,6 @@ def compress_tilemap_data(tilemap_data)
 
   current_rep = nil
   rep_of_one_count     = 0
-  alternation_count    = 0
   building_alternation = false
 
   i = 0
@@ -258,8 +260,8 @@ def read_tmx(file)
         flags &= ~(1 << 6)
       end
 
-      tileset = tilesets.find do |tileset|
-        global_index - tileset.firstgid >= 0
+      tileset = tilesets.find do |t|
+        global_index - t.firstgid >= 0
       end
       index = global_index - tileset.firstgid
 

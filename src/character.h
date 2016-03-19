@@ -18,8 +18,8 @@ struct Controls;
 #define ANIMATION_MAX_PERIPHERALS 128
 
 // Physics baselines - character stats are factors of these.
-#define CHARA_GROUND_SPEED_MAX     (6.0f)
-#define CHARA_RUN_SPEED_MAX        (1.5f)
+#define CHARA_GROUND_SPEED_MAX     (4.0f)
+#define CHARA_RUN_SPEED_MAX        (2.0f)
 #define CHARA_GROUND_ACCELERATION  (0.8f)
 #define CHARA_GROUND_DECELERATION  (0.5f)
 #define CHARA_JUMP_ACCELERATION    (20.0f)
@@ -163,7 +163,7 @@ void default_character(struct Game* game, Character* target);
 void default_character_animations(struct Game* game, Character* guy);
 // This should be called after changing the body or feet type.
 void load_character_atlases(struct Game* game, Character* guy);
-enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls, struct Game* game, struct Map* map, SpawnMobFunc spawn);
+enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls, struct Game* game, struct Map* map);
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag);
 void update_character_animation(Character* guy);
 

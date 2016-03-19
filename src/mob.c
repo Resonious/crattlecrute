@@ -3,6 +3,7 @@
 #include "assets.h"
 #include "game.h"
 #include "script.h"
+#include "character.h"
 
 // ==== PON ====
 
@@ -159,6 +160,27 @@ void mob_fruit_update(void* vfruit, struct Game* game, struct Map* map) {
     fruit->body.position.x[Y] += fruit->dy;
 
     collide_generic_body(&fruit->body, &map->tile_collision);
+}
+void mob_fruit_interact(void* vfruit, struct Game* game, struct Map* map, struct Character* guy, struct Controls* controls) {
+    MobFruit* fruit = (MobFruit*)vfruit;
+
+    if (
+        just_pressed(controls, C_DOWN) &&
+        guy->position.x[X] > fruit->body.position.x[0] - 25 &&
+        guy->position.x[X] < fruit->body.position.x[0] + 25 &&
+        guy->position.x[Y] > fruit->body.position.x[1] - 20 &&
+        guy->position.x[Y] < fruit->body.position.x[1] + 20
+    ) {
+        int slot = find_good_inventory_slot(&guy->inventory);
+        if (slot > -1) {
+            if (guy->player_id == -1)
+                set_item(&guy->inventory, game, slot, ITEM_FRUIT);
+            else
+                game->net.set_item(game->current_scene_data, guy, game, slot, ITEM_FRUIT);
+
+            game->net.despawn_mob(game->current_scene_data, map, game, fruit);
+        }
+    }
 }
 void mob_fruit_render(void* vfruit, struct Game* game, struct Map* map) {
     MobFruit* fruit = (MobFruit*)vfruit;

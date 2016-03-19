@@ -10,7 +10,11 @@ CTRL_SYMS = {
   up:    Controls::UP,
   down:  Controls::DOWN,
   left:  Controls::LEFT,
-  right: Controls::RIGHT
+  right: Controls::RIGHT,
+  w:     Controls::W,
+  a:     Controls::A,
+  s:     Controls::S,
+  d:     Controls::D
 }
 
 # Quick helpers for #press and #after down there
@@ -103,22 +107,32 @@ end
 
 def update(game)
   @control_presses.delete_if do |c|
-    if c.countdown <= 0
-      c.controls[c.control] = false
+    begin
+      if c.countdown <= 0
+        c.controls[c.control] = false
+        true
+      else
+        c.controls[c.control] = true
+        c.countdown -= 1
+        false
+      end
+    rescue StandardError => e
+      puts "CONTROL PRESS: #{e.class}: #{e.message}"
       true
-    else
-      c.controls[c.control] = true
-      c.countdown -= 1
-      false
     end
   end
   @delayed_actions.delete_if do |a|
-    if a.countdown <= 0
-      a.block.call(*a.args)
+    begin
+      if a.countdown <= 0
+        a.block.call(*a.args)
+        true
+      else
+        a.countdown -= 1
+        false
+      end
+    rescue StandardError => e
+      puts "DELAYED ACTION: #{e.class}: #{e.message}"
       true
-    else
-      a.countdown -= 1
-      false
     end
   end
 

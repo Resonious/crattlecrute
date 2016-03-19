@@ -13,6 +13,8 @@
 #include <mruby/array.h>
 #include <mruby/hash.h>
 
+mrb_value mrb_instance_alloc(mrb_state *mrb, struct RClass* c);
+
 static void mrb_dont_free(mrb_state* mrb, void* p) { }
 
 static const struct mrb_data_type mrb_dont_free_type = { "DontFree", mrb_dont_free };

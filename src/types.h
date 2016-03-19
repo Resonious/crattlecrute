@@ -11,7 +11,7 @@
 #endif
 
 #ifndef _WIN32
-#define bool int
+#define bool unsigned char
 #define true 1
 #define false 0
 #define min(x,y) ((x) < (y) ? (x) : (y))
@@ -142,6 +142,9 @@ typedef struct GenericBody {
 } GenericBody;
 
 struct Map;
+struct MobCommon;
+typedef void(*SetItemFunc)(void*, struct Character*, struct Game*, int, int);
 typedef void(*SpawnMobFunc)(void*, struct Map*, struct Game*, int, vec2);
+typedef void(*DespawnMobFunc)(void*, struct Map*, struct Game*, struct MobCommon*);
 
 #endif // TYPES_H

@@ -950,6 +950,11 @@ spawn_it:
     return mob_data;
 }
 
+void despawn_mob(Map* map, struct Game* game, MobCommon* mob) {
+    int offset = 0;
+    mob->mob_type_id = MOB_NONE;
+}
+
 int mob_id(Map* map, MobCommon* mob) {
     int offset = 0;
     MobType* mob_type = &mob_registry[mob->mob_type_id];
@@ -1000,11 +1005,10 @@ MobCommon* mob_from_id(Map* map, int id) {
 void update_map(
     Map* map, struct Game* game,
     void* data,
-    SpawnMobFunc spawn_mob_from_spawn_zone,
     void(*after_mob_update)(void*, Map*, struct Game*, MobCommon*)
 ) {
     wait_for_then_use_lock(map->locked);
-    if (spawn_mob_from_spawn_zone == NULL)
+    if (game->net_joining)
         goto update_mobs;
     // Spawn mobs when needed.
     for (int i = 0; i < map->number_of_spawn_zones; i++) {
@@ -1023,7 +1027,7 @@ void update_map(
                         zone->x + (rand() % zone->width),
                         zone->y + (rand() % zone->height)
                     };
-                    spawn_mob_from_spawn_zone(data, map, game, spawn->mob_type_id, target_pos);
+                    game->net.spawn_mob(game->current_scene_data, map, game, spawn->mob_type_id, target_pos);
 
                     // TODO add spawn frequency or something to maps.
                     zone->countdown_until_next_spawn_attempt = 60 * 60 * 60;

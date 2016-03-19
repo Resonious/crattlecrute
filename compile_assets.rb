@@ -47,6 +47,7 @@ header.write(%(#else\n))
 header.write(%(#include "SDL.h"\n))
 header.write(%(#endif\n))
 header.write(%(#include "types.h"\n))
+header.write(%(#include "script.h"\n))
 header.write(%(#include "tilemap.h"\n))
 header.write("// This is generated on compile - don't change it by hand!\n")
 header.write("// Generated #{Time.now}\n\n")
@@ -223,6 +224,11 @@ all_files.each_with_index do |file, index|
   header.write(%<        return #{index};\n>)
 end
 header.write("    return -1;\n")
+header.write("}\n\n")
+
+# ==== A method to be called in script.c, that just loads a bunch of enums into ruby. ====
+header.write("static void define_mrb_enum_constants(mrb_state* mrb) {\n")
+# TODO
 header.write("}\n")
 
 header.write("#endif // ASSETS_H\n")

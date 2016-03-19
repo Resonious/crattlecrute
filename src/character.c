@@ -18,6 +18,19 @@ void interact_character_with_world(
     void* data,
     void (*go_through_door)(void*, struct Game*, struct Character*, struct Door*)
 ) {
+#define INTERACT_WITH_MOBS(size, list) \
+    for (int i = 0; i < MAP_STATE_MAX_##size##_MOBS; i++) { \
+        MobCommon* mob = &map->state->list[i]; \
+        if (mob->mob_type_id != MOB_NONE) { \
+            MobType* reg = &mob_registry[mob->mob_type_id]; \
+            if (reg->interact) \
+                reg->interact(mob, game, map, guy, controls); \
+        } \
+    }
+    INTERACT_WITH_MOBS(SMALL,  small_mobs);
+    INTERACT_WITH_MOBS(MEDIUM, medium_mobs);
+    INTERACT_WITH_MOBS(LARGE,  large_mobs);
+
     for (int i = 0; i < map->number_of_doors; i++) {
         Door* door = &map->doors[i];
 
@@ -37,7 +50,7 @@ void interact_character_with_world(
     }
 }
 
-enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls, struct Game* game, struct Map* map, SpawnMobFunc spawn) {
+enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls, struct Game* game, struct Map* map) {
     enum InventoryAction action_taken = INV_NONE;
     // A:left, D:right
     if (just_pressed(controls, C_A)) {
@@ -57,6 +70,8 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
     // "Grab" or drop grabbed item
     if (just_pressed(controls, C_W)) {
         action_taken = INV_ACTION;
+        wait_for_then_use_lock(guy->inventory.locked);
+
         if (guy->grabbed_slot == -1) {
             if (guy->inventory.items[guy->selected_slot].item_type_id != ITEM_NONE)
                 guy->grabbed_slot = guy->selected_slot;
@@ -67,17 +82,19 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
             ItemType* reg = &item_registry[item->item_type_id];
 
             vec2 pos_offset;
-            pos_offset.x = guy->flip == SDL_FLIP_HORIZONTAL ? -10 : 10;
+            pos_offset.x = guy->flip == SDL_FLIP_HORIZONTAL ? -20 : 20;
             pos_offset.y = 0;
             vec2 drop_pos = { guy->position.x[X], guy->position.x[Y] };
             v2_add_to(&drop_pos, pos_offset);
 
-            if (reg->drop(item, game, map, drop_pos, spawn)) {
+            if (reg->drop(item, game, map, drop_pos)) {
                 guy->inventory.items[guy->grabbed_slot].item_type_id = ITEM_NONE;
             }
 
             guy->grabbed_slot = -1;
         }
+
+        SDL_UnlockMutex(guy->inventory.locked);
     }
 
     // Swap grabbed if presetn, or toggle inventory
@@ -91,12 +108,14 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
                 guy->grabbed_slot = -1;
             }
             else {
+                wait_for_then_use_lock(guy->inventory.locked);
                 // Swap grabbed with slot item
                 ItemCommon swap;
                 SDL_memcpy(&swap, &guy->inventory.items[guy->selected_slot], sizeof(ItemCommon));
                 SDL_memcpy(&guy->inventory.items[guy->selected_slot], &guy->inventory.items[guy->grabbed_slot], sizeof(ItemCommon));
                 SDL_memcpy(&guy->inventory.items[guy->grabbed_slot], &swap, sizeof(ItemCommon));
                 guy->grabbed_slot = -1;
+                SDL_UnlockMutex(guy->inventory.locked);
             }
         }
     }
@@ -521,20 +540,12 @@ void default_character(struct Game* game, Character* target) {
     initialize_inventory(&target->inventory, 10);
 
     // TODO TEMP add fruit to test rendering and swapping
-    ItemFruit* fruit = &target->inventory.items[0];
-    fruit->item_type_id = ITEM_FRUIT;
-    item_registry[ITEM_FRUIT].initialize(fruit, game);
+    set_item(&target->inventory, game, 0, ITEM_FRUIT);
 
     // Script stuff:
 
-    mrb_value zero = mrb_fixnum_value(0);
-    mrb_value color_args[5];
-    color_args[0] = zero; color_args[1] = zero; color_args[2] = zero; color_args[3] = zero;
-    color_args[4] = mrb_fixnum_value(1);
-
 #define RUBY_COLOR(attr) \
-    target->r##attr = mrb_obj_new(game->mrb, game->ruby.color_class, 5, color_args); \
-    SDL_assert(DATA_PTR(target->r##attr) == NULL); \
+    target->r##attr = mrb_instance_alloc(game->mrb, game->ruby.color_class); \
     mrb_data_init(target->r##attr, &target->attr, &mrb_dont_free_type);
 
     RUBY_COLOR(body_color);

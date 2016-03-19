@@ -90,6 +90,7 @@ mrb_value rb_exit(mrb_state* mrb, mrb_value self) {
 
 int main(int argc, char** argv) {
     BENCH_START(total_initialization);
+    SDL_assert(sizeof(byte) == 1);
     srand((unsigned int)time(0));
     ticks_per_second = SDL_GetPerformanceFrequency();
     _MM_SET_ROUNDING_MODE(_MM_ROUND_DOWN);
@@ -111,11 +112,7 @@ int main(int argc, char** argv) {
 #endif
 
     game.current_scene = &SCENES[SCENE_WORLD];
-#ifdef X86
-    game.current_scene_data = _aligned_malloc(SCENE_DATA_SIZE, 16);
-#else
-    game.current_scene_data = malloc(SCENE_DATA_SIZE);
-#endif
+    game.current_scene_data = aligned_malloc(SCENE_DATA_SIZE);
     game.camera.simd = _mm_set1_ps(0.0f);
     game.camera_target.simd = _mm_set1_ps(0.0f);
     game.follow_cam_y = false;
@@ -193,6 +190,8 @@ no_renderer:
 
     mrb_value ruby_context = mrb_obj_value(game.mrb->top_self);
 #ifdef _DEBUG
+    SDL_Thread* ruby_repl = NULL;
+
     game.ruby.io_locked = SDL_CreateMutex();
     if (!game.ruby.io_locked)
         printf("RUBY I/O IS MESSED UP.\n");
@@ -203,7 +202,7 @@ no_renderer:
         game.ruby.io_cxt->capture_errors = true;
         mrbc_filename(game.mrb, game.ruby.io_cxt, "(crattlecrute)");
         SDL_AtomicSet(&game.ruby.io_ready, false);
-        SDL_CreateThread(ruby_io_thread, "Ruby I/O", &game);
+        ruby_repl = SDL_CreateThread(ruby_io_thread, "Ruby I/O", &game);
     }
 
     if (load_script_file(game.mrb))
@@ -433,7 +432,12 @@ no_renderer:
 #endif
     }
 
+#ifdef _DEBUG
+    if (ruby_repl)
+        SDL_DetachThread(ruby_repl);
+#endif
     game.current_scene->cleanup(game.current_scene_data, &game);
+    aligned_free(game.current_scene_data);
     SDL_PauseAudio(true);
     SDL_DestroyWindow(game.window);
 

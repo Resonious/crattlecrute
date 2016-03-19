@@ -2,21 +2,29 @@
 #include "game.h"
 #include "character.h"
 
-mrb_value mrb_color_init(mrb_state* mrb, mrb_value self) {
-    mrb_int r = 0, g = 0, b = 0, a = 255, noalloc = false;
-    mrb_get_args(mrb, "|iiiii", &r, &g, &b, &a, &noalloc);
+// NOTE this is largely copied from mruby/src/class.c
+// not sure why this isn't an MRB_API function.
+mrb_value mrb_instance_alloc(mrb_state *mrb, struct RClass* c) {
+  struct RObject *o;
+  enum mrb_vtype ttype = MRB_INSTANCE_TT(c);
 
-    if (noalloc) {
-        mrb_data_init(self, NULL, &mrb_dont_free_type);
-    }
-    else {
-        SDL_Color* color = mrb_malloc(mrb, sizeof(SDL_Color));
-        color->r = r;
-        color->g = g;
-        color->b = b;
-        color->a = a;
-        mrb_data_init(self, color, &mrb_color_type);
-    }
+  SDL_assert(c->tt != MRB_TT_SCLASS);
+
+  if (ttype == 0) ttype = MRB_TT_OBJECT;
+  o = (struct RObject*)mrb_obj_alloc(mrb, ttype, c);
+  return mrb_obj_value(o);
+}
+
+mrb_value mrb_color_init(mrb_state* mrb, mrb_value self) {
+    mrb_int r = 0, g = 0, b = 0, a = 255;
+    mrb_get_args(mrb, "|iiii", &r, &g, &b, &a);
+
+    SDL_Color* color = mrb_malloc(mrb, sizeof(SDL_Color));
+    color->r = r;
+    color->g = g;
+    color->b = b;
+    color->a = a;
+    mrb_data_init(self, color, &mrb_color_type);
     return self;
 }
 
@@ -320,7 +328,7 @@ void script_init(struct Game* game) {
     game->ruby.color_class = mrb_define_class(game->mrb, "Color", game->mrb->object_class);
     MRB_SET_INSTANCE_TT(game->ruby.color_class, MRB_TT_DATA);
 
-    mrb_define_method(game->mrb, game->ruby.color_class, "initialize", mrb_color_init, MRB_ARGS_OPT(5));
+    mrb_define_method(game->mrb, game->ruby.color_class, "initialize", mrb_color_init, MRB_ARGS_OPT(4));
     mrb_define_method(game->mrb, game->ruby.color_class, "inspect", mrb_color_inspect, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.color_class, "r", mrb_color_r, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.color_class, "g", mrb_color_g, MRB_ARGS_NONE());
