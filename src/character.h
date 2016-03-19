@@ -18,8 +18,8 @@ struct Controls;
 #define ANIMATION_MAX_PERIPHERALS 128
 
 // Physics baselines - character stats are factors of these.
-#define CHARA_GROUND_SPEED_MAX     (6.0f)
-#define CHARA_RUN_SPEED_MAX        (1.5f)
+#define CHARA_GROUND_SPEED_MAX     (4.0f)
+#define CHARA_RUN_SPEED_MAX        (2.0f)
 #define CHARA_GROUND_ACCELERATION  (0.8f)
 #define CHARA_GROUND_DECELERATION  (0.5f)
 #define CHARA_JUMP_ACCELERATION    (20.0f)
