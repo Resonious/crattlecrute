@@ -79,6 +79,9 @@ typedef struct Game {
         bool enter_pressed;
         bool canceled;
     } text_edit;
+    struct {
+        SpawnMobFunc spawn_mob;
+    } net;
     int argc;
     char** argv;
     AssetCache asset_cache;
