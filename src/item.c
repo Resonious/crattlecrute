@@ -15,7 +15,10 @@ void initialize_inventory(Inventory* inv, int cap) {
 
 void render_layered_icon_item(void* vitem, struct Game* game, SDL_Rect* dest) {
     LayeredIconItem* item = (LayeredIconItem*)vitem;
-    SDL_Texture* tex = cached_texture(game, item->asset);
+    if (item->item_type_id < 0 || item->item_type_id >= NUMBER_OF_ITEM_TYPES)
+        return; // TODO RENDER QUESTION MARK ITEM!!!
+    ItemType* reg = &item_registry[item->item_type_id];
+    SDL_Texture* tex = cached_texture(game, reg->icon_asset);
     int tex_width, tex_height;
     int r = SDL_QueryTexture(tex, NULL, NULL, &tex_width, &tex_height)
           + SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
@@ -55,7 +58,6 @@ ItemCommon* set_item(Inventory* inv, struct Game* game, int slot, int type) {
 void item_fruit_initialize(void* vitem, struct Game* game) {
     SDL_assert(sizeof(Inventory) <= sizeof(ItemCommon));
     ItemFruit* fruit = (ItemFruit*)vitem;
-    fruit->asset = ASSET_FOOD_FRUIT_INV_PNG;
     fruit->layer_count = 2;
 }
 
