@@ -45,6 +45,17 @@ extern SDL_Window* main_window;
 #define INV_FADE_ZERO_POINT 1
 #define INV_FADE_MAX 11
 
+// If multiple of these flags comes in an update, their content must be in this order.
+#define NETF_CONTROLS   (1 << 0)
+#define NETF_AREA       (1 << 1)
+#define NETF_POSITION   (1 << 2)
+#define NETF_MAPSTATE   (1 << 3)
+#define NETF_MOBEVENT   (1 << 4)
+#define NETF_ATTRIBUTES (1 << 5)
+
+#define NETF_MOBEVENT_SPAWN 0
+#define NETF_MOBEVENT_UPDATE 1
+
 typedef struct ControlsBuffer {
     SDL_mutex* locked;
     int current_frame;
@@ -163,6 +174,162 @@ typedef struct ServerLoop {
     struct sockaddr_in address;
     WorldScene* scene;
 } ServerLoop;
+
+void set_camera_target(Game* game, Map* map, Character* guy) {
+    game->camera_target.x[X] = guy->position.x[X] - game->window_width / 2.0f;
+
+    if (game->window_width > map->width) {
+        game->camera_target.x[X] = (map->width - game->window_width) / 2.0f;
+    }
+    else if (game->camera_target.x[X] < 0)
+        game->camera_target.x[X] = 0;
+    else if (game->camera_target.x[X] + game->window_width > map->width)
+        game->camera_target.x[X] = map->width - game->window_width;
+
+    if (guy->grounded) {
+        game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.35f;
+        game->follow_cam_y = false;
+    }
+    else {
+        if (guy->position.x[Y] - game->camera_target.x[Y] < 1.5f)
+            game->follow_cam_y = true;
+        if (game->follow_cam_y)
+            game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.5f;
+    }
+
+    if (game->window_height > map->height)
+        game->camera_target.x[Y] = (map->height - game->window_height) / 2.0f;
+    else if (game->camera_target.x[Y] < 0)
+        game->camera_target.x[Y] = 0;
+    else if (game->camera_target.x[Y] + game->window_height > map->height)
+        game->camera_target.x[Y] = map->height - game->window_height;
+}
+
+void local_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
+    WorldScene* s = (WorldScene*)vs;
+
+    SDL_assert(door->dest_area > -1);
+
+    wait_for_then_use_lock(s->transition.locked);
+    s->transition.destination_area = door->dest_area;
+    s->transition.destination_position.x = (float)door->dest_x;
+    s->transition.destination_position.y = (float)door->dest_y;
+    s->transition.progress_percent = 0;
+    SDL_UnlockMutex(s->transition.locked);
+}
+
+void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
+    wait_for_then_use_lock(s->transition.locked);
+
+    s->current_area = transition->destination_area;
+    int map_asset = map_asset_for_area(s->current_area);
+    SDL_assert(map_asset > -1);
+    s->map = cached_map(game, map_asset);
+    s->map->area_id = s->current_area;
+
+    float dest_x = transition->destination_position.x;
+    float dest_y = s->map->height - transition->destination_position.y;
+
+    s->guy.position.x[X]     = dest_x;
+    s->guy.position.x[Y]     = dest_y;
+    s->guy.old_position.x[X] = dest_x;
+    s->guy.old_position.x[Y] = dest_y;
+
+    set_camera_target(game, s->map, &s->guy);
+    game->camera.simd = game->camera_target.simd;
+
+    SDL_UnlockMutex(s->transition.locked);
+}
+
+void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
+    WorldScene* s = (WorldScene*)vs;
+
+    RemotePlayer* player = NULL;
+    for (int i = 0; i < s->net.number_of_players; i++) {
+        RemotePlayer* plr = s->net.players[i];
+        if (plr && plr->id == guy->player_id) {
+            player = plr;
+            break;
+        }
+    }
+    if (player == NULL) {
+        printf("ERROR!!! COULD NOT FIND REMOTEPLAYER OF GUY GOING THROUGH DOOR!\n");
+        return;
+    }
+
+    wait_for_then_use_lock(player->mob_event_buffer_locked);
+    player->mob_event_count = 0;
+    player->mob_event_buffer_pos = 0;
+
+    SDL_assert(door->dest_area > -1);
+    int area_id = door->dest_area;
+    int map_asset = map_asset_for_area(area_id);
+    SDL_assert(map_asset > -1);
+    Map* map = cached_map(game, map_asset);
+    map->area_id = area_id;
+
+    for (int i = 0; i < s->net.number_of_players; i++) {
+        RemotePlayer* other_player = s->net.players[i];
+        if (other_player && other_player->id != player->id) {
+            /*
+            other_player->stream_spots_of[player->id].frame = player->controls_playback.current_frame;
+            other_player->stream_spots_of[player->id].pos   = player->controls_playback.pos;
+            */
+
+            SDL_AtomicSet(&player->countdown_until_i_get_position_of[other_player->id], 0);
+            SDL_AtomicSet(&other_player->countdown_until_i_get_position_of[player->id], 0);
+        }
+    }
+    SDL_AtomicSet(&player->countdown_until_i_get_position_of[0], 0);
+
+    float dest_x = (float)door->dest_x;
+    float dest_y = map->height - (float)door->dest_y;
+
+    guy->position.x[X]     = dest_x;
+    guy->position.x[Y]     = dest_y;
+    guy->old_position.x[X] = dest_x;
+    guy->old_position.x[Y] = dest_y;
+
+    SDL_AtomicSet(&player->area_id, area_id);
+    SDL_AtomicSet(&player->just_switched_maps, true);
+
+    SDL_UnlockMutex(player->mob_event_buffer_locked);
+}
+
+// Never spawn mobs when joining
+void unconnected_spawn_mob(void* vs, Map* map, struct Game* game, int mobtype, vec2 pos) {
+    WorldScene* s = (WorldScene*)vs;
+    if (s->net.status != JOINING)
+        spawn_mob(map, game, mobtype, pos);
+}
+
+void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id, vec2 pos) {
+    WorldScene* s = (WorldScene*)vs;
+    SDL_assert(s->net.status == HOSTING);
+
+    MobCommon* mob = spawn_mob(map, game, mob_type_id, pos);
+    if (mob != NULL) {
+        MobType* mob_type = &mob_registry[mob_type_id];
+
+        for (int i = 0; i < s->net.number_of_players; i++) {
+            RemotePlayer* player = s->net.players[i];
+            if (player == NULL || SDL_AtomicGet(&player->area_id) != map->area_id || SDL_AtomicGet(&player->just_switched_maps))
+                continue;
+
+            int m_id = mob_id(map, mob);
+            wait_for_then_use_lock(player->mob_event_buffer_locked);
+
+            player->mob_event_buffer[player->mob_event_buffer_pos++] = NETF_MOBEVENT_SPAWN;
+            write_to_buffer(player->mob_event_buffer, &mob_type_id, &player->mob_event_buffer_pos, sizeof(int));
+            write_to_buffer(player->mob_event_buffer, &pos,         &player->mob_event_buffer_pos, sizeof(vec2));
+            write_to_buffer(player->mob_event_buffer, &m_id,        &player->mob_event_buffer_pos, sizeof(int));
+            mob_type->save(mob, map, player->mob_event_buffer,      &player->mob_event_buffer_pos);
+
+            player->mob_event_count += 1;
+            SDL_UnlockMutex(player->mob_event_buffer_locked);
+        }
+    }
+}
 
 void net_character_post_update(RemotePlayer* plr) {
     character_post_update(&plr->guy);
@@ -466,17 +633,6 @@ int truncate_buffer_to_lowest_spot(WorldScene* scene, RemotePlayer* player) {
 
     return player->controls_playback.size;
 }
-
-// If multiple of these flags comes in an update, their content must be in this order.
-#define NETF_CONTROLS   (1 << 0)
-#define NETF_AREA       (1 << 1)
-#define NETF_POSITION   (1 << 2)
-#define NETF_MAPSTATE   (1 << 3)
-#define NETF_MOBEVENT   (1 << 4)
-#define NETF_ATTRIBUTES (1 << 5)
-
-#define NETF_MOBEVENT_SPAWN 0
-#define NETF_MOBEVENT_UPDATE 1
 
 RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sockaddr_in* addr) {
     int pos = 1; // [0] is opcode, which we know by now
@@ -1211,6 +1367,7 @@ int network_server_listen(void* vdata) {
     SDL_UnlockMutex(scene->controls_stream.locked);
 
     listen(scene->net.local_socket, MAX_PLAYERS);
+    scene->game->net.spawn_mob = connected_spawn_mob;
 
     while (true) {
         // This gets freed at the end of network_server_loop
@@ -1502,6 +1659,8 @@ void scene_world_initialize(void* vdata, Game* game) {
     SDL_memset(data->editable_text, 0, sizeof(data->editable_text));
     SDL_strlcat(data->editable_text, "hey", EDITABLE_TEXT_BUFFER_SIZE);
 
+    game->net.spawn_mob = unconnected_spawn_mob;
+
     // Testing physics!!!!
     data->gravity = 1.15f; // In pixels per frame per frame
     data->drag = 0.025f; // Again p/s^2
@@ -1613,164 +1772,6 @@ void scene_world_initialize(void* vdata, Game* game) {
     mrb_data_init(data->rguy, &data->guy, &mrb_character_type);
 
     mrb_define_singleton_method(game->mrb, game->mrb->top_self, "world", rb_world, MRB_ARGS_NONE());
-}
-
-void set_camera_target(Game* game, Map* map, Character* guy) {
-    game->camera_target.x[X] = guy->position.x[X] - game->window_width / 2.0f;
-
-    if (game->window_width > map->width) {
-        game->camera_target.x[X] = (map->width - game->window_width) / 2.0f;
-    }
-    else if (game->camera_target.x[X] < 0)
-        game->camera_target.x[X] = 0;
-    else if (game->camera_target.x[X] + game->window_width > map->width)
-        game->camera_target.x[X] = map->width - game->window_width;
-
-    if (guy->grounded) {
-        game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.35f;
-        game->follow_cam_y = false;
-    }
-    else {
-        if (guy->position.x[Y] - game->camera_target.x[Y] < 1.5f)
-            game->follow_cam_y = true;
-        if (game->follow_cam_y)
-            game->camera_target.x[Y] = guy->position.x[Y] - game->window_height * 0.5f;
-    }
-
-    if (game->window_height > map->height)
-        game->camera_target.x[Y] = (map->height - game->window_height) / 2.0f;
-    else if (game->camera_target.x[Y] < 0)
-        game->camera_target.x[Y] = 0;
-    else if (game->camera_target.x[Y] + game->window_height > map->height)
-        game->camera_target.x[Y] = map->height - game->window_height;
-}
-
-void local_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
-    WorldScene* s = (WorldScene*)vs;
-
-    SDL_assert(door->dest_area > -1);
-
-    wait_for_then_use_lock(s->transition.locked);
-    s->transition.destination_area = door->dest_area;
-    s->transition.destination_position.x = (float)door->dest_x;
-    s->transition.destination_position.y = (float)door->dest_y;
-    s->transition.progress_percent = 0;
-    SDL_UnlockMutex(s->transition.locked);
-}
-
-void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
-    wait_for_then_use_lock(s->transition.locked);
-
-    s->current_area = transition->destination_area;
-    int map_asset = map_asset_for_area(s->current_area);
-    SDL_assert(map_asset > -1);
-    s->map = cached_map(game, map_asset);
-    s->map->area_id = s->current_area;
-
-    float dest_x = transition->destination_position.x;
-    float dest_y = s->map->height - transition->destination_position.y;
-
-    s->guy.position.x[X]     = dest_x;
-    s->guy.position.x[Y]     = dest_y;
-    s->guy.old_position.x[X] = dest_x;
-    s->guy.old_position.x[Y] = dest_y;
-
-    set_camera_target(game, s->map, &s->guy);
-    game->camera.simd = game->camera_target.simd;
-
-    SDL_UnlockMutex(s->transition.locked);
-}
-
-void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
-    WorldScene* s = (WorldScene*)vs;
-
-    RemotePlayer* player = NULL;
-    for (int i = 0; i < s->net.number_of_players; i++) {
-        RemotePlayer* plr = s->net.players[i];
-        if (plr && plr->id == guy->player_id) {
-            player = plr;
-            break;
-        }
-    }
-    if (player == NULL) {
-        printf("ERROR!!! COULD NOT FIND REMOTEPLAYER OF GUY GOING THROUGH DOOR!\n");
-        return;
-    }
-
-    wait_for_then_use_lock(player->mob_event_buffer_locked);
-    player->mob_event_count = 0;
-    player->mob_event_buffer_pos = 0;
-
-    SDL_assert(door->dest_area > -1);
-    int area_id = door->dest_area;
-    int map_asset = map_asset_for_area(area_id);
-    SDL_assert(map_asset > -1);
-    Map* map = cached_map(game, map_asset);
-    map->area_id = area_id;
-
-    for (int i = 0; i < s->net.number_of_players; i++) {
-        RemotePlayer* other_player = s->net.players[i];
-        if (other_player && other_player->id != player->id) {
-            /*
-            other_player->stream_spots_of[player->id].frame = player->controls_playback.current_frame;
-            other_player->stream_spots_of[player->id].pos   = player->controls_playback.pos;
-            */
-
-            SDL_AtomicSet(&player->countdown_until_i_get_position_of[other_player->id], 0);
-            SDL_AtomicSet(&other_player->countdown_until_i_get_position_of[player->id], 0);
-        }
-    }
-    SDL_AtomicSet(&player->countdown_until_i_get_position_of[0], 0);
-
-    float dest_x = (float)door->dest_x;
-    float dest_y = map->height - (float)door->dest_y;
-
-    guy->position.x[X]     = dest_x;
-    guy->position.x[Y]     = dest_y;
-    guy->old_position.x[X] = dest_x;
-    guy->old_position.x[Y] = dest_y;
-
-    SDL_AtomicSet(&player->area_id, area_id);
-    SDL_AtomicSet(&player->just_switched_maps, true);
-
-    SDL_UnlockMutex(player->mob_event_buffer_locked);
-}
-
-#define local_spawn_mob(s) (s->net.status == HOSTING ? connected_spawn_mob : unconnected_spawn_mob) 
-
-// Never spawn mobs when joining
-void unconnected_spawn_mob(void* vs, Map* map, struct Game* game, int mobtype, vec2 pos) {
-    WorldScene* s = (WorldScene*)vs;
-    if (s->net.status != JOINING)
-        spawn_mob(map, game, mobtype, pos);
-}
-
-void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id, vec2 pos) {
-    WorldScene* s = (WorldScene*)vs;
-    SDL_assert(s->net.status == HOSTING);
-
-    MobCommon* mob = spawn_mob(map, game, mob_type_id, pos);
-    if (mob != NULL) {
-        MobType* mob_type = &mob_registry[mob_type_id];
-
-        for (int i = 0; i < s->net.number_of_players; i++) {
-            RemotePlayer* player = s->net.players[i];
-            if (player == NULL || SDL_AtomicGet(&player->area_id) != map->area_id || SDL_AtomicGet(&player->just_switched_maps))
-                continue;
-
-            int m_id = mob_id(map, mob);
-            wait_for_then_use_lock(player->mob_event_buffer_locked);
-
-            player->mob_event_buffer[player->mob_event_buffer_pos++] = NETF_MOBEVENT_SPAWN;
-            write_to_buffer(player->mob_event_buffer, &mob_type_id, &player->mob_event_buffer_pos, sizeof(int));
-            write_to_buffer(player->mob_event_buffer, &pos,         &player->mob_event_buffer_pos, sizeof(vec2));
-            write_to_buffer(player->mob_event_buffer, &m_id,        &player->mob_event_buffer_pos, sizeof(int));
-            mob_type->save(mob, map, player->mob_event_buffer,      &player->mob_event_buffer_pos);
-
-            player->mob_event_count += 1;
-            SDL_UnlockMutex(player->mob_event_buffer_locked);
-        }
-    }
 }
 
 void write_mob_events(void* vs, Map* map, struct Game* game, MobCommon* mob) {
@@ -1900,7 +1901,7 @@ void scene_world_update(void* vs, Game* game) {
                 Map* map = cached_map(game, map_asset_for_area(area_id));
                 map->area_id = area_id;
 
-                apply_character_inventory(&plr->guy, &plr->controls, game, map, local_spawn_mob(s));
+                apply_character_inventory(&plr->guy, &plr->controls, game, map);
                 apply_character_physics(game, &plr->guy, &plr->controls, s->gravity, s->drag);
                 collide_character(&plr->guy, &map->tile_collision);
                 slide_character(s->gravity, &plr->guy);
@@ -1987,7 +1988,7 @@ void scene_world_update(void* vs, Game* game) {
         }
     }
     if (s->transition.progress_percent > TRANSITION_POINT) {
-        switch (apply_character_inventory(&s->guy, &game->controls, game, s->map, local_spawn_mob(s))) {
+        switch (apply_character_inventory(&s->guy, &game->controls, game, s->map)) {
         case INV_TOGGLE:
             if (s->inv_fade_countdown > 0) {
                 s->inv_fade_countdown = 0;
@@ -2028,7 +2029,7 @@ void scene_world_update(void* vs, Game* game) {
         after_mob_update = write_mob_events;
 
     SDL_assert(s->map->area_id == s->current_area);
-    update_map(s->map, game, s, local_spawn_mob(s), after_mob_update);
+    update_map(s->map, game, s, after_mob_update);
     if (s->net.status == HOSTING) {
         int updated_maps[NUMBER_OF_AREAS];
         memset(updated_maps, 0, sizeof(updated_maps));
@@ -2041,7 +2042,7 @@ void scene_world_update(void* vs, Game* game) {
             if (updated_maps[area_id]) continue;
 
             Map* map = cached_map(game, map_asset_for_area(area_id));
-            update_map(map, game, s, connected_spawn_mob, after_mob_update);
+            update_map(map, game, s, after_mob_update);
             updated_maps[area_id] = true;
         }
     }

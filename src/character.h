@@ -163,7 +163,7 @@ void default_character(struct Game* game, Character* target);
 void default_character_animations(struct Game* game, Character* guy);
 // This should be called after changing the body or feet type.
 void load_character_atlases(struct Game* game, Character* guy);
-enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls, struct Game* game, struct Map* map, SpawnMobFunc spawn);
+enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls, struct Game* game, struct Map* map);
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag);
 void update_character_animation(Character* guy);
 

@@ -9,7 +9,7 @@ typedef struct ItemType {
     int id;
     void(*initialize)(void* vitem, struct Game* game);
     void(*render)(void* vitem, struct Game* game, SDL_Rect* dest);
-    bool(*drop)(void* vitem, struct Game* game, struct Map* map, vec2 position, SpawnMobFunc spawn);
+    bool(*drop)(void* vitem, struct Game* game, struct Map* map, vec2 position);
 } ItemType;
 
 #define COMMON_ITEM       int item_type_id
@@ -49,7 +49,7 @@ typedef struct ItemFruit {
 } ItemFruit;
 
 void item_fruit_initialize(void* vitem, struct Game* game);
-bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 position, SpawnMobFunc spawn);
+bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 position);
 
 typedef struct ItemEgg {
     COMMON_ITEM;

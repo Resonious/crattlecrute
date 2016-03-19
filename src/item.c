@@ -58,10 +58,10 @@ void item_fruit_initialize(void* vitem, struct Game* game) {
     fruit->layer_count = 2;
 }
 
-bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 position, SpawnMobFunc spawn) {
+bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 position) {
     ItemFruit* fruit = (ItemFruit*)vitem;
 
-    spawn(game->current_scene_data, map, game, MOB_FRUIT, position);
+    game->net.spawn_mob(game->current_scene_data, map, game, MOB_FRUIT, position);
 
     return true;
 }
