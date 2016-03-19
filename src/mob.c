@@ -171,19 +171,14 @@ void mob_fruit_interact(void* vfruit, struct Game* game, struct Map* map, struct
         guy->position.x[Y] > fruit->body.position.x[1] - 20 &&
         guy->position.x[Y] < fruit->body.position.x[1] + 20
     ) {
-        /* TODO TODO
-        if (game->net_joining) {
-            // TODO some kind of special request buffer.
-            // Which can maybe also handle mob spawning or whatever? Dunno...
-            // ACTUALLY, going through door seems like a good use case for this.
-        }
-        else {
-        }
-        */
         int slot = find_good_inventory_slot(&guy->inventory);
         if (slot > -1) {
-            set_item(&guy->inventory, game, slot, ITEM_FRUIT);
-            despawn_mob(map, game, fruit);
+            if (guy->player_id == -1)
+                set_item(&guy->inventory, game, slot, ITEM_FRUIT);
+            else
+                game->net.set_item(game->current_scene_data, guy, game, slot, ITEM_FRUIT);
+
+            game->net.despawn_mob(game->current_scene_data, map, game, fruit);
         }
     }
 }

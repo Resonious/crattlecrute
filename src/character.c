@@ -70,6 +70,8 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
     // "Grab" or drop grabbed item
     if (just_pressed(controls, C_W)) {
         action_taken = INV_ACTION;
+        wait_for_then_use_lock(guy->inventory.locked);
+
         if (guy->grabbed_slot == -1) {
             if (guy->inventory.items[guy->selected_slot].item_type_id != ITEM_NONE)
                 guy->grabbed_slot = guy->selected_slot;
@@ -91,6 +93,8 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
 
             guy->grabbed_slot = -1;
         }
+
+        SDL_UnlockMutex(guy->inventory.locked);
     }
 
     // Swap grabbed if presetn, or toggle inventory
@@ -104,12 +108,14 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
                 guy->grabbed_slot = -1;
             }
             else {
+                wait_for_then_use_lock(guy->inventory.locked);
                 // Swap grabbed with slot item
                 ItemCommon swap;
                 SDL_memcpy(&swap, &guy->inventory.items[guy->selected_slot], sizeof(ItemCommon));
                 SDL_memcpy(&guy->inventory.items[guy->selected_slot], &guy->inventory.items[guy->grabbed_slot], sizeof(ItemCommon));
                 SDL_memcpy(&guy->inventory.items[guy->grabbed_slot], &swap, sizeof(ItemCommon));
                 guy->grabbed_slot = -1;
+                SDL_UnlockMutex(guy->inventory.locked);
             }
         }
     }

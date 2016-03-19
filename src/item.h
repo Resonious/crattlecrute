@@ -25,6 +25,7 @@ typedef struct LayeredIconItem {
 } LayeredIconItem;
 
 typedef struct Inventory {
+    SDL_mutex* locked;
     int capacity;
     ItemCommon* items;
 } Inventory;

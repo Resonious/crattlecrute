@@ -52,9 +52,11 @@ extern SDL_Window* main_window;
 #define NETF_MAPSTATE   (1 << 3)
 #define NETF_MOBEVENT   (1 << 4)
 #define NETF_ATTRIBUTES (1 << 5)
+#define NETF_INVENTORY  (1 << 6)
 
 #define NETF_MOBEVENT_SPAWN 0
 #define NETF_MOBEVENT_UPDATE 1
+#define NETF_MOBEVENT_DESPAWN 2
 
 typedef struct ControlsBuffer {
     SDL_mutex* locked;
@@ -122,6 +124,8 @@ typedef struct RemotePlayer {
 
     int last_frames_playback_pos;
     ControlsBuffer controls_playback;
+
+    SDL_atomic_t i_want_inventory;
 } RemotePlayer;
 
 typedef struct WorldScene {
@@ -296,6 +300,67 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     SDL_UnlockMutex(player->mob_event_buffer_locked);
 }
 
+void unconnected_set_item(void* vs, struct Character* guy, struct Game* game, int slot, int item) {
+    WorldScene* s = (WorldScene*)vs;
+    if (s->net.status != JOINING)
+        set_item(&guy->inventory, game, slot, item);
+}
+
+void connected_set_item(void* vs, struct Character* guy, struct Game* game, int slot, int item) {
+    WorldScene* s = (WorldScene*)vs;
+    SDL_assert(s->net.status == HOSTING);
+
+    printf("Charcter with ID %i picking up an item.\n", guy->player_id);
+    set_item(&guy->inventory, game, slot, item);
+
+    // Don't bother with non-player characters or the local character.
+    if (guy->player_id == -1 || guy->player_id == 0)
+        return;
+
+    RemotePlayer* player = NULL;
+    for (int i = 0; i < s->net.number_of_players; i++) {
+        RemotePlayer* plr = s->net.players[i];
+        if (plr && plr->id == guy->player_id) {
+            player = plr;
+            break;
+        }
+    }
+    if (player == NULL) {
+        printf("ERROR COULD NOT FIND GUY PICKING UP ITEM.\n");
+        return;
+    }
+
+    SDL_AtomicSet(&player->i_want_inventory, true);
+}
+
+void unconnected_despawn_mob(void* vs, Map* map, struct Game* game, MobCommon* mob) {
+    WorldScene* s = (WorldScene*)vs;
+    if (s->net.status != JOINING)
+        despawn_mob(map, game, mob);
+}
+
+void connected_despawn_mob(void* vs, Map* map, struct Game* game, MobCommon* mob) {
+    WorldScene* s = (WorldScene*)vs;
+    SDL_assert(s->net.status == HOSTING);
+
+    int id = mob_id(map, mob);
+    despawn_mob(map, game, mob);
+
+    for (int i = 0; i < s->net.number_of_players; i++) {
+        RemotePlayer* player = s->net.players[i];
+        if (player == NULL || SDL_AtomicGet(&player->area_id) != map->area_id || SDL_AtomicGet(&player->just_switched_maps))
+            continue;
+
+        wait_for_then_use_lock(player->mob_event_buffer_locked);
+
+        player->mob_event_buffer[player->mob_event_buffer_pos++] = NETF_MOBEVENT_DESPAWN;
+        write_to_buffer(player->mob_event_buffer, &id, &player->mob_event_buffer_pos, sizeof(int));
+        player->mob_event_count += 1;
+
+        SDL_UnlockMutex(player->mob_event_buffer_locked);
+    }
+}
+
 // Never spawn mobs when joining
 void unconnected_spawn_mob(void* vs, Map* map, struct Game* game, int mobtype, vec2 pos) {
     WorldScene* s = (WorldScene*)vs;
@@ -310,13 +375,13 @@ void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id,
     MobCommon* mob = spawn_mob(map, game, mob_type_id, pos);
     if (mob != NULL) {
         MobType* mob_type = &mob_registry[mob_type_id];
+        int m_id = mob_id(map, mob);
 
         for (int i = 0; i < s->net.number_of_players; i++) {
             RemotePlayer* player = s->net.players[i];
             if (player == NULL || SDL_AtomicGet(&player->area_id) != map->area_id || SDL_AtomicGet(&player->just_switched_maps))
                 continue;
 
-            int m_id = mob_id(map, mob);
             wait_for_then_use_lock(player->mob_event_buffer_locked);
 
             player->mob_event_buffer[player->mob_event_buffer_pos++] = NETF_MOBEVENT_SPAWN;
@@ -487,6 +552,8 @@ RemotePlayer* allocate_new_player(WorldScene* scene, int id, struct sockaddr_in*
     }
     SDL_AtomicSet(&new_player->frames_until_sync, -1);
 
+    SDL_AtomicSet(&new_player->i_want_inventory, false);
+
     return new_player;
 }
 
@@ -539,6 +606,23 @@ void write_guy_info_to_buffer(byte* buffer, Character* guy, int area_id, int* po
     write_to_buffer(buffer, &area_id, pos, sizeof(int));
 }
 
+void read_guy_inventory_from_buffer(byte* buffer, Character* guy, int* pos) {
+    byte cap = buffer[*pos];
+    *pos += 1;
+    wait_for_then_use_lock(guy->inventory.locked);
+    SDL_assert((int)cap == guy->inventory.capacity);
+    read_from_buffer(buffer, guy->inventory.items, pos, cap * sizeof(ItemCommon));
+    SDL_UnlockMutex(guy->inventory.locked);
+}
+
+void write_guy_inventory_to_buffer(byte* buffer, Character* guy, int* pos) {
+    wait_for_then_use_lock(guy->inventory.locked);
+    buffer[*pos] = (byte)guy->inventory.capacity;
+    *pos += 1;
+    write_to_buffer(buffer, guy->inventory.items, pos, guy->inventory.capacity * sizeof(ItemCommon));
+    SDL_UnlockMutex(guy->inventory.locked);
+}
+
 // balls
 RemotePlayer* netop_initialize_state(WorldScene* scene, byte* buffer, struct sockaddr_in* addr) {
     int pos = 1;
@@ -573,6 +657,7 @@ RemotePlayer* netop_initialize_state(WorldScene* scene, byte* buffer, struct soc
 
         int area_id = SDL_AtomicGet(&player->area_id);
         read_guy_info_from_buffer(buffer, &player->guy, &area_id, &pos);
+        read_guy_inventory_from_buffer(buffer, &player->guy, &pos);
         load_character_atlases(scene->game, &player->guy);
         SDL_AtomicSet(&player->area_id, area_id);
     }
@@ -832,6 +917,18 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
                         reg->sync_receive(mob, scene->map, buffer, &pos);
                     } break;
 
+                    case NETF_MOBEVENT_DESPAWN: {
+                        int m_id;
+                        read_from_buffer(buffer, &m_id, &pos, sizeof(int));
+                        MobCommon* mob = mob_from_id(scene->map, m_id);
+                        if (mob == NULL) {
+                            printf("WARNING: Server wants us to despawn a non existant mob of id %i\n", m_id);
+                        }
+                        else {
+                            despawn_mob(scene->map, scene->game, mob);
+                        }
+                    } break;
+
                     default:
                         printf("WARNING: UNKNOWN MOB EVENT %i\n", (int)event_type);
                     }
@@ -856,6 +953,13 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
                     SDL_AtomicSet(&other_player->i_need_attributes_of[player->id], true);
                 }
             }
+        }
+
+        // Indeed this just sets the local inventory and ignores the current player that the other
+        // updates apply to.
+        if (flags & NETF_INVENTORY) {
+            read_guy_inventory_from_buffer(buffer, &scene->guy, &pos);
+            printf("received inventory\n");
         }
     }//while (pos < bufsize)
 
@@ -986,6 +1090,7 @@ int netwrite_guy_initialization(WorldScene* scene, byte* buffer) {
 
     buffer[pos++] = (byte)scene->net.remote_id;
     write_guy_info_to_buffer(buffer, &scene->guy, scene->current_area, &pos);
+    write_guy_inventory_to_buffer(buffer, &scene->guy, &pos);
 
     return pos;
 }
@@ -1004,6 +1109,7 @@ int netwrite_state(WorldScene* scene, byte* buffer, RemotePlayer* target_player,
 
     buffer[pos++] = (byte)scene->net.remote_id;
     write_guy_info_to_buffer(buffer, &scene->guy, scene->current_area, &pos);
+    write_guy_inventory_to_buffer(buffer, &scene->guy, &pos);
 
     // Write players
     for (int i = 0; i < scene->net.number_of_players; i++) {
@@ -1013,6 +1119,7 @@ int netwrite_state(WorldScene* scene, byte* buffer, RemotePlayer* target_player,
 
         buffer[pos++] = (byte)player->id;
         write_guy_info_to_buffer(buffer, &player->guy, SDL_AtomicGet(&player->area_id), &pos);
+        write_guy_inventory_to_buffer(buffer, &player->guy, &pos);
     }
 
     // Write maps
@@ -1214,6 +1321,13 @@ int network_server_loop(void* vdata) {
                     printf("sent local guy attrs.\n");
                 }
 
+                if (SDL_AtomicGet(&player->i_want_inventory)) {
+                    *flags |= NETF_INVENTORY;
+                    write_guy_inventory_to_buffer(buffer, &player->guy, &pos);
+                    SDL_AtomicSet(&player->i_want_inventory, false);
+                    printf("sent inventory to %i\n", player->id);
+                }
+
                 // If there's more than just this guy playing with us, we need to send them the controls
                 // of all other players..
                 if (scene->net.number_of_players > 1) {
@@ -1357,6 +1471,7 @@ int network_server_listen(void* vdata) {
     }
 
     scene->net.remote_id = 0;
+    scene->guy.player_id = 0;
     scene->net.next_id = 1;
 
     struct sockaddr_in other_address;
@@ -1367,7 +1482,10 @@ int network_server_listen(void* vdata) {
     SDL_UnlockMutex(scene->controls_stream.locked);
 
     listen(scene->net.local_socket, MAX_PLAYERS);
+
+    scene->game->net.set_item = connected_set_item;
     scene->game->net.spawn_mob = connected_spawn_mob;
+    scene->game->net.despawn_mob = connected_despawn_mob;
 
     while (true) {
         // This gets freed at the end of network_server_loop
@@ -1519,6 +1637,7 @@ int network_client_loop(void* vdata) {
             switch (buffer[0]) {
             case NETOP_HERES_YOUR_ID: {
                 scene->net.remote_id = buffer[1];
+                scene->guy.player_id = scene->net.remote_id;
                 // Allocate players for when update_position comes in
                 scene->net.players[scene->net.number_of_players++] = allocate_new_player(scene, 0, &other_address);
                 for (int i = 2; i < recv_len; i++) {
@@ -1659,7 +1778,9 @@ void scene_world_initialize(void* vdata, Game* game) {
     SDL_memset(data->editable_text, 0, sizeof(data->editable_text));
     SDL_strlcat(data->editable_text, "hey", EDITABLE_TEXT_BUFFER_SIZE);
 
+    game->net.set_item = unconnected_set_item;
     game->net.spawn_mob = unconnected_spawn_mob;
+    game->net.despawn_mob = unconnected_despawn_mob;
 
     // Testing physics!!!!
     data->gravity = 1.15f; // In pixels per frame per frame
@@ -2236,6 +2357,8 @@ void scene_world_render(void* vs, Game* game) {
         if (s->inv_fade >= INV_FADE_MAX)
             goto done_with_inventory;
 
+        wait_for_then_use_lock(s->guy.inventory.locked);
+
         // Space between slots
         const float base_padding = 3.0f;
         const int selection_bump = 4;
@@ -2302,6 +2425,8 @@ void scene_world_render(void* vs, Game* game) {
 
             reg->render(item, game, &dest);
         }
+
+        SDL_UnlockMutex(s->guy.inventory.locked);
     }
 done_with_inventory:;
     BENCH_END(inventory);

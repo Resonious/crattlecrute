@@ -80,7 +80,9 @@ typedef struct Game {
         bool canceled;
     } text_edit;
     struct {
+        SetItemFunc set_item;
         SpawnMobFunc spawn_mob;
+        DespawnMobFunc despawn_mob;
     } net;
     int argc;
     char** argv;

@@ -3,6 +3,7 @@
 #include "assets.h"
 
 void initialize_inventory(Inventory* inv, int cap) {
+    inv->locked = SDL_CreateMutex();
     inv->capacity = cap;
     size_t items_size = sizeof(ItemCommon) * cap;
     inv->items = aligned_malloc(items_size);
