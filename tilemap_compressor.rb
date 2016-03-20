@@ -503,6 +503,16 @@ def write_cm(map, file_dest)
     leads_to_area = area_ids[door.properties['leads_to_area']]
     leads_to_x    = eval(door.properties['leads_to_x'])
     leads_to_y    = eval(door.properties['leads_to_y'])
+    if orb_color_str = door.properties['orb_color']
+      orb_color = eval("[#{orb_color_str}]")
+      (0...4).each do |i|
+        if orb_color[i].nil? || orb_color[i] > 255
+          orb_color[i] = 255
+        end
+      end
+    else
+      orb_color = [255, 255, 255, 255]
+    end
 
     file.write(
       [
@@ -510,9 +520,13 @@ def write_cm(map, file_dest)
         door.y.to_i,        # int32
         leads_to_area.to_i, # int32
         leads_to_x.to_i,    # int32
-        leads_to_y.to_i     # int32
+        leads_to_y.to_i,    # int32
+        orb_color[0].to_i,  # Uint8
+        orb_color[1].to_i,  # Uint8
+        orb_color[2].to_i,  # Uint8
+        orb_color[3].to_i   # Uint8
       ]
-        .pack("lllll")
+        .pack("lllllCCCC")
     )
   end
 

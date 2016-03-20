@@ -91,6 +91,9 @@ typedef struct MapTransition {
     vec2 destination_position;
     int progress_percent;
     void* map_data;
+
+    byte door_flags;
+    void(*on_transition)(void*);
 } MapTransition;
 
 typedef struct RemotePlayer {
@@ -160,7 +163,8 @@ typedef struct WorldScene {
         char status_message[512];
         char textinput_ip_address[EDITABLE_TEXT_BUFFER_SIZE];
         char textinput_port[EDITABLE_TEXT_BUFFER_SIZE];
-        enum { HOSTING, JOINING, NOT_CONNECTED } status;
+        byte status_message_countdown;
+        enum { HOSTING, JOINING, NOT_CONNECTED, WANT_TO_JOIN } status;
         bool connected;
 
         SOCKET local_socket;
@@ -219,11 +223,18 @@ void local_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     s->transition.destination_position.x = (float)door->dest_x;
     s->transition.destination_position.y = (float)door->dest_y;
     s->transition.progress_percent = 0;
+    s->transition.on_transition = door->callback;
+    s->transition.door_flags = door->flags;
     SDL_UnlockMutex(s->transition.locked);
 }
 
 void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
     wait_for_then_use_lock(s->transition.locked);
+
+    if (s->transition.on_transition) {
+        s->transition.on_transition(s);
+        s->transition.on_transition = NULL;
+    }
 
     s->current_area = transition->destination_area;
     int map_asset = map_asset_for_area(s->current_area);
@@ -232,7 +243,11 @@ void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
     s->map->area_id = s->current_area;
 
     float dest_x = transition->destination_position.x;
-    float dest_y = s->map->height - transition->destination_position.y;
+    float dest_y;
+    if (transition->door_flags & DOOR_INVERT_Y)
+        dest_y = s->map->height - transition->destination_position.y;
+    else
+        dest_y = transition->destination_position.y;
 
     s->guy.position.x[X]     = dest_x;
     s->guy.position.x[Y]     = dest_y;
@@ -246,7 +261,9 @@ void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
 }
 
 void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
+    printf("remote go through door!\n");
     WorldScene* s = (WorldScene*)vs;
+    SDL_assert(s->net.status == HOSTING);
 
     RemotePlayer* player = NULL;
     for (int i = 0; i < s->net.number_of_players; i++) {
@@ -264,6 +281,9 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     wait_for_then_use_lock(player->mob_event_buffer_locked);
     player->mob_event_count = 0;
     player->mob_event_buffer_pos = 0;
+
+    if (door->callback)
+        door->callback(vs);
 
     SDL_assert(door->dest_area > -1);
     int area_id = door->dest_area;
@@ -287,7 +307,11 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     SDL_AtomicSet(&player->countdown_until_i_get_position_of[0], 0);
 
     float dest_x = (float)door->dest_x;
-    float dest_y = map->height - (float)door->dest_y;
+    float dest_y;
+    if (door->flags & DOOR_INVERT_Y)
+        dest_y = map->height - (float)door->dest_y;
+    else
+        dest_y = (float)door->dest_y;
 
     guy->position.x[X]     = dest_x;
     guy->position.x[Y]     = dest_y;
@@ -573,7 +597,7 @@ RemotePlayer* player_of_id(WorldScene* scene, int id, struct sockaddr_in* addr) 
 
 void read_guy_info_from_buffer(byte* buffer, Character* guy, int* area_id, int* pos) {
     read_from_buffer(buffer, guy->position.x, pos,  sizeof(guy->position.x));
-    memcpy(guy->old_position.x, guy->position.x,    sizeof(guy->position.x));
+    read_from_buffer(buffer, guy->old_position.x,  pos, sizeof(guy->old_position.x));
     read_from_buffer(buffer, &guy->flip,       pos, sizeof(guy->flip));
     read_from_buffer(buffer, &guy->body_color, pos, sizeof(SDL_Color) * 3);
     read_from_buffer(buffer, &guy->eye_type,   pos, sizeof(guy->eye_type));
@@ -591,6 +615,7 @@ void read_guy_info_from_buffer(byte* buffer, Character* guy, int* area_id, int* 
 
 void write_guy_info_to_buffer(byte* buffer, Character* guy, int area_id, int* pos) {
     write_to_buffer(buffer, guy->position.x,  pos, sizeof(guy->position.x));
+    write_to_buffer(buffer, guy->old_position.x,  pos, sizeof(guy->old_position.x));
     write_to_buffer(buffer, &guy->flip,       pos, sizeof(guy->flip));
     write_to_buffer(buffer, &guy->body_color, pos, sizeof(guy->body_color) * 3);
     write_to_buffer(buffer, &guy->eye_type,   pos, sizeof(guy->eye_type));
@@ -841,9 +866,19 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
         if (flags & NETF_MAPSTATE) {
             int area_id;
             read_from_buffer(buffer, &area_id, &pos, sizeof(int));
+            float dest_x, dest_y;
+            read_from_buffer(buffer, &dest_x, &pos, sizeof(float));
+            read_from_buffer(buffer, &dest_y, &pos, sizeof(float));
             int map_data_size;
             read_from_buffer(buffer, &map_data_size, &pos, sizeof(int));
             SDL_assert(map_data_size >= 0);
+
+            wait_for_then_use_lock(scene->transition.locked);
+            scene->transition.destination_position.x = dest_x;
+            scene->transition.destination_position.y = dest_y;
+            scene->transition.destination_area = area_id;
+            if (scene->transition.door_flags & DOOR_INVERT_Y)
+                scene->transition.door_flags ^= DOOR_INVERT_Y;
 
             if (scene->transition.progress_percent <= TRANSITION_POINT) {
                 if (scene->transition.map_data)
@@ -854,6 +889,9 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
                 SDL_AtomicSet(&scene->transition.map_data_status, MAP_DATA_RECEIVED);
             }
             else {
+                // Don't we wait until we get MAP_DATA_RECEIVED before setting current_area and such?
+                // If I'm right, this should never happen.
+                SDL_assert(false);
                 wait_for_then_use_lock(scene->map->locked);
                 SDL_assert(area_id == scene->map->area_id);
                 SDL_assert(area_id == scene->current_area);
@@ -864,6 +902,7 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
                 SDL_UnlockMutex(scene->map->locked);
             }
 
+            SDL_UnlockMutex(scene->transition.locked);
 
             printf("PROCESSED MAP STATE EVENT\n");
         }
@@ -1060,10 +1099,14 @@ int netwrite_guy_mobevents(byte* buffer, RemotePlayer* player, int* pos) {
     return *pos;
 }
 
-void netwrite_guy_mapstate(byte* buffer, Map* map, int* pos) {
+void netwrite_guy_mapstate(byte* buffer, RemotePlayer* player, Map* map, int* pos) {
     wait_for_then_use_lock(map->locked);
 
+    float x = player->guy.position.x[X], y = player->guy.position.x[Y];
     write_to_buffer(buffer, &map->area_id, pos, sizeof(int));
+    write_to_buffer(buffer, &x, pos, sizeof(float));
+    write_to_buffer(buffer, &y, pos, sizeof(float));
+
     int size_pos = *pos;
     *pos += sizeof(int);
 
@@ -1200,7 +1243,12 @@ int network_server_loop(void* vdata) {
 
                 // Load their map to send it to them.
                 int their_area_id = SDL_AtomicGet(&new_player->area_id);
+                SDL_assert(their_area_id == AREA_NET_ZONE);
                 Map* their_map = cached_map(scene->game, map_asset_for_area(their_area_id));
+                if (their_map->doors[1].flags & DOOR_VISIBLE)
+                    printf("Netzone door visible!");
+                else
+                    printf("Netzone door INvisible!");
                 their_map->area_id = their_area_id;
 
                 new_player->socket = loop->socket;
@@ -1285,34 +1333,32 @@ int network_server_loop(void* vdata) {
                     player->local_stream_spot.pos   = scene->controls_stream.pos;
                 }
 
-                bool mob_events_locked = false;
                 if (SDL_AtomicGet(&player->just_switched_maps)) {
                     *flags |= NETF_MAPSTATE;
 
                     int area_id = SDL_AtomicGet(&player->area_id);
                     Map* map = cached_map(scene->game, map_asset_for_area(area_id));
                     map->area_id = area_id;
-                    netwrite_guy_mapstate(buffer, map, &pos);
+                    netwrite_guy_mapstate(buffer, player, map, &pos);
 
                     SDL_AtomicSet(&player->just_switched_maps, false);
                     wait_for_then_use_lock(player->mob_event_buffer_locked);
-                    mob_events_locked = true;
 
                     player->mob_event_buffer_pos = 0;
                     player->mob_event_count = 0;
+
+                    SDL_UnlockMutex(player->mob_event_buffer_locked);
                 }
 
                 if (player->mob_event_count > 0) {
                     *flags |= NETF_MOBEVENT;
                     // This will never deadlock with above, as mob_event_count will be 0 if it's locked from there.
                     wait_for_then_use_lock(player->mob_event_buffer_locked);
-                    mob_events_locked = true;
 
                     netwrite_guy_mobevents(buffer, player, &pos);
-                }
 
-                if (mob_events_locked)
                     SDL_UnlockMutex(player->mob_event_buffer_locked);
+                }
 
                 if (SDL_AtomicGet(&scene->guy.dirty)) {
                     *flags |= NETF_ATTRIBUTES;
@@ -1454,6 +1500,20 @@ int network_server_loop(void* vdata) {
     return r;
 }
 
+// NOTE this should be the only door.callback for any door while hosting....
+void remote_player_enters_net_zone_door(void* vs) {
+    printf("REMOTE PLAYER ENTERS NET ZONE DOOR!\n");
+    WorldScene* s = (WorldScene*)vs;
+    SDL_assert(s->net.status == HOSTING);
+    Map* net_zone = cached_map(s->game, map_asset_for_area(AREA_NET_ZONE));
+    SDL_assert(s->current_area != AREA_NET_ZONE);
+    net_zone->doors[1].dest_area = s->current_area;
+    net_zone->doors[1].dest_x = s->guy.position.x[X];
+    net_zone->doors[1].dest_y = s->guy.position.x[Y];
+    if (net_zone->doors[1].flags & DOOR_INVERT_Y)
+        net_zone->doors[1].flags ^= DOOR_INVERT_Y;
+}
+
 int network_server_listen(void* vdata) {
     WorldScene* scene = (WorldScene*)vdata;
 
@@ -1468,6 +1528,16 @@ int network_server_listen(void* vdata) {
         SET_LOCKED_STRING_F(scene->net.status_message, "Failed to bind: %i", WSAGetLastError());
         scene->net.status = NOT_CONNECTED;
         return 1;
+    }
+    else {
+        Map* net_zone = cached_map(scene->game, map_asset_for_area(AREA_NET_ZONE));
+        net_zone->area_id = AREA_NET_ZONE;
+
+        if (net_zone->doors[0].flags & DOOR_VISIBLE)
+            net_zone->doors[0].flags ^= DOOR_VISIBLE;
+
+        net_zone->doors[1].flags |= DOOR_VISIBLE;
+        net_zone->doors[1].callback = remote_player_enters_net_zone_door;
     }
 
     scene->net.remote_id = 0;
@@ -1539,9 +1609,15 @@ int network_client_loop(void* vdata) {
     other_address.sin_addr.s_addr = inet_addr(ip_address);
     other_address.sin_port = htons(atoi(port));
     if (connect(scene->net.local_socket, (struct sockaddr*)&other_address, sizeof(other_address)) < 0) {
-        printf("COULD NOT CONNECT!!!!!!!!!\n");
+        SET_LOCKED_STRING(scene->net.status_message, "Failed to connect.");
+        scene->net.status_message_countdown = 60 * 10;
         scene->net.status = NOT_CONNECTED;
+        scene->map->doors[0].flags |= DOOR_VISIBLE;
         return 0;
+    }
+
+    while (scene->current_area != AREA_NET_ZONE) {
+        SDL_Delay(1000);
     }
 
     scene->net.server_address = other_address;
@@ -1639,6 +1715,7 @@ int network_client_loop(void* vdata) {
                 scene->net.remote_id = buffer[1];
                 scene->guy.player_id = scene->net.remote_id;
                 // Allocate players for when update_position comes in
+                SDL_assert(scene->net.number_of_players == 0);
                 scene->net.players[scene->net.number_of_players++] = allocate_new_player(scene, 0, &other_address);
                 for (int i = 2; i < recv_len; i++) {
                     // NOTE as client I guess all `other_address`es will just be the server's address..
@@ -1648,9 +1725,21 @@ int network_client_loop(void* vdata) {
                 SET_LOCKED_STRING_F(scene->net.status_message, "Client ID: %i", scene->net.remote_id);
             } break;
 
-            case NETOP_INITIALIZE_PLAYER:
+            case NETOP_INITIALIZE_PLAYER: {
                 netop_initialize_state(scene, buffer, NULL);
-                break;
+                RemotePlayer* host_player = scene->net.players[0];
+
+                SDL_assert(host_player != NULL && host_player->id == 0);
+                SDL_assert(scene->current_area == AREA_NET_ZONE);
+
+                Door* door_there = &scene->map->doors[1];
+                // NOTE this stuff will be overridden by the server anyways, but whatever.
+                door_there->dest_area = SDL_AtomicGet(&host_player->area_id);
+                door_there->dest_x    = host_player->guy.position.x[X];
+                door_there->dest_y    = host_player->guy.position.x[Y];
+                door_there->flags = DOOR_VISIBLE;
+
+            } break;
 
             case NETOP_UPDATE_CONTROLS: {
                 RemotePlayer* player = netop_update_controls(scene, buffer, NULL);
@@ -1693,10 +1782,44 @@ void net_host(WorldScene* data) {
     SDL_CreateThread(network_server_listen, "Network server listen", data);
 }
 
-void net_join(WorldScene* data) {
-    data->net.status = JOINING;
-    SDL_CreateThread(network_client_loop, "Network client loop", data);
+
+void create_client_thread(void* vs) {
+    WorldScene* s = (WorldScene*)vs;
+    Map* net_zone = cached_map(s->game, map_asset_for_area(AREA_NET_ZONE));
+    net_zone->area_id = AREA_NET_ZONE;
+
+    Door* door_back  = &net_zone->doors[0];
+    Door* door_there = &net_zone->doors[1];
+
+    door_back->flags = 0;
+    if (s->current_area != AREA_NET_ZONE) {
+        door_back->dest_area = s->current_area;
+        door_back->dest_x = s->guy.position.x[X];
+        door_back->dest_y = s->guy.position.x[Y];
+    }
+
+    door_there->flags = 0;
+
+    s->net.status = JOINING;
+    s->game->net_joining = true;
+    SDL_CreateThread(network_client_loop, "Network client loop", vs);
     printf("Created client loop thread\n");
+}
+
+void net_join(WorldScene* s) {
+    s->net.status = NOT_CONNECTED;
+    if (s->current_area == AREA_NET_ZONE) {
+        create_client_thread(s);
+    }
+    else {
+        wait_for_then_use_lock(s->transition.locked);
+        s->transition.destination_area = AREA_NET_ZONE;
+        s->transition.destination_position.x = 69.0f;
+        s->transition.destination_position.y = 512.0f;
+        s->transition.progress_percent = 0;
+        s->transition.on_transition = create_client_thread;
+        SDL_UnlockMutex(s->transition.locked);
+    }
 }
 
 mrb_value rb_world(mrb_state* mrb, mrb_value self) {
@@ -1789,6 +1912,8 @@ void scene_world_initialize(void* vdata, Game* game) {
     data->controls_stream.current_frame = -1;
     data->controls_stream.pos = 1;
 
+    data->transition.door_flags = (DOOR_INVERT_Y | DOOR_VISIBLE);
+    data->transition.on_transition = NULL;
     data->transition.map_data = NULL;
     data->transition.progress_percent = 101;
     data->transition.locked = SDL_CreateMutex();
@@ -2256,13 +2381,13 @@ void scene_world_update(void* vs, Game* game) {
         }
         else if (just_pressed(&game->controls, C_F2)) {
             start_editing_text(game, s->net.textinput_ip_address, EDITABLE_TEXT_BUFFER_SIZE, &text_box_rect);
-            s->net.status = JOINING;
-            game->net_joining = true;
+            s->net.status = WANT_TO_JOIN;
         }
     }
     else {
         if (game->text_edit.canceled) {
             s->net.status = NOT_CONNECTED;
+            game->net_joining = false;
         }
         if (game->text_edit.enter_pressed) {
             stop_editing_text(game);
@@ -2270,7 +2395,7 @@ void scene_world_update(void* vs, Game* game) {
             case HOSTING:
                 net_host(s);
                 break;
-            case JOINING:
+            case JOINING: case WANT_TO_JOIN:
                 net_join(s);
                 break;
             default:
@@ -2469,9 +2594,11 @@ done_with_inventory:;
     BENCH_END(editable_text);
 
     BENCH_START(status_message);
-    if (s->net.status != NOT_CONNECTED) {
-        set_text_color(game, 100, 50, 255);
+    if (s->net.status != NOT_CONNECTED || s->net.status_message_countdown > 0) {
+        set_text_color(game, 255, 50, 50);
         draw_text(game, 10, game->window_height - 50, s->net.status_message);
+        if (s->net.status_message_countdown > 0)
+            s->net.status_message_countdown -= 1;
     }
     BENCH_END(status_message);
 

@@ -274,6 +274,7 @@
     <property name="leads_to_area" value="AREA_TESTZONE_TWO"/>
     <property name="leads_to_x" value="10 * 32"/>
     <property name="leads_to_y" value="4 * 32"/>
+    <property name="orb_color" value="0,255,0"/>
    </properties>
   </object>
  </objectgroup>

@@ -143,6 +143,7 @@ typedef struct GenericBody {
 
 struct Map;
 struct MobCommon;
+typedef void(*Callback)(void*);
 typedef void(*SetItemFunc)(void*, struct Character*, struct Game*, int, int);
 typedef void(*SpawnMobFunc)(void*, struct Map*, struct Game*, int, vec2);
 typedef void(*DespawnMobFunc)(void*, struct Map*, struct Game*, struct MobCommon*);

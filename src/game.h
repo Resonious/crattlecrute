@@ -117,6 +117,7 @@ void stop_editing_text(Game* game);
 enum AreaId {
     AREA_TESTZONE_ONE,
     AREA_TESTZONE_TWO,
+    AREA_NET_ZONE,
     NUMBER_OF_AREAS
 };
 int map_asset_for_area(int area_id);

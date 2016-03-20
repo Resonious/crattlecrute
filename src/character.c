@@ -41,6 +41,10 @@ void interact_character_with_world(
             guy->position.x[Y] > door->y      &&
             guy->position.x[Y] < door->y + 90
         ) {
+            if (!(door->flags & DOOR_VISIBLE)) {
+                printf("Guy just tried to go through invisible door!\n");
+                continue;
+            }
             guy->just_went_through_door = true;
             if (go_through_door == NULL)
                 printf("A character wanted to go through a door! (no callback provided)\n");

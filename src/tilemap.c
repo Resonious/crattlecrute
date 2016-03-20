@@ -467,6 +467,8 @@ static void draw_debug_borders(Game* game, SDL_Rect* dest, int i, int j) {
 */
 
 void draw_door(struct Game* game, struct Door* door) {
+    if (!(door->flags & DOOR_VISIBLE))
+        return;
     SDL_Texture* tex = cached_texture(game, ASSET_MISC_DOOR_PNG);
     SDL_Rect src = { 0, 90, 90, 90 };
     vec2 pos = { (float)door->x, (float)door->y };
@@ -476,6 +478,19 @@ void draw_door(struct Game* game, struct Door* door) {
     src.x = 0;
     src.y = 0;
     world_render_copy(game, tex, &src, &pos, 90, 90, NULL);
+
+    if (door->orb_color.a != 0) {
+        src.x = 90;
+        Uint8 r, g, b, a;
+        SDL_GetTextureColorMod(tex, &r, &g, &b);
+        SDL_GetTextureAlphaMod(tex, &a);
+
+        SDL_SetTextureColorMod(tex, door->orb_color.r, door->orb_color.g, door->orb_color.b);
+        SDL_SetTextureAlphaMod(tex, door->orb_color.a);
+        world_render_copy(game, tex, &src, &pos, 90, 90, NULL);
+        SDL_SetTextureColorMod(tex, r, g, b);
+        SDL_SetTextureAlphaMod(tex, a);
+    }
 }
 
 void draw_parallax_background(struct Game* game, struct Map* map, struct ParallaxBackground* background) {
@@ -499,8 +514,8 @@ void draw_parallax_background(struct Game* game, struct Map* map, struct Paralla
         }
     }
     else {
-        real_width = map->width;
-        real_height = map->height;
+        real_width = background->width;
+        real_height = background->height;
     }
 
     SDL_Rect dest = {
@@ -1210,7 +1225,7 @@ void load_map(const int asset, /*out*/ Map* map) {
         map->backgrounds[i].height = image->h;
         free_image(image);
     }
-    SDL_assert(file.size != pos);
+    SDL_assert(door_count != 0 ? file.size != pos : true);
 
     map->doors = (Door*)(map->backgrounds + background_count);
     for (int i = 0; i < door_count; i++) {
@@ -1219,12 +1234,22 @@ void load_map(const int asset, /*out*/ Map* map) {
         READ(int, area_id);
         READ(int, dest_x);
         READ(int, dest_y);
+        READ(byte, orb_r);
+        READ(byte, orb_g);
+        READ(byte, orb_b);
+        READ(byte, orb_a);
 
         map->doors[i].x = x;
         map->doors[i].y = y;
         map->doors[i].dest_area = area_id;
         map->doors[i].dest_x = dest_x;
         map->doors[i].dest_y = dest_y;
+        map->doors[i].orb_color.r = orb_r;
+        map->doors[i].orb_color.g = orb_g;
+        map->doors[i].orb_color.b = orb_b;
+        map->doors[i].orb_color.a = orb_a;
+        map->doors[i].flags = DOOR_VISIBLE | DOOR_INVERT_Y;
+        map->doors[i].callback = NULL;
     }
 
     MobSpawnRate* next_spawn_rate = (MobSpawnRate*)(map->doors + door_count);
@@ -1260,7 +1285,8 @@ void load_map(const int asset, /*out*/ Map* map) {
 
     byte* map_state = (byte*)(map->spawn_zones + spawn_zone_count);
     int remainder = ((size_t)map_state) % 16;
-    map_state += (16 - remainder);
+    if (remainder != 0)
+        map_state += (16 - remainder);
 
     map->state = (MapState*)map_state;
     clear_map_state(map);

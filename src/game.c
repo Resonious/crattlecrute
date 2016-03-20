@@ -153,6 +153,7 @@ int map_asset_for_area(int area_id) {
     switch (area_id) {
     case AREA_TESTZONE_ONE: return ASSET_MAPS_TEST3_CM;
     case AREA_TESTZONE_TWO: return ASSET_MAPS_TEST4_CM;
+    case AREA_NET_ZONE:     return ASSET_MAPS_TRANSITION_CM;
     default:
         SDL_assert(!"UNKNOWN AREA!");
         return ASSET_MAPS_TEST3_CM;

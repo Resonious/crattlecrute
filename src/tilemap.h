@@ -101,9 +101,17 @@ typedef struct ParallaxBackground {
 #define BG_WRAP_X (1 << 0)
 #define BG_WRAP_Y (1 << 1)
 
+#define DOOR_VISIBLE  (1 << 0)
+#define DOOR_INVERT_Y (1 << 1)
+
 typedef struct Door {
     int x, y;
     int dest_x, dest_y, dest_area;
+    SDL_Color orb_color;
+    // NOTE gotta be careful with using flags for the sake of netplay.
+    byte flags;
+    // NOTE gotta be careful with using callback for the sake of netplay.
+    Callback callback;
 } Door;
 
 typedef struct MobSpawnRate {
