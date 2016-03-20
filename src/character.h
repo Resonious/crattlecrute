@@ -113,6 +113,8 @@ typedef struct Character {
     int selected_slot;
     int grabbed_slot;
     Inventory inventory;
+
+    mrb_value rinventory;
 } Character;
 
 #define CHARACTER_SPRITE_WIDTH 90

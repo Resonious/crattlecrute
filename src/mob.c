@@ -5,6 +5,36 @@
 #include "script.h"
 #include "character.h"
 
+void write_body_to_buffer(byte* buffer, GenericBody* body, int* pos) {
+    write_to_buffer(buffer, body->position.x, pos, sizeof(vec4));
+    write_to_buffer(buffer, body->old_position.x, pos, sizeof(vec4));
+    write_to_buffer(buffer, &body->grounded, pos, 1);
+}
+void read_body_from_buffer(byte* buffer, GenericBody* body, int* pos) {
+    read_from_buffer(buffer, body->position.x, pos, sizeof(vec4));
+    read_from_buffer(buffer, body->old_position.x, pos, sizeof(vec4));
+    read_from_buffer(buffer, &body->grounded, pos, 1);
+}
+void pick_up_item(PhysicsMob* mob, int item_type, struct Game* game, struct Map* map, struct Character* guy, struct Controls* controls) {
+    if (
+        just_pressed(controls, C_DOWN) &&
+        guy->position.x[X] > mob->body.position.x[0] - 25 &&
+        guy->position.x[X] < mob->body.position.x[0] + 25 &&
+        guy->position.x[Y] > mob->body.position.x[1] - 20 &&
+        guy->position.x[Y] < mob->body.position.x[1] + 20
+    ) {
+        int slot = find_good_inventory_slot(&guy->inventory);
+        if (slot > -1) {
+            if (guy->player_id == -1)
+                set_item(&guy->inventory, game, slot, item_type);
+            else
+                game->net.set_item(game->current_scene_data, guy, game, slot, item_type);
+
+            game->net.despawn_mob(game->current_scene_data, map, game, mob);
+        }
+    }
+}
+
 // ==== PON ====
 
 #define set_pon_sensors(pon) set_collision_sensors(&pon->body, 50, 34, 0);
@@ -163,24 +193,7 @@ void mob_fruit_update(void* vfruit, struct Game* game, struct Map* map) {
 }
 void mob_fruit_interact(void* vfruit, struct Game* game, struct Map* map, struct Character* guy, struct Controls* controls) {
     MobFruit* fruit = (MobFruit*)vfruit;
-
-    if (
-        just_pressed(controls, C_DOWN) &&
-        guy->position.x[X] > fruit->body.position.x[0] - 25 &&
-        guy->position.x[X] < fruit->body.position.x[0] + 25 &&
-        guy->position.x[Y] > fruit->body.position.x[1] - 20 &&
-        guy->position.x[Y] < fruit->body.position.x[1] + 20
-    ) {
-        int slot = find_good_inventory_slot(&guy->inventory);
-        if (slot > -1) {
-            if (guy->player_id == -1)
-                set_item(&guy->inventory, game, slot, ITEM_FRUIT);
-            else
-                game->net.set_item(game->current_scene_data, guy, game, slot, ITEM_FRUIT);
-
-            game->net.despawn_mob(game->current_scene_data, map, game, fruit);
-        }
-    }
+    pick_up_item((PhysicsMob*)fruit, ITEM_FRUIT, game, map, guy, controls);
 }
 void mob_fruit_render(void* vfruit, struct Game* game, struct Map* map) {
     MobFruit* fruit = (MobFruit*)vfruit;
@@ -191,17 +204,13 @@ void mob_fruit_render(void* vfruit, struct Game* game, struct Map* map) {
 }
 void mob_fruit_save(void* vfruit, struct Map* map, byte* buffer, int* pos) {
     MobFruit* fruit = (MobFruit*)vfruit;
-    write_to_buffer(buffer, fruit->body.position.x, pos, sizeof(vec4));
-    write_to_buffer(buffer, fruit->body.old_position.x, pos, sizeof(vec4));
-    write_to_buffer(buffer, &fruit->body.grounded, pos, 1);
+    write_body_to_buffer(buffer, &fruit->body, pos);
     write_to_buffer(buffer, &fruit->dy, pos, sizeof(float));
 }
 void mob_fruit_load(void* vfruit, struct Map* map, byte* buffer, int* pos) {
     MobFruit* fruit = (MobFruit*)vfruit;
     set_fruit_sensors(fruit);
-    read_from_buffer(buffer, fruit->body.position.x, pos, sizeof(vec4));
-    read_from_buffer(buffer, fruit->body.old_position.x, pos, sizeof(vec4));
-    read_from_buffer(buffer, &fruit->body.grounded, pos, 1);
+    read_body_from_buffer(buffer, &fruit->body, pos);
     read_from_buffer(buffer, &fruit->dy, pos, sizeof(float));
 }
 
@@ -213,4 +222,59 @@ bool mob_fruit_sync_send(void* vfruit, struct Map* map, byte* buffer, int* pos) 
 void mob_fruit_sync_receive(void* vfruit, struct Map* map, byte* buffer, int* pos) {
     MobFruit* fruit = (MobFruit*)vfruit;
     // TODO
+}
+
+// ===== EGG =====
+
+#define set_egg_sensors(egg) set_collision_sensors(&egg->body, 26, 40, 0);
+
+void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos) {
+    MobEgg* egg = (MobEgg*)vegg;
+    set_egg_sensors(egg);
+    egg->body.position.x[X] = pos.x;
+    egg->body.position.x[Y] = pos.y;
+    egg->body.old_position.simd = egg->body.position.simd;
+    egg->body.grounded = false;
+    egg->dy = 0;
+}
+void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
+    MobEgg* egg = (MobEgg*)vegg;
+
+    egg->dy -= 1.15f;
+    if (egg->dy < -17.0f)
+        egg->dy = -17.0f;
+    egg->body.position.x[Y] += egg->dy;
+
+    collide_generic_body(&egg->body, &map->tile_collision);
+}
+void mob_egg_interact(void* vegg, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls) {
+    pick_up_item((PhysicsMob*)vegg, ITEM_EGG, game, map, character, ctrls);
+}
+void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
+    MobFruit* egg = (MobFruit*)vegg;
+
+    vec2 p = { egg->body.position.x[X], egg->body.position.x[Y] };
+    vec2 c = { 32, 32 };
+
+    int image_width, image_height;
+    SDL_Texture* tex = cached_texture(game, ASSET_EGG_BASIC_PNG);
+    SDL_QueryTexture(tex, NULL, NULL, &image_width, &image_height);
+
+    SDL_Rect src = src_rect_frame(3, image_width, image_height, 64, 64);
+
+    // Just render the egg bottom and top on frames 3 and 5.
+    world_render_copy(game, tex, &src, &p, 64, 64, &c);
+    increment_src_rect(&src, 2, image_width, image_height);
+    world_render_copy(game, tex, &src, &p, 64, 64, &c);
+}
+void mob_egg_save(void* vegg, struct Map* map, byte* buffer, int* pos) {
+    MobEgg* egg = (MobEgg*)vegg;
+    write_body_to_buffer(buffer, &egg->body, pos);
+    write_to_buffer(buffer, &egg->dy, pos, sizeof(float));
+}
+void mob_egg_load(void* vegg, struct Map* map, byte* buffer, int* pos) {
+    MobEgg* egg = (MobEgg*)vegg;
+    set_egg_sensors(egg);
+    read_body_from_buffer(buffer, &egg->body, pos);
+    read_from_buffer(buffer, &egg->dy, pos, sizeof(float));
 }

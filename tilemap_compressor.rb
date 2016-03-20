@@ -45,6 +45,7 @@ def parse_enum(enum, file_content)
       next if entry.empty?
       if /=\s+(?<set_to>-?\d+)/ =~ entry
         i = set_to.to_i
+        entry = entry.gsub(/\s*=.*$/, '')
       end
 
       result[entry] = i

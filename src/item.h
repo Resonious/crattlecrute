@@ -55,8 +55,11 @@ void item_fruit_initialize(void* vitem, struct Game* game);
 bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 position);
 
 typedef struct ItemEgg {
-    COMMON_ITEM;
+    LAYERED_ICON_ITEM;
 } ItemEgg;
+
+void item_egg_initialize(void* vitem, struct Game* game);
+bool item_egg_drop(void* vitem, struct Game* game, struct Map* map, vec2 position);
 
 static ItemType item_registry[] = {
     {
@@ -66,10 +69,10 @@ static ItemType item_registry[] = {
         item_fruit_drop
     },
     {
-        ITEM_EGG, ASSET_TERRAIN_DIRT1_PNG, // <- TODO .....
-        NULL,
-        NULL, // TODO probably also layered
-        NULL
+        ITEM_EGG, ASSET_EGG_BASIC_INV_PNG,
+        item_egg_initialize,
+        render_layered_icon_item,
+        item_egg_drop
     }
 };
 

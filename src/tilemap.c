@@ -603,6 +603,16 @@ void draw_tilemap(struct Game* game, Tilemap* tilemap) {
     }// while (dest.y < height)
 }
 
+SDL_Rect src_rect_frame(int n, int image_width, int image_height, int frame_height, int frame_width) {
+    SDL_Rect src = {
+        0, image_height - frame_height,
+        frame_width, frame_height
+    };
+    if (n > 0)
+        increment_src_rect(&src, n, image_width, image_height);
+    return src;
+}
+
 void increment_src_rect(SDL_Rect* src, int n, int image_width, int image_height) {
     src->x += src->w * n;
     while (src->x >= image_width) {

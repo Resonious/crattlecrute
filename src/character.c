@@ -544,14 +544,15 @@ void default_character(struct Game* game, Character* target) {
 
     // Script stuff:
 
-#define RUBY_COLOR(attr) \
-    target->r##attr = mrb_instance_alloc(game->mrb, game->ruby.color_class); \
+#define RUBY_MEMBER(attr, type) \
+    target->r##attr = mrb_instance_alloc(game->mrb, game->ruby.type##_class); \
     mrb_data_init(target->r##attr, &target->attr, &mrb_dont_free_type);
 
-    RUBY_COLOR(body_color);
-    RUBY_COLOR(eye_color);
-    RUBY_COLOR(left_foot_color);
-    RUBY_COLOR(right_foot_color);
+    RUBY_MEMBER(body_color,       color);
+    RUBY_MEMBER(eye_color,        color);
+    RUBY_MEMBER(left_foot_color,  color);
+    RUBY_MEMBER(right_foot_color, color);
+    RUBY_MEMBER(inventory, inventory);
 }
 
 void load_character_atlases(struct Game* game, Character* guy) {

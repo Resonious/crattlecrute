@@ -165,6 +165,7 @@ typedef struct CmFileHeader {
     Uint16 total_spawn_rate_count;
 } CmFileHeader;
 
+SDL_Rect src_rect_frame(int n, int image_width, int image_height, int frame_height, int frame_width);
 void increment_src_rect(SDL_Rect* src, int n, int image_width, int image_height);
 
 void world_render_copy(

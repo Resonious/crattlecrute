@@ -287,6 +287,47 @@ FLOAT_CHARACTER_ATTR(jump_cancel_dy);
     mrb_hash_set(game->mrb, game->ruby.cc_type_to_sym, mrb_fixnum_value(val), mrb_symbol_value(mrb_intern_lit(game->mrb, #rval)));\
     mrb_hash_set(game->mrb, game->ruby.cc_sym_to_type, mrb_symbol_value(mrb_intern_lit(game->mrb, #rval)), mrb_fixnum_value(val));
 
+mrb_value mrb_character_inventory(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    return guy->rinventory;
+}
+
+mrb_value mrb_inventory_capacity(mrb_state* mrb, mrb_value self) {
+    Inventory* inv = DATA_PTR(self);
+    return mrb_fixnum_value(inv->capacity);
+}
+
+mrb_value mrb_inventory_count(mrb_state* mrb, mrb_value self) {
+    Inventory* inv = DATA_PTR(self);
+
+    int count = 0;
+    for (int i = 0; i < inv->capacity; i++) {
+        if (inv->items[i].item_type_id != ITEM_NONE)
+            count += 1;
+    }
+    return mrb_fixnum_value(count);
+}
+
+mrb_value mrb_inventory_add(mrb_state* mrb, mrb_value self) {
+    Inventory* inv = DATA_PTR(self);
+
+    mrb_value item_type;
+    mrb_get_args(mrb, "i", &item_type);
+
+    int slot = find_good_inventory_slot(inv);
+    if (slot >= 0) {
+        set_item(inv, (Game*)mrb->ud, slot, mrb_fixnum(item_type));
+    }
+    else {
+        mrb_raise(
+            mrb,
+            mrb_class_get(mrb, "RuntimeError"),
+            "Inventory out of room!"
+        );
+    }
+    return mrb_nil_value();
+}
+
 // World functions are defined in scene_world.c
 
 void script_init(struct Game* game) {
@@ -393,6 +434,9 @@ void script_init(struct Game* game) {
     RUBY_CRATTLETYPE_SYM(CRATTLECRUTE_STANDARD, standard);
 
     mrb_define_method(game->mrb, game->ruby.character_class, "initialize", mrb_character_init, MRB_ARGS_NONE());
+
+    mrb_define_method(game->mrb, game->ruby.character_class, "inventory", mrb_character_inventory, MRB_ARGS_NONE());
+
     mrb_define_method(game->mrb, game->ruby.character_class, "body_type", mrb_character_body_type, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "feet_type", mrb_character_feet_type, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "body_type=", mrb_character_body_type_eq, MRB_ARGS_REQ(1));
@@ -421,6 +465,21 @@ void script_init(struct Game* game) {
 
     mrb_define_method(game->mrb, game->ruby.character_class, "mark_dirty", mrb_character_mark_dirty, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "dirty!", mrb_character_mark_dirty, MRB_ARGS_NONE());
+
+    // ==================================== class Item =================================
+    game->ruby.item_class = mrb_define_class(game->mrb, "Item", game->mrb->object_class);
+    MRB_SET_INSTANCE_TT(game->ruby.item_class, MRB_TT_DATA);
+
+    // ================================== class Inventory ===============================
+    game->ruby.inventory_class = mrb_define_class(game->mrb, "Inventory", game->mrb->object_class);
+    MRB_SET_INSTANCE_TT(game->ruby.inventory_class, MRB_TT_DATA);
+
+    mrb_define_method(game->mrb, game->ruby.inventory_class, "capacity", mrb_inventory_capacity, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.inventory_class, "count", mrb_inventory_count, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.inventory_class, "<<", mrb_inventory_add, MRB_ARGS_REQ(1));
+
+    // =============================== STATICALLY GENERATED STUFF ============================
+    define_mrb_enum_constants(game);
 }
 
 // Pasted in from mirb code lol.

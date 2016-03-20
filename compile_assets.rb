@@ -227,9 +227,15 @@ header.write("    return -1;\n")
 header.write("}\n\n")
 
 # ==== A method to be called in script.c, that just loads a bunch of enums into ruby. ====
-header.write("static void define_mrb_enum_constants(mrb_state* mrb) {\n")
-# TODO
-header.write("}\n")
+item_h = File.open(File.join(File.dirname(__FILE__), 'src/item.h'), &:read)
+item_ids = parse_enum('ItemId', item_h)
+
+header.write("#define define_mrb_enum_constants(game) \\\n")
+item_ids.each do |name, value|
+  ruby_name = name.gsub(/^ITEM_/, '')
+  header.write(%{    mrb_const_set(game->mrb, mrb_obj_value(game->ruby.item_class), mrb_intern_lit(game->mrb, "#{ruby_name}"), mrb_fixnum_value(#{value}));\\\n})
+end
+header.write("\n")
 
 header.write("#endif // ASSETS_H\n")
 

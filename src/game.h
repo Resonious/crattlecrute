@@ -67,6 +67,8 @@ typedef struct Game {
         struct RClass* map_class;
         struct RClass* mob_class;
         struct RClass* character_class;
+        struct RClass* item_class;
+        struct RClass* inventory_class;
         mrb_value cc_type_to_sym;
         mrb_value cc_sym_to_type;
     } ruby;
