@@ -891,7 +891,7 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
             else {
                 // Don't we wait until we get MAP_DATA_RECEIVED before setting current_area and such?
                 // If I'm right, this should never happen.
-                // This got triggered.
+                // (This gets) This got triggered.
                 SDL_assert(false);
                 wait_for_then_use_lock(scene->map->locked);
                 SDL_assert(area_id == scene->map->area_id);
@@ -1729,18 +1729,17 @@ int network_client_loop(void* vdata) {
             } break;
 
             case NETOP_INITIALIZE_PLAYER: {
-                netop_initialize_state(scene, buffer, NULL);
-                RemotePlayer* host_player = scene->net.players[0];
+                RemotePlayer* player = netop_initialize_state(scene, buffer, NULL);
 
-                SDL_assert(host_player != NULL && host_player->id == 0);
-                SDL_assert(scene->current_area == AREA_NET_ZONE);
-
-                Door* door_there = &scene->map->doors[1];
-                // NOTE this stuff will be overridden by the server anyways, but whatever.
-                door_there->dest_area = SDL_AtomicGet(&host_player->area_id);
-                door_there->dest_x    = host_player->guy.position.x[X];
-                door_there->dest_y    = host_player->guy.position.x[Y];
-                door_there->flags = DOOR_VISIBLE;
+                if (player->id == 0) {
+                    SDL_assert(scene->current_area == AREA_NET_ZONE);
+                    Door* door_there = &scene->map->doors[1];
+                    // NOTE this stuff will be overridden by the server anyways, but whatever.
+                    door_there->dest_area = SDL_AtomicGet(&player->area_id);
+                    door_there->dest_x = player->guy.position.x[X];
+                    door_there->dest_y = player->guy.position.x[Y];
+                    door_there->flags = DOOR_VISIBLE;
+                }
 
             } break;
 
