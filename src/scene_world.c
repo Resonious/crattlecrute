@@ -891,6 +891,7 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
             else {
                 // Don't we wait until we get MAP_DATA_RECEIVED before setting current_area and such?
                 // If I'm right, this should never happen.
+                // This got triggered.
                 SDL_assert(false);
                 wait_for_then_use_lock(scene->map->locked);
                 SDL_assert(area_id == scene->map->area_id);
@@ -1582,6 +1583,11 @@ int network_server_listen(void* vdata) {
 
 int network_client_loop(void* vdata) {
     WorldScene* scene = (WorldScene*)vdata;
+
+    while (scene->current_area != AREA_NET_ZONE) {
+        SDL_Delay(1000);
+    }
+
     byte* buffer = aligned_malloc(PACKET_SIZE);
 
     SET_LOCKED_STRING(scene->net.status_message, "Connecting to server!");
@@ -1616,10 +1622,6 @@ int network_client_loop(void* vdata) {
         return 0;
     }
 
-    while (scene->current_area != AREA_NET_ZONE) {
-        SDL_Delay(1000);
-    }
-
     scene->net.server_address = other_address;
 
     scene->net.remote_id = -1;
@@ -1646,6 +1648,7 @@ int network_client_loop(void* vdata) {
             );
         }
         else if (first_send) {
+            SDL_assert(scene->current_area == AREA_NET_ZONE);
             int size = netwrite_guy_initialization(scene, buffer);
             send_result = send(
                 scene->net.local_socket,
