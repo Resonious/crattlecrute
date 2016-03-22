@@ -463,6 +463,7 @@ void sync_player_frame_if_should(int status, RemotePlayer* plr) {
 #define NETOP_WANT_ID 9
 #define NETOP_INITIALIZE_PLAYER 10
 #define NETOP_UPDATE_CONTROLS 11
+#define NETOP_PLAYER_DC 12
 
 int simple_truncate_controls_buffer(ControlsBuffer* buffer, int to_frame, int to_pos) {
     SDL_assert(to_pos > 0 /*0 is reserved for # frames identifier :(*/);
@@ -1185,6 +1186,9 @@ int network_server_loop(void* vdata) {
     WorldScene* scene = loop->scene;
     byte* buffer = aligned_malloc(PACKET_SIZE);
 
+    // The player that this thread is for.
+    int player_id = -1;
+
     while (true) {
         memset(buffer, 0, PACKET_SIZE);
 
@@ -1198,13 +1202,13 @@ int network_server_loop(void* vdata) {
 
         if (recv_len == SOCKET_ERROR) {
             SET_LOCKED_STRING_F(scene->net.status_message, "Failed to receive: %i", WSAGetLastError());
-            scene->net.status = NOT_CONNECTED;
+            // scene->net.status = NOT_CONNECTED;
             r = 2; goto Done;
         }
         else if (recv_len == 0) {
             // TODO actual cleanup or something
             SET_LOCKED_STRING(scene->net.status_message, "Connection closed.");
-            scene->net.status = NOT_CONNECTED;
+            // scene->net.status = NOT_CONNECTED;
             goto Done;
         }
 
@@ -1217,15 +1221,16 @@ int network_server_loop(void* vdata) {
 
         case NETOP_WANT_ID: {
             SDL_assert(scene->net.next_id < 255);
-            int new_id = scene->net.next_id++;
-            RemotePlayer* player = allocate_new_player(scene, new_id, &loop->address);
+            player_id = scene->net.next_id++;
+            RemotePlayer* player = allocate_new_player(scene, player_id, &loop->address);
             SDL_AtomicSet(&player->just_switched_maps, true);
 
             int pos = 0;
             buffer[pos++] = NETOP_HERES_YOUR_ID;
-            buffer[pos++] = (byte)new_id;
+            buffer[pos++] = (byte)player_id;
             for (int i = 0; i < scene->net.number_of_players; i++)
-                buffer[pos++] = (byte)scene->net.players[i]->id;
+                if (scene->net.players[i])
+                    buffer[pos++] = (byte)scene->net.players[i]->id;
 
             send(loop->socket, buffer, pos, 0);
             scene->net.players[scene->net.number_of_players++] = player;
@@ -1382,7 +1387,7 @@ int network_server_loop(void* vdata) {
                 if (scene->net.number_of_players > 1) {
                     for (int i = 0; i < scene->net.number_of_players; i++) {
                         RemotePlayer* other_player = scene->net.players[i];
-                        if (other_player->id == player->id)
+                        if (other_player == NULL || other_player->id == player->id)
                             continue;
 
                         ControlsBufferSpot* players_spot_of_other_player = &player->stream_spots_of[other_player->id];
@@ -1498,6 +1503,25 @@ int network_server_loop(void* vdata) {
     }
 
     Done:
+    if (player_id != -1) {
+        for (int i = 0; i < scene->net.number_of_players; i++) {
+            RemotePlayer* player = scene->net.players[i];
+            if (player == NULL)
+                continue;
+
+            // free the player locally.
+            if (player->id == player_id) {
+                aligned_free(scene->net.players[i]);
+                scene->net.players[i] = NULL;
+            }
+            // tell others to free them.
+            else {
+                char dc_msg[] = { NETOP_PLAYER_DC, (byte)player_id };
+                send(player->socket, dc_msg, sizeof(dc_msg), 0);
+            }
+        }
+    }
+
     aligned_free(loop);
     closesocket(loop->socket);
     return r;
@@ -1755,12 +1779,27 @@ int network_client_loop(void* vdata) {
                 }
             } break;
 
+            case NETOP_PLAYER_DC: {
+                int pos = 1;
+                byte player_id = buffer[pos++];
+                for (int i = 0; i < scene->net.number_of_players; i++) {
+                    if (scene->net.players[i] && scene->net.players[i]->id == player_id) {
+                        aligned_free(scene->net.players[i]);
+                        scene->net.players[i] = NULL;
+                        printf("Disconnected player %i\n", i);
+                        break;
+                    }
+                }
+                goto Receive;
+            } break;
+
             default:
                 break;
             }
         }
     }
 
+    closesocket(scene->net.local_socket);
     return 0;
 }
 

@@ -106,6 +106,7 @@ void mob_fruit_sync_receive(void* vfruit, struct Map* map, byte* buffer, int* po
 typedef struct MobEgg {
     PHYSICS_MOB_FIELDS;
     float dy;
+    int age; // in frames.
 } MobEgg;
 void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos);
 void mob_egg_update(void* vegg, struct Game* game, struct Map* map);

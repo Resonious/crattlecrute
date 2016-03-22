@@ -4,7 +4,7 @@
 
 // NOTE this is largely copied from mruby/src/class.c
 // not sure why this isn't an MRB_API function.
-mrb_value mrb_instance_alloc(mrb_state *mrb, struct RClass* c) {
+mrb_value mrb_instance_alloc(mrb_state* mrb, struct RClass* c) {
   struct RObject *o;
   enum mrb_vtype ttype = MRB_INSTANCE_TT(c);
 
@@ -13,6 +13,14 @@ mrb_value mrb_instance_alloc(mrb_state *mrb, struct RClass* c) {
   if (ttype == 0) ttype = MRB_TT_OBJECT;
   o = (struct RObject*)mrb_obj_alloc(mrb, ttype, c);
   return mrb_obj_value(o);
+}
+
+mrb_value mrb_sym_to_i(mrb_state* mrb, mrb_value self) {
+    return mrb_fixnum_value(self.value.i);
+}
+
+mrb_value mrb_int_to_sym(mrb_state* mrb, mrb_value self) {
+    return mrb_symbol_value(self.value.sym);
 }
 
 mrb_value mrb_color_init(mrb_state* mrb, mrb_value self) {
@@ -338,6 +346,10 @@ void script_init(struct Game* game) {
     game->ruby.sym_atlocal_character = mrb_intern_lit(game->mrb, "@local_character");
     game->ruby.sym_update            = mrb_intern_lit(game->mrb, "update");
     game->mrb->ud = game;
+
+    // ==== core ext ====
+    mrb_define_method(game->mrb, game->mrb->symbol_class, "to_i", mrb_sym_to_i, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->mrb->fixnum_class, "to_sym", mrb_int_to_sym, MRB_ARGS_NONE());
 
     // ==================================== class Controls =============================
     game->ruby.controls_class = mrb_define_class(game->mrb, "Controls", game->mrb->object_class);
