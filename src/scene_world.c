@@ -1757,13 +1757,8 @@ int network_client_loop(void* vdata) {
             case NETOP_INITIALIZE_PLAYER: {
                 RemotePlayer* player = netop_initialize_state(scene, buffer, NULL);
 
-                if (player->id == 0) {
-                    SDL_assert(scene->current_area == AREA_NET_ZONE);
+                if (scene->current_area == AREA_NET_ZONE) {
                     Door* door_there = &scene->map->doors[1];
-                    // NOTE this stuff will be overridden by the server anyways, but whatever.
-                    door_there->dest_area = SDL_AtomicGet(&player->area_id);
-                    door_there->dest_x = player->guy.position.x[X];
-                    door_there->dest_y = player->guy.position.x[Y];
                     door_there->flags = DOOR_VISIBLE;
                 }
 
@@ -2649,8 +2644,8 @@ done_with_inventory:;
     BENCH_START(ping);
     for (int i = 0; i < s->net.number_of_players; i++) {
         RemotePlayer* player = s->net.players[i];
-        if (s->net.status == JOINING && player->id != 0) continue;
         if (player == NULL) continue;
+        if (s->net.status == JOINING && player->id != 0) continue;
 
         double ping_in_ms = (1000.0 * (double)player->ping) / game->frames_per_second;
 
