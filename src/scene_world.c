@@ -1353,13 +1353,15 @@ int network_server_loop(void* vdata) {
 
                 if (player->mob_event_count > 0) {
                     *flags |= NETF_MOBEVENT;
-                    // This will never deadlock with above, as mob_event_count will be 0 if it's locked from there.
+                    // NOTE we'll never end up sending MAPSTATE and MOBEVENT in one go.
                     wait_for_then_use_lock(player->mob_event_buffer_locked);
 
                     netwrite_guy_mobevents(buffer, player, &pos);
 
                     SDL_UnlockMutex(player->mob_event_buffer_locked);
                 }
+
+                SDL_assert(!((*flags & NETF_MAPSTATE) && (*flags & NETF_MOBEVENT)));
 
                 if (SDL_AtomicGet(&scene->guy.dirty)) {
                     *flags |= NETF_ATTRIBUTES;
