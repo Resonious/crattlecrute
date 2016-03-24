@@ -537,7 +537,7 @@ struct BufferChanges {
 void free_player(WorldScene* scene, int id) {
     int index = -1;
     for (int i = 0; i < scene->net.number_of_players; i++) {
-        if (scene->net.players[i]->id == id) {
+        if (scene->net.players[i] && scene->net.players[i]->id == id) {
             index = i;
             break;
         }
@@ -551,7 +551,7 @@ void free_player(WorldScene* scene, int id) {
     scene->net.players[index] = NULL;
 
     // shift higher id players down.
-    for (int i = id + 1; i < scene->net.number_of_players; i++) {
+    for (int i = index + 1; i < scene->net.number_of_players; i++) {
         scene->net.players[i - 1] = scene->net.players[i];
     }
 
@@ -1573,16 +1573,14 @@ int network_server_loop(void* vdata) {
             if (player == NULL)
                 continue;
 
-            // free the player locally.
-            if (player->id == player_id) {
-                free_player(scene, player_id);
-            }
             // tell others to free them.
-            else {
+            if (player->id != player_id) {
                 char dc_msg[] = { NETOP_PLAYER_DC, (byte)player_id };
                 send(player->socket, dc_msg, sizeof(dc_msg), 0);
             }
         }
+        // free the player locally.
+        free_player(scene, player_id);
     }
 
     aligned_free(loop);
