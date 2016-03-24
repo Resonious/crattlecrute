@@ -70,7 +70,7 @@
     <property name="orb_color" value="200, 0, 50"/>
    </properties>
   </object>
-  <object id="3" name="To your friend" type="door" gid="33" x="201.833" y="320.667" width="90" height="90">
+  <object id="3" name="To your friend" type="door" gid="33" x="206.833" y="320.667" width="90" height="90">
    <properties>
     <property name="leads_to_area" value="AREA_TESTZONE_ONE"/>
     <property name="leads_to_x" value="26 * 32"/>
