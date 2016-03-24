@@ -534,6 +534,30 @@ struct BufferChanges {
     return change;
 }
 
+void free_player(WorldScene* scene, int id) {
+    int index = -1;
+    for (int i = 0; i < scene->net.number_of_players; i++) {
+        if (scene->net.players[i]->id == id) {
+            index = i;
+            break;
+        }
+    }
+    if (index == -1) {
+        printf("Bad player id for free: %i\n", id);
+        return;
+    }
+
+    aligned_free(scene->net.players[index]);
+    scene->net.players[index] = NULL;
+
+    // shift higher id players down.
+    for (int i = id + 1; i < scene->net.number_of_players; i++) {
+        scene->net.players[i - 1] = scene->net.players[i];
+    }
+
+    scene->net.number_of_players -= 1;
+}
+
 RemotePlayer* allocate_new_player(WorldScene* scene, int id, struct sockaddr_in* addr) {
     RemotePlayer* new_player = aligned_malloc(sizeof(RemotePlayer));
     memset(new_player, 0, sizeof(RemotePlayer));
@@ -1551,8 +1575,7 @@ int network_server_loop(void* vdata) {
 
             // free the player locally.
             if (player->id == player_id) {
-                aligned_free(scene->net.players[i]);
-                scene->net.players[i] = NULL;
+                free_player(scene, player_id);
             }
             // tell others to free them.
             else {
@@ -1824,8 +1847,7 @@ int network_client_loop(void* vdata) {
                 byte player_id = buffer[pos++];
                 for (int i = 0; i < scene->net.number_of_players; i++) {
                     if (scene->net.players[i] && scene->net.players[i]->id == player_id) {
-                        aligned_free(scene->net.players[i]);
-                        scene->net.players[i] = NULL;
+                        free_player(scene, player_id);
                         printf("Disconnected player %i\n", i);
                         break;
                     }
@@ -2007,6 +2029,7 @@ void scene_world_initialize(void* vdata, Game* game) {
 
     // NETWORKING TIME
     {
+        data->net.just_finished_transition = false;
         data->net.remote_id = -1;
         data->net.number_of_players = 0;
         memset(data->net.players, 0, sizeof(data->net.players));
