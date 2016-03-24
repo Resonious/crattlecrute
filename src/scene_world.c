@@ -101,6 +101,7 @@ typedef struct RemotePlayer {
     Controls controls;
     int number_of_physics_updates_this_frame;
     SDL_atomic_t area_id;
+    SDL_atomic_t received_map_data;
     SDL_atomic_t just_switched_maps;
     Character guy;
     ControlsBufferSpot local_stream_spot;
@@ -166,6 +167,8 @@ typedef struct WorldScene {
         byte status_message_countdown;
         enum { HOSTING, JOINING, NOT_CONNECTED, WANT_TO_JOIN } status;
         bool connected;
+
+        bool just_finished_transition;
 
         SOCKET local_socket;
         struct sockaddr_in my_address;
@@ -319,6 +322,7 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     guy->old_position.x[Y] = dest_y;
 
     SDL_AtomicSet(&player->area_id, area_id);
+    SDL_AtomicSet(&player->received_map_data, false);
     SDL_AtomicSet(&player->just_switched_maps, true);
 
     SDL_UnlockMutex(player->mob_event_buffer_locked);
@@ -538,6 +542,7 @@ RemotePlayer* allocate_new_player(WorldScene* scene, int id, struct sockaddr_in*
     new_player->address = *addr;
     SDL_AtomicSet(&new_player->area_id, -1);
     SDL_AtomicSet(&new_player->just_switched_maps, false);
+    SDL_AtomicSet(&new_player->received_map_data, true);
 
     default_character(scene->game, &new_player->guy);
     // NOTE loading textures in network thread - problem or no problem? Just add a mutex to cached assets if necessary.
@@ -865,48 +870,54 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
         SDL_UnlockMutex(player->controls_playback.locked);
 
         if (flags & NETF_MAPSTATE) {
-            int area_id;
-            read_from_buffer(buffer, &area_id, &pos, sizeof(int));
-            float dest_x, dest_y;
-            read_from_buffer(buffer, &dest_x, &pos, sizeof(float));
-            read_from_buffer(buffer, &dest_y, &pos, sizeof(float));
-            int map_data_size;
-            read_from_buffer(buffer, &map_data_size, &pos, sizeof(int));
-            SDL_assert(map_data_size >= 0);
+            if (scene->net.status == JOINING) {
+                int area_id;
+                read_from_buffer(buffer, &area_id, &pos, sizeof(int));
+                float dest_x, dest_y;
+                read_from_buffer(buffer, &dest_x, &pos, sizeof(float));
+                read_from_buffer(buffer, &dest_y, &pos, sizeof(float));
+                int map_data_size;
+                read_from_buffer(buffer, &map_data_size, &pos, sizeof(int));
+                SDL_assert(map_data_size >= 0);
 
-            wait_for_then_use_lock(scene->transition.locked);
-            scene->transition.destination_position.x = dest_x;
-            scene->transition.destination_position.y = dest_y;
-            scene->transition.destination_area = area_id;
-            if (scene->transition.door_flags & DOOR_INVERT_Y)
-                scene->transition.door_flags ^= DOOR_INVERT_Y;
+                wait_for_then_use_lock(scene->transition.locked);
+                scene->transition.destination_position.x = dest_x;
+                scene->transition.destination_position.y = dest_y;
+                scene->transition.destination_area = area_id;
+                if (scene->transition.door_flags & DOOR_INVERT_Y)
+                    scene->transition.door_flags ^= DOOR_INVERT_Y;
 
-            if (scene->transition.progress_percent <= TRANSITION_POINT) {
-                if (scene->transition.map_data)
-                    aligned_free(scene->transition.map_data);
+                if (scene->transition.progress_percent <= TRANSITION_POINT) {
+                    if (scene->transition.map_data)
+                        aligned_free(scene->transition.map_data);
 
-                scene->transition.map_data = aligned_malloc(map_data_size);
-                read_from_buffer(buffer, scene->transition.map_data, &pos, map_data_size);
-                SDL_AtomicSet(&scene->transition.map_data_status, MAP_DATA_RECEIVED);
+                    scene->transition.map_data = aligned_malloc(map_data_size);
+                    read_from_buffer(buffer, scene->transition.map_data, &pos, map_data_size);
+                    SDL_AtomicSet(&scene->transition.map_data_status, MAP_DATA_RECEIVED);
+                }
+                else {
+                    // Don't we wait until we get MAP_DATA_RECEIVED before setting current_area and such?
+                    // If I'm right, this should never happen.
+                    // (This gets) This got triggered.
+                    SDL_assert(false);
+                    wait_for_then_use_lock(scene->map->locked);
+                    SDL_assert(area_id == scene->map->area_id);
+                    SDL_assert(area_id == scene->current_area);
+
+                    clear_map_state(scene->map);
+                    read_map_state(scene->map, buffer, &pos);
+
+                    SDL_UnlockMutex(scene->map->locked);
+                }
+
+                SDL_UnlockMutex(scene->transition.locked);
+
+                printf("PROCESSED MAP STATE EVENT\n");
             }
             else {
-                // Don't we wait until we get MAP_DATA_RECEIVED before setting current_area and such?
-                // If I'm right, this should never happen.
-                // (This gets) This got triggered.
-                SDL_assert(false);
-                wait_for_then_use_lock(scene->map->locked);
-                SDL_assert(area_id == scene->map->area_id);
-                SDL_assert(area_id == scene->current_area);
-
-                clear_map_state(scene->map);
-                read_map_state(scene->map, buffer, &pos);
-
-                SDL_UnlockMutex(scene->map->locked);
+                // Server receives this flag just to say
+                SDL_AtomicSet(&player->just_switched_maps, false);
             }
-
-            SDL_UnlockMutex(scene->transition.locked);
-
-            printf("PROCESSED MAP STATE EVENT\n");
         }
 
         if (flags & NETF_MOBEVENT) {
@@ -1224,6 +1235,7 @@ int network_server_loop(void* vdata) {
             player_id = scene->net.next_id++;
             RemotePlayer* player = allocate_new_player(scene, player_id, &loop->address);
             SDL_AtomicSet(&player->just_switched_maps, true);
+            SDL_AtomicSet(&player->received_map_data, true);
 
             int pos = 0;
             buffer[pos++] = NETOP_HERES_YOUR_ID;
@@ -1302,6 +1314,26 @@ int network_server_loop(void* vdata) {
                 byte* flags = &buffer[pos++];
                 *flags = 0;
 
+                if (SDL_AtomicGet(&player->just_switched_maps)) {
+                    if (!SDL_AtomicGet(&player->received_map_data)) {
+                        *flags = NETF_MAPSTATE;
+
+                        int area_id = SDL_AtomicGet(&player->area_id);
+                        Map* map = cached_map(scene->game, map_asset_for_area(area_id));
+                        map->area_id = area_id;
+                        netwrite_guy_mapstate(buffer, player, map, &pos);
+
+                        SDL_AtomicSet(&player->received_map_data, true);
+                        wait_for_then_use_lock(player->mob_event_buffer_locked);
+
+                        player->mob_event_buffer_pos = 0;
+                        player->mob_event_count = 0;
+
+                        SDL_UnlockMutex(player->mob_event_buffer_locked);
+                    }
+                    goto Send;
+                }
+
                 int player_area_id = SDL_AtomicGet(&player->area_id);
                 if (scene->current_area == player_area_id) {
                     bool send_physics_state = false;
@@ -1340,6 +1372,7 @@ int network_server_loop(void* vdata) {
                 }
 
                 if (SDL_AtomicGet(&player->just_switched_maps)) {
+                    SDL_assert(false);
                     *flags |= NETF_MAPSTATE;
 
                     int area_id = SDL_AtomicGet(&player->area_id);
@@ -1479,6 +1512,7 @@ int network_server_loop(void* vdata) {
                     }
                 }
 
+            Send:;
                 short size_wrote = (short)pos;
                 write_to_buffer(buffer, &size_wrote, &len_pos, sizeof(short));
 
@@ -1707,6 +1741,11 @@ int network_client_loop(void* vdata) {
                 *flags |= NETF_ATTRIBUTES;
                 write_guy_info_to_buffer(buffer, &scene->guy, scene->current_area, &pos);
                 SDL_AtomicSet(&scene->guy.dirty, false);
+            }
+
+            if (scene->net.just_finished_transition) {
+                scene->net.just_finished_transition = false;
+                *flags |= NETF_MAPSTATE;
             }
 
             short size_wrote = (short)pos;
@@ -2264,6 +2303,7 @@ void scene_world_update(void* vs, Game* game) {
                     s->transition.map_data = NULL;
 
                     SDL_AtomicSet(&s->transition.map_data_status, MAP_DATA_NOT_NEEDED);
+                    s->net.just_finished_transition = true;
                 } break;
                 }
             }
