@@ -898,14 +898,20 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
                 else {
                     // Don't we wait until we get MAP_DATA_RECEIVED before setting current_area and such?
                     // If I'm right, this should never happen.
-                    // (This gets) This got triggered.
-                    SDL_assert(false);
+                    // BUT IT DOES.
                     wait_for_then_use_lock(scene->map->locked);
                     SDL_assert(area_id == scene->map->area_id);
                     SDL_assert(area_id == scene->current_area);
 
                     clear_map_state(scene->map);
                     read_map_state(scene->map, buffer, &pos);
+
+                    // Not sure if this makes sense.
+                    scene->guy.position.x[0] = dest_x;
+                    scene->guy.position.x[1] = dest_y;
+                    scene->guy.old_position.x[0] = dest_x;
+                    scene->guy.old_position.x[1] = dest_y;
+                    printf("JUST SET POSITION TO DESTINATION. Did any weird warping happen?\n");
 
                     SDL_UnlockMutex(scene->map->locked);
                 }
@@ -915,7 +921,7 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
                 printf("PROCESSED MAP STATE EVENT\n");
             }
             else {
-                // Server receives this flag just to say
+                // Server receives this flag just to know that player should start receiving stuff again.
                 SDL_AtomicSet(&player->just_switched_maps, false);
             }
         }
@@ -2288,7 +2294,7 @@ void scene_world_update(void* vs, Game* game) {
 
         if (s->transition.progress_percent == TRANSITION_POINT) {
             if (s->net.status == JOINING) {
-                switch (SDL_AtomicGet(&s->transition.map_data_status)) {
+                switch (map_data_status) {
                 case MAP_DATA_NOT_NEEDED:
                     SDL_AtomicSet(&s->transition.map_data_status, MAP_DATA_NEED);
                     break;
