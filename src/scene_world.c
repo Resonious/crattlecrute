@@ -2058,10 +2058,11 @@ void scene_world_initialize(void* vdata, Game* game) {
     SDL_assert(!game->mrb->exc);
     default_character_animations(game, &data->guy);
     SDL_assert(!game->mrb->exc);
-    data->guy.position.x[X] = 150.0f;
-    data->guy.position.x[Y] = 170.0f;
+    data->guy.position.x[X] = 3918.0f;
+    data->guy.position.x[Y] = 988.0f;
     data->guy.position.x[2] = 0.0f;
     data->guy.position.x[3] = 0.0f;
+    data->guy.old_position.simd = data->guy.position.simd;
     data->guy.body_color.r = rand() % 255;
     data->guy.body_color.g = rand() % 255;
     data->guy.body_color.b = rand() % 255;
@@ -2088,9 +2089,11 @@ void scene_world_initialize(void* vdata, Game* game) {
     BENCH_END(loading_crattle1);
 
     BENCH_START(loading_tiles);
-    data->current_area = AREA_TESTZONE_ONE;
+    data->current_area = AREA_GARDEN;
     data->map = cached_map(game, map_asset_for_area(data->current_area));
     data->map->area_id = data->current_area;
+    set_camera_target(game, data->map, &data->guy);
+    game->camera.simd = game->camera_target.simd;
     BENCH_END(loading_tiles);
 
     BENCH_START(loading_sound);

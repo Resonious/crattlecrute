@@ -33,8 +33,32 @@ static bool just_released(Controls* controls, enum Control key) {
 }
 void controls_pre_update(Controls* controls);
 
+// === Areas === (THIS ENUM IS READ BY A RUBY SCRIPT AT COMPILE TIME)
+enum AreaId {
+    AREA_TESTZONE_ONE,
+    AREA_TESTZONE_TWO,
+    AREA_NET_ZONE,
+    AREA_GARDEN,
+    NUMBER_OF_AREAS
+};
+int map_asset_for_area(int area_id);
+bool area_is_garden(int area_id);
+
 // Number of bytes long scene datas are expected to be.
 #define SCENE_DATA_SIZE (1024 * 50)
+
+typedef struct DataChunk {
+    int size;
+    int capacity;
+    byte* bytes;
+} DataChunk;
+
+typedef struct GameData {
+    int area;
+    DataChunk character;
+    DataChunk maps[NUMBER_OF_AREAS];
+    SDL_mutex* locked;
+} GameData;
 
 struct Scene;
 #ifdef _DEBUG
@@ -69,6 +93,7 @@ typedef struct Game {
         struct RClass* character_class;
         struct RClass* item_class;
         struct RClass* inventory_class;
+        struct RClass* vec2_class;
         mrb_value cc_type_to_sym;
         mrb_value cc_sym_to_type;
     } ruby;
@@ -86,6 +111,7 @@ typedef struct Game {
         SpawnMobFunc spawn_mob;
         DespawnMobFunc despawn_mob;
     } net;
+    struct GameData data;
     int argc;
     char** argv;
     AssetCache asset_cache;
@@ -107,20 +133,14 @@ typedef struct Game {
     bool running;
 } Game;
 
+void read_game_data(Game* game, FILE* file);
+void write_game_data(Game* game, FILE* file);
+
 // Switch to a new scene (COMING SOON: fade to scene!?)
 void switch_scene(Game* game, int to_scene);
 // input_rect can be null who gives a shit
 void start_editing_text(Game* game, char* text_to_edit, int buffer_size, SDL_Rect* input_rect);
 void stop_editing_text(Game* game);
-
-// === Areas === (THIS ENUM IS READ BY A RUBY SCRIPT AT COMPILE TIME)
-enum AreaId {
-    AREA_TESTZONE_ONE,
-    AREA_TESTZONE_TWO,
-    AREA_NET_ZONE,
-    NUMBER_OF_AREAS
-};
-int map_asset_for_area(int area_id);
 
 // === Text functions ===
 

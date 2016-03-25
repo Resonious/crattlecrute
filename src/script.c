@@ -23,6 +23,52 @@ mrb_value mrb_int_to_sym(mrb_state* mrb, mrb_value self) {
     return mrb_symbol_value(self.value.sym);
 }
 
+mrb_value mrb_vec2_init(mrb_state* mrb, mrb_value self) {
+    mrb_float x = 0.0f, y = 0.0f;
+    mrb_get_args(mrb, "|ff", &x, &y);
+
+    vec2* u = mrb_malloc(mrb, sizeof(vec2));
+    u->x = x;
+    u->y = y;
+    mrb_data_init(self, u, &mrb_free_type);
+    return self;
+}
+
+mrb_value mrb_vec2_inspect(mrb_state* mrb, mrb_value self) {
+    vec2* u = DATA_PTR(self);
+
+    char strbuf[64];
+    sprintf(strbuf, "Vec2 { %f, %f }", u->x, u->y);
+
+    return mrb_str_new_cstr(mrb, strbuf);
+}
+
+mrb_value mrb_vec2_x(mrb_state* mrb, mrb_value self) {
+    vec2* u = DATA_PTR(self);
+    return mrb_float_value(mrb, u->x);
+}
+
+mrb_value mrb_vec2_x_eq(mrb_state* mrb, mrb_value self) {
+    vec2* u = DATA_PTR(self);
+    mrb_float x;
+    mrb_get_args(mrb, "f", &x);
+    u->x = x;
+    return mrb_float_value(mrb, u->x);
+}
+
+mrb_value mrb_vec2_y(mrb_state* mrb, mrb_value self) {
+    vec2* u = DATA_PTR(self);
+    return mrb_float_value(mrb, u->y);
+}
+
+mrb_value mrb_vec2_y_eq(mrb_state* mrb, mrb_value self) {
+    vec2* u = DATA_PTR(self);
+    mrb_float y;
+    mrb_get_args(mrb, "f", &y);
+    u->y = y;
+    return mrb_float_value(mrb, u->y);
+}
+
 mrb_value mrb_color_init(mrb_state* mrb, mrb_value self) {
     mrb_int r = 0, g = 0, b = 0, a = 255;
     mrb_get_args(mrb, "|iiii", &r, &g, &b, &a);
@@ -336,6 +382,17 @@ mrb_value mrb_inventory_add(mrb_state* mrb, mrb_value self) {
     return mrb_nil_value();
 }
 
+mrb_value mrb_character_position(mrb_state* mrb, mrb_value self) {
+    Game* game = (Game*)mrb->ud;
+    Character* guy = DATA_PTR(self);
+
+    mrb_value position = mrb_instance_alloc(mrb, game->ruby.vec2_class);
+    mrb_data_init(position, guy->position.x, &mrb_dont_free_type);
+
+    mrb_gc_unregister(mrb, position);
+    return position;
+}
+
 // World functions are defined in scene_world.c
 
 void script_init(struct Game* game) {
@@ -400,6 +457,17 @@ void script_init(struct Game* game) {
     mrb_define_alias(game->mrb,  game->ruby.color_class, "green=", "g=");
     mrb_define_alias(game->mrb,  game->ruby.color_class, "alpha=", "a=");
 
+    // ==================================== class Vec2 ================================
+    game->ruby.vec2_class = mrb_define_class(game->mrb, "Vec2", game->mrb->object_class);
+    MRB_SET_INSTANCE_TT(game->ruby.vec2_class, MRB_TT_DATA);
+
+    mrb_define_method(game->mrb, game->ruby.vec2_class, "initialize", mrb_vec2_init, MRB_ARGS_OPT(2));
+    mrb_define_method(game->mrb, game->ruby.vec2_class, "inspect", mrb_vec2_inspect, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.vec2_class, "x", mrb_vec2_x, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.vec2_class, "x=", mrb_vec2_x_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.vec2_class, "y", mrb_vec2_y, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.vec2_class, "y=", mrb_vec2_y_eq, MRB_ARGS_REQ(1));
+
     // ==================================== class Game ================================
     game->ruby.game_class = mrb_define_class(game->mrb, "Game", game->mrb->object_class);
     MRB_SET_INSTANCE_TT(game->ruby.game_class, MRB_TT_DATA);
@@ -435,7 +503,7 @@ void script_init(struct Game* game) {
 
     // mrb_define_method(game->mrb, game->ruby.map_class, "initialize", mrb_mob_init, MRB_ARGS_NONE());
 
-    // ==================================== class Character ===========================
+    // ==================================== class Crattlecrute (Character) ===========================
     game->ruby.character_class = mrb_define_class(game->mrb, "Crattlecrute", game->mrb->object_class);
     MRB_SET_INSTANCE_TT(game->ruby.character_class, MRB_TT_DATA);
 
@@ -448,6 +516,8 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.character_class, "initialize", mrb_character_init, MRB_ARGS_NONE());
 
     mrb_define_method(game->mrb, game->ruby.character_class, "inventory", mrb_character_inventory, MRB_ARGS_NONE());
+
+    mrb_define_method(game->mrb, game->ruby.character_class, "position", mrb_character_position, MRB_ARGS_NONE());
 
     mrb_define_method(game->mrb, game->ruby.character_class, "body_type", mrb_character_body_type, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "feet_type", mrb_character_feet_type, MRB_ARGS_NONE());

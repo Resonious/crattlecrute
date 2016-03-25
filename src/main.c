@@ -105,6 +105,8 @@ int main(int argc, char** argv) {
         game.asset_cache.assets[i].id = ASSET_NOT_LOADED;
     }
 
+    game.data.locked = SDL_CreateMutex();
+
 #ifdef _DEBUG
     // All scene ids should equal their index
     for (int i = 0; i < sizeof(SCENES) / sizeof(Scene); i++)

@@ -169,6 +169,9 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag);
 void update_character_animation(Character* guy);
 
+void write_character_data(Character* guy, struct DataChunk* chunk);
+void read_character_data(Character* guy, struct DataChunk* chunk);
+
 // data will be passed to any of the provided callbacks when called.
 void interact_character_with_world(
     struct Game* game,

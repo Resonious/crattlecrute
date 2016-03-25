@@ -154,8 +154,80 @@ int map_asset_for_area(int area_id) {
     case AREA_TESTZONE_ONE: return ASSET_MAPS_TEST3_CM;
     case AREA_TESTZONE_TWO: return ASSET_MAPS_TEST4_CM;
     case AREA_NET_ZONE:     return ASSET_MAPS_TRANSITION_CM;
+    case AREA_GARDEN:       return ASSET_MAPS_GARDEN_CM;
     default:
         SDL_assert(!"UNKNOWN AREA!");
         return ASSET_MAPS_TEST3_CM;
     }
+}
+
+bool area_is_garden(int area_id) {
+    return area_id == AREA_GARDEN;
+}
+
+void write_data_chunk(DataChunk* chunk, FILE* file) {
+    fwrite(&chunk->size, sizeof(int), 1, file);
+    if (chunk->size > 0) {
+        fwrite(chunk->bytes, 1, chunk->size, file);
+    }
+}
+
+void read_data_chunk(DataChunk* chunk, FILE* file) {
+    fread(&chunk->size, sizeof(int), 1, file);
+    if (chunk->size > 0) {
+        fread(chunk->bytes, 1, chunk->size, file);
+    }
+}
+
+void read_game_data(Game* game, FILE* file) {
+    wait_for_then_use_lock(game->data.locked);
+
+    // ======== FILE VERSION =============
+    int cc_data_version = 0;
+    fread(&cc_data_version, sizeof(int), 1, file);
+
+    // ======== Current Area ID ==========
+    fread(&game->data.area, sizeof(int), 1, file);
+
+    // ======== Character Data ===========
+    fread(game->data.character.bytes, 1, game->data.character.size, file);
+
+    // ======== NUMBER OF AREAS ==========
+    const int number_of_areas = NUMBER_OF_AREAS;
+    fread(&number_of_areas, sizeof(int), 1, file);
+
+    for (int i = 0; i < NUMBER_OF_AREAS; i++) {
+        // ======= Area ID of this map ========
+        fread(&i, sizeof(int), 1, file);
+
+        write_data_chunk(&game->data.maps, file);
+    }
+
+    SDL_UnlockMutex(game->data.locked);
+}
+void write_game_data(Game* game, FILE* file) {
+    wait_for_then_use_lock(game->data.locked);
+
+    // ======== FILE VERSION =============
+    int cc_data_version = 0;
+    fwrite(&cc_data_version, sizeof(int), 1, file);
+
+    // ======== Current Area ID ==========
+    fwrite(&game->data.area, sizeof(int), 1, file);
+
+    // ======== Character Data ===========
+    fwrite(game->data.character.bytes, 1, game->data.character.size, file);
+
+    // ======== NUMBER OF AREAS ==========
+    const int number_of_areas = NUMBER_OF_AREAS;
+    fwrite(&number_of_areas, sizeof(int), 1, file);
+
+    for (int i = 0; i < NUMBER_OF_AREAS; i++) {
+        // ======= Area ID of this map ========
+        fwrite(&i, sizeof(int), 1, file);
+
+        write_data_chunk(&game->data.maps, file);
+    }
+
+    SDL_UnlockMutex(game->data.locked);
 }
