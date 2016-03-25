@@ -1,5 +1,7 @@
 #ifdef __APPLE__
 #include <mach-o/getsect.h>
+#include <fcntl.h>
+#include <stdlib.h>
 #else
 #ifndef __FreeBSD__
 #include <malloc.h>
@@ -50,8 +52,18 @@ AssetFile load_asset(int asset) {
 byte* embedded_assets;
 
 int open_assets_file() {
-    unsigned long _size;
-    embedded_assets = (byte*)getsectdata("assets", "assets", &_size);
+    // TODO looks like Apple fucked up the sectdata methods so we have to straight up read from the executable.
+    // .... I guess argv[0] will have the file we want?
+    struct section_64* sect = getsectbyname("assets", "assets");
+    FILE* exe = fopen("/Users/nigelbaillie/p/crattlecrute/mac/Crattlecrute/Build/Products/Debug/Crattlecrute", "r");
+
+    embedded_assets = malloc(sect->size);
+
+    fseek(exe, sect->offset, SEEK_SET);
+    fread(embedded_assets, 1, sect->size, exe);
+
+    fclose(exe);
+
     return 0;
 }
 

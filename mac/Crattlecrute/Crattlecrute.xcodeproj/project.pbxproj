@@ -17,7 +17,19 @@
 		9A4388911C839230006CF111 /* tilemap.c in Sources */ = {isa = PBXBuildFile; fileRef = 9A43887E1C839230006CF111 /* tilemap.c */; };
 		9A4388931C839230006CF111 /* types.c in Sources */ = {isa = PBXBuildFile; fileRef = 9A4388801C839230006CF111 /* types.c */; };
 		9A4388991C83934B006CF111 /* stb_vorbis.c in Sources */ = {isa = PBXBuildFile; fileRef = 9A4388961C83923F006CF111 /* stb_vorbis.c */; };
-		9AE35F3C1C793A3600B758F2 /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9AE35F3B1C793A3600B758F2 /* SDL2.framework */; };
+		AC00A57F1CA20235003778F2 /* item.c in Sources */ = {isa = PBXBuildFile; fileRef = AC00A5691CA20235003778F2 /* item.c */; };
+		AC00A5811CA20235003778F2 /* mob.c in Sources */ = {isa = PBXBuildFile; fileRef = AC00A56C1CA20235003778F2 /* mob.c */; };
+		AC00A5841CA20235003778F2 /* script.c in Sources */ = {isa = PBXBuildFile; fileRef = AC00A5711CA20235003778F2 /* script.c */; };
+		AC00A58A1CA20300003778F2 /* libmruby.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AC00A5891CA20300003778F2 /* libmruby.a */; };
+		AC8944D71CA3359200B25AD8 /* libSDL2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AC8944D61CA3359200B25AD8 /* libSDL2.a */; };
+		ACF320D41CA5EB9F00075774 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ACF320D31CA5EB9F00075774 /* CoreAudio.framework */; };
+		ACF320D61CA5EBB600075774 /* AudioUnit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ACF320D51CA5EBB600075774 /* AudioUnit.framework */; };
+		ACF320D81CA5EBBE00075774 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ACF320D71CA5EBBE00075774 /* AudioToolbox.framework */; };
+		ACF320DA1CA5EBC100075774 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ACF320D91CA5EBC100075774 /* Cocoa.framework */; };
+		ACF320DC1CA5EBD000075774 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ACF320DB1CA5EBD000075774 /* IOKit.framework */; };
+		ACF320DE1CA5EBD600075774 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ACF320DD1CA5EBD600075774 /* OpenGL.framework */; };
+		ACF320E01CA5EBDD00075774 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ACF320DF1CA5EBDD00075774 /* Carbon.framework */; };
+		ACF320E21CA5EBE400075774 /* ForceFeedback.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ACF320E11CA5EBE400075774 /* ForceFeedback.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -74,7 +86,41 @@
 		9AE35F261C7928CF00B758F2 /* types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = types.h; path = ../../../src/types.h; sourceTree = "<group>"; };
 		9AE35F2E1C79290900B758F2 /* stb_image.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = stb_image.h; path = ../../../STB/stb_image.h; sourceTree = "<group>"; };
 		9AE35F2F1C79290900B758F2 /* stb_vorbis.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = stb_vorbis.c; path = ../../../STB/stb_vorbis.c; sourceTree = "<group>"; };
-		9AE35F3B1C793A3600B758F2 /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = ../../SDL/SDL2.framework; sourceTree = "<group>"; };
+		AC00A5601CA20235003778F2 /* assets.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = assets.c; path = ../../src/assets.c; sourceTree = "<group>"; };
+		AC00A5611CA20235003778F2 /* assets.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = assets.h; path = ../../src/assets.h; sourceTree = "<group>"; };
+		AC00A5621CA20235003778F2 /* cache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = cache.h; path = ../../src/cache.h; sourceTree = "<group>"; };
+		AC00A5631CA20235003778F2 /* character.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = character.c; path = ../../src/character.c; sourceTree = "<group>"; };
+		AC00A5641CA20235003778F2 /* character.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = character.h; path = ../../src/character.h; sourceTree = "<group>"; };
+		AC00A5651CA20235003778F2 /* coords.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = coords.h; path = ../../src/coords.h; sourceTree = "<group>"; };
+		AC00A5661CA20235003778F2 /* dxsdkver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = dxsdkver.h; path = ../../src/dxsdkver.h; sourceTree = "<group>"; };
+		AC00A5671CA20235003778F2 /* game.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = game.c; path = ../../src/game.c; sourceTree = "<group>"; };
+		AC00A5681CA20235003778F2 /* game.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = game.h; path = ../../src/game.h; sourceTree = "<group>"; };
+		AC00A5691CA20235003778F2 /* item.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = item.c; path = ../../src/item.c; sourceTree = "<group>"; };
+		AC00A56A1CA20235003778F2 /* item.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = item.h; path = ../../src/item.h; sourceTree = "<group>"; };
+		AC00A56B1CA20235003778F2 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = main.c; path = ../../src/main.c; sourceTree = "<group>"; };
+		AC00A56C1CA20235003778F2 /* mob.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = mob.c; path = ../../src/mob.c; sourceTree = "<group>"; };
+		AC00A56D1CA20235003778F2 /* mob.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = mob.h; path = ../../src/mob.h; sourceTree = "<group>"; };
+		AC00A56E1CA20235003778F2 /* scene_offset_viewer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = scene_offset_viewer.c; path = ../../src/scene_offset_viewer.c; sourceTree = "<group>"; };
+		AC00A56F1CA20235003778F2 /* scene_world.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = scene_world.c; path = ../../src/scene_world.c; sourceTree = "<group>"; };
+		AC00A5701CA20235003778F2 /* scene.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = scene.h; path = ../../src/scene.h; sourceTree = "<group>"; };
+		AC00A5711CA20235003778F2 /* script.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = script.c; path = ../../src/script.c; sourceTree = "<group>"; };
+		AC00A5721CA20235003778F2 /* script.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = script.h; path = ../../src/script.h; sourceTree = "<group>"; };
+		AC00A5731CA20235003778F2 /* sound.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = sound.c; path = ../../src/sound.c; sourceTree = "<group>"; };
+		AC00A5741CA20235003778F2 /* sound.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = sound.h; path = ../../src/sound.h; sourceTree = "<group>"; };
+		AC00A5751CA20235003778F2 /* tilemap.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = tilemap.c; path = ../../src/tilemap.c; sourceTree = "<group>"; };
+		AC00A5761CA20235003778F2 /* tilemap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = tilemap.h; path = ../../src/tilemap.h; sourceTree = "<group>"; };
+		AC00A5771CA20235003778F2 /* types.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = types.c; path = ../../src/types.c; sourceTree = "<group>"; };
+		AC00A5781CA20235003778F2 /* types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = types.h; path = ../../src/types.h; sourceTree = "<group>"; };
+		AC00A5891CA20300003778F2 /* libmruby.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmruby.a; path = "../../MRuby/build/host-debug/lib/libmruby.a"; sourceTree = "<group>"; };
+		AC8944D61CA3359200B25AD8 /* libSDL2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSDL2.a; path = ../../SDL/Xcode/SDL/Build/Products/Debug/libSDL2.a; sourceTree = "<group>"; };
+		ACF320D31CA5EB9F00075774 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
+		ACF320D51CA5EBB600075774 /* AudioUnit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioUnit.framework; path = System/Library/Frameworks/AudioUnit.framework; sourceTree = SDKROOT; };
+		ACF320D71CA5EBBE00075774 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
+		ACF320D91CA5EBC100075774 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		ACF320DB1CA5EBD000075774 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		ACF320DD1CA5EBD600075774 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
+		ACF320DF1CA5EBDD00075774 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
+		ACF320E11CA5EBE400075774 /* ForceFeedback.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ForceFeedback.framework; path = System/Library/Frameworks/ForceFeedback.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,7 +128,16 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9AE35F3C1C793A3600B758F2 /* SDL2.framework in Frameworks */,
+				ACF320E21CA5EBE400075774 /* ForceFeedback.framework in Frameworks */,
+				ACF320E01CA5EBDD00075774 /* Carbon.framework in Frameworks */,
+				ACF320DE1CA5EBD600075774 /* OpenGL.framework in Frameworks */,
+				ACF320DC1CA5EBD000075774 /* IOKit.framework in Frameworks */,
+				ACF320DA1CA5EBC100075774 /* Cocoa.framework in Frameworks */,
+				ACF320D81CA5EBBE00075774 /* AudioToolbox.framework in Frameworks */,
+				ACF320D61CA5EBB600075774 /* AudioUnit.framework in Frameworks */,
+				ACF320D41CA5EB9F00075774 /* CoreAudio.framework in Frameworks */,
+				AC8944D71CA3359200B25AD8 /* libSDL2.a in Frameworks */,
+				AC00A58A1CA20300003778F2 /* libmruby.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -92,6 +147,41 @@
 		9AE35F031C79288000B758F2 = {
 			isa = PBXGroup;
 			children = (
+				ACF320E11CA5EBE400075774 /* ForceFeedback.framework */,
+				ACF320DF1CA5EBDD00075774 /* Carbon.framework */,
+				ACF320DD1CA5EBD600075774 /* OpenGL.framework */,
+				ACF320DB1CA5EBD000075774 /* IOKit.framework */,
+				ACF320D91CA5EBC100075774 /* Cocoa.framework */,
+				ACF320D71CA5EBBE00075774 /* AudioToolbox.framework */,
+				ACF320D51CA5EBB600075774 /* AudioUnit.framework */,
+				ACF320D31CA5EB9F00075774 /* CoreAudio.framework */,
+				AC8944D61CA3359200B25AD8 /* libSDL2.a */,
+				AC00A5891CA20300003778F2 /* libmruby.a */,
+				AC00A5601CA20235003778F2 /* assets.c */,
+				AC00A5611CA20235003778F2 /* assets.h */,
+				AC00A5621CA20235003778F2 /* cache.h */,
+				AC00A5631CA20235003778F2 /* character.c */,
+				AC00A5641CA20235003778F2 /* character.h */,
+				AC00A5651CA20235003778F2 /* coords.h */,
+				AC00A5661CA20235003778F2 /* dxsdkver.h */,
+				AC00A5671CA20235003778F2 /* game.c */,
+				AC00A5681CA20235003778F2 /* game.h */,
+				AC00A5691CA20235003778F2 /* item.c */,
+				AC00A56A1CA20235003778F2 /* item.h */,
+				AC00A56B1CA20235003778F2 /* main.c */,
+				AC00A56C1CA20235003778F2 /* mob.c */,
+				AC00A56D1CA20235003778F2 /* mob.h */,
+				AC00A56E1CA20235003778F2 /* scene_offset_viewer.c */,
+				AC00A56F1CA20235003778F2 /* scene_world.c */,
+				AC00A5701CA20235003778F2 /* scene.h */,
+				AC00A5711CA20235003778F2 /* script.c */,
+				AC00A5721CA20235003778F2 /* script.h */,
+				AC00A5731CA20235003778F2 /* sound.c */,
+				AC00A5741CA20235003778F2 /* sound.h */,
+				AC00A5751CA20235003778F2 /* tilemap.c */,
+				AC00A5761CA20235003778F2 /* tilemap.h */,
+				AC00A5771CA20235003778F2 /* types.c */,
+				AC00A5781CA20235003778F2 /* types.h */,
 				9A4388951C83923F006CF111 /* stb_image.h */,
 				9A4388961C83923F006CF111 /* stb_vorbis.c */,
 				9A43886F1C839230006CF111 /* assets.c */,
@@ -113,7 +203,6 @@
 				9A43887F1C839230006CF111 /* tilemap.h */,
 				9A4388801C839230006CF111 /* types.c */,
 				9A4388811C839230006CF111 /* types.h */,
-				9AE35F3B1C793A3600B758F2 /* SDL2.framework */,
 				9AE35F0E1C79288000B758F2 /* Crattlecrute */,
 				9AE35F0D1C79288000B758F2 /* Products */,
 			);
@@ -209,16 +298,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9A4388991C83934B006CF111 /* stb_vorbis.c in Sources */,
 				9A4388821C839230006CF111 /* assets.c in Sources */,
 				9A4388851C839230006CF111 /* character.c in Sources */,
 				9A4388891C839230006CF111 /* game.c in Sources */,
+				AC00A57F1CA20235003778F2 /* item.c in Sources */,
 				9A43888B1C839230006CF111 /* main.c in Sources */,
+				AC00A5811CA20235003778F2 /* mob.c in Sources */,
 				9A43888C1C839230006CF111 /* scene_offset_viewer.c in Sources */,
 				9A43888D1C839230006CF111 /* scene_world.c in Sources */,
+				AC00A5841CA20235003778F2 /* script.c in Sources */,
 				9A43888F1C839230006CF111 /* sound.c in Sources */,
 				9A4388911C839230006CF111 /* tilemap.c in Sources */,
 				9A4388931C839230006CF111 /* types.c in Sources */,
+				9A4388991C83934B006CF111 /* stb_vorbis.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -307,16 +399,29 @@
 		9AE35F141C79288000B758F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LIBRARY = "compiler-default";
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_X86_VECTOR_INSTRUCTIONS = sse3;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
 				);
 				"FRAMEWORK_SEARCH_PATHS[arch=*]" = (
 					"$(inherited)",
-					"~/Downloads/crattlecrute/SDL",
+					"~/p/crattlecrute/SDL",
 				);
-				GCC_ENABLE_CPP_EXCEPTIONS = NO;
-				"HEADER_SEARCH_PATHS[arch=*]" = "~/Downloads/crattlecrute/SDL/include";
+				GCC_C_LANGUAGE_STANDARD = "compiler-default";
+				GCC_ENABLE_CPP_EXCEPTIONS = YES;
+				"HEADER_SEARCH_PATHS[arch=*]" = (
+					../../SDL/include,
+					../../MRuby/include,
+				);
+				"LD_MAP_FILE_PATH[arch=*]" = "$(TARGET_TEMP_DIR)/$(PRODUCT_NAME)-LinkMap-$(CURRENT_VARIANT)-$(CURRENT_ARCH).txt";
+				LIBRARY_SEARCH_PATHS = (
+					"../../MRuby/build/host-debug/lib",
+					../../SDL/Xcode/SDL/Build/Products/Debug,
+				);
 				MACH_O_TYPE = mh_execute;
 				"OTHER_CFLAGS[arch=*]" = (
 					"-D_DEBUG",
@@ -337,13 +442,26 @@
 		9AE35F151C79288000B758F2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LIBRARY = "compiler-default";
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_X86_VECTOR_INSTRUCTIONS = sse3;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
-					"~/Downloads/crattlecrute/SDL",
+					"~/p/crattlecrute/SDL",
 				);
-				GCC_ENABLE_CPP_EXCEPTIONS = NO;
-				"HEADER_SEARCH_PATHS[arch=*]" = "~/Downloads/crattlecrute/SDL/include";
+				GCC_C_LANGUAGE_STANDARD = "compiler-default";
+				GCC_ENABLE_CPP_EXCEPTIONS = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				"HEADER_SEARCH_PATHS[arch=*]" = (
+					../../SDL/include,
+					../../MRuby/include,
+				);
+				LIBRARY_SEARCH_PATHS = (
+					../../MRuby/build/host/lib,
+					../../SDL/Xcode/SDL/Build/Products/Release,
+				);
 				MACH_O_TYPE = mh_execute;
 				"OTHER_CFLAGS[arch=*]" = (
 					"-DNDEBUG",
@@ -353,7 +471,7 @@
 					"-sectcreate",
 					assets,
 					assets,
-					build/crattlecrute.assets,
+					../../build/crattlecrute.assets,
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

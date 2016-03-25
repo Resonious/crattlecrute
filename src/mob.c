@@ -218,6 +218,7 @@ void mob_fruit_load(void* vfruit, struct Map* map, byte* buffer, int* pos) {
 bool mob_fruit_sync_send(void* vfruit, struct Map* map, byte* buffer, int* pos) {
     MobFruit* fruit = (MobFruit*)vfruit;
     // TODO
+    return false;
 }
 void mob_fruit_sync_receive(void* vfruit, struct Map* map, byte* buffer, int* pos) {
     MobFruit* fruit = (MobFruit*)vfruit;
