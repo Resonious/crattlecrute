@@ -33,7 +33,7 @@ extern SDL_Window* main_window;
 
 byte* embedded_assets;
 
-int open_assets_file() {
+int open_assets_file(struct Game* game) {
     HRSRC resource = FindResource(NULL, MAKEINTRESOURCE(IDR_RCDATA1), RT_RCDATA);
     HGLOBAL resource_data = LoadResource(NULL, resource);
     embedded_assets = LockResource(resource_data);
@@ -51,11 +51,16 @@ AssetFile load_asset(int asset) {
 #elif __APPLE__ // ================= MACOSX CREATESECT =====================
 byte* embedded_assets;
 
-int open_assets_file() {
-    // TODO looks like Apple fucked up the sectdata methods so we have to straight up read from the executable.
-    // .... I guess argv[0] will have the file we want?
-    struct section_64* sect = getsectbyname("assets", "assets");
-    FILE* exe = fopen("/Users/nigelbaillie/p/crattlecrute/mac/Crattlecrute/Build/Products/Debug/Crattlecrute", "r");
+int open_assets_file(struct Game* game) {
+    if (game->argc == 0) {
+        printf("Can't find current executable file!\n");
+        exit(2);
+    }
+    else
+        printf("Executable: %s\n", game->argv[0]);
+
+    const struct section_64* sect = getsectbyname("assets", "assets");
+    FILE* exe = fopen(game->argv[0], "r");
 
     embedded_assets = malloc(sect->size);
 
@@ -79,7 +84,7 @@ AssetFile load_asset(int asset) {
 extern char _binary_build_crattlecrute_assets_start[];
 extern char _binary_build_crattlecrute_assets_end[];
 
-int open_assets_file() { return 0; }
+int open_assets_file(struct Game* game) { return 0; }
 
 AssetFile load_asset(int asset) {
     AssetFile f;

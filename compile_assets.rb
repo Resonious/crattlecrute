@@ -77,7 +77,8 @@ header.write(
 )
 header.write(
   "typedef struct AssetFile { byte* bytes; long long size; } AssetFile;\n"\
-  "int open_assets_file();\n"\
+  "struct Game;\n"\
+  "int open_assets_file(struct Game* game);\n"\
   "SDL_Surface* load_image(int asset);\n"\
   "SDL_Texture* load_texture(SDL_Renderer* renderer, int asset);\n"\
   "void free_image(SDL_Surface* image);\n"\

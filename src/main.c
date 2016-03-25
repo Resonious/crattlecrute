@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
 
     BENCH_START(loading_sdl);
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
-    open_assets_file();
+    open_assets_file(&game);
     memset(&game.controls, 0, sizeof(game.controls));
     BENCH_END(loading_sdl);
 
