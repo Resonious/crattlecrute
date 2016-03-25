@@ -37,7 +37,7 @@
 			<Region x="180" y="90" width="90" height="90"/>
 			<Index linear="8" collumn="2" row="1"/>
 		</Frame>
-		<Frame duration="45" visible="true">
+		<Frame duration="45" visible="false">
 			<Region x="270" y="90" width="90" height="90"/>
 			<Index linear="9" collumn="3" row="1"/>
 		</Frame>
