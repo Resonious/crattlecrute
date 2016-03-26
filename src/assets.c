@@ -281,6 +281,48 @@ AudioWave* cached_sound(Game* game, int asset) {
     SDL_memcpy(&dest, file.bytes + pos, sizeof(type)); \
     pos += sizeof(type)
 
+Map* cached_area(Game* game, int area_id) {
+    int asset = map_asset_for_area(area_id);
+    CachedAsset* cached_asset = &game->asset_cache.assets[asset];
+    if (cached_asset->id == ASSET_NOT_LOADED) {
+        cached_asset->id = asset;
+        CmFileHeader file_header = read_cm_file_header(asset);
+
+        size_t bytes_needed_for_map =
+            sizeof(Map) +
+            (size_t)file_header.tilemap_count          * sizeof(Tilemap) +
+            (size_t)file_header.background_count       * sizeof(ParallaxBackground) +
+            (size_t)file_header.door_count             * sizeof(Door) +
+            (size_t)file_header.total_spawn_rate_count * sizeof(MobSpawnRate) +
+            (size_t)file_header.spawn_zone_count       * sizeof(MobSpawnZone) +
+            sizeof(MapState);
+
+        cached_asset->map = aligned_malloc(bytes_needed_for_map + 32); // some cruft room for 16 byte aligned map state
+        cached_asset->map->locked = SDL_CreateMutex(); // TODO check for successful mutex creation
+        load_map(asset, cached_asset->map);
+        cached_asset->map->game = game;
+
+        for (int i = 0; i < cached_asset->map->number_of_tilemaps; i++) {
+            Tilemap* tilemap = &cached_asset->map->tilemaps[i];
+            if (tilemap->tex == NULL)
+                tilemap->tex = cached_texture(game, tilemap->tex_asset);
+        }
+
+        cached_asset->free = aligned_free;
+
+        cached_asset->map->area_id = area_id;
+        if (!game->net_joining) {
+            DataChunk* chunk = &game->data.maps[area_id];
+            if (chunk->size > 0)
+                read_map_from_data(cached_asset->map, chunk);
+        }
+    }
+    else
+        SDL_assert(cached_asset->id == asset);
+
+    return cached_asset->map;
+}
+
 Map* cached_map(Game* game, int asset) {
     CachedAsset* cached_asset = &game->asset_cache.assets[asset];
     if (cached_asset->id == ASSET_NOT_LOADED) {

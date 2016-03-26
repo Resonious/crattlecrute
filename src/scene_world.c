@@ -240,9 +240,7 @@ void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
     }
 
     s->current_area = transition->destination_area;
-    int map_asset = map_asset_for_area(s->current_area);
-    SDL_assert(map_asset > -1);
-    s->map             = cached_map(game, map_asset);
+    s->map             = cached_area(game, s->current_area);
     s->map->area_id    = s->current_area;
     s->game->data.area = s->current_area;
     save_game(s->game);
@@ -292,10 +290,7 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
 
     SDL_assert(door->dest_area > -1);
     int area_id = door->dest_area;
-    int map_asset = map_asset_for_area(area_id);
-    SDL_assert(map_asset > -1);
-    Map* map = cached_map(game, map_asset);
-    map->area_id = area_id;
+    Map* map = cached_area(game, area_id);
 
     for (int i = 0; i < s->net.number_of_players; i++) {
         RemotePlayer* other_player = s->net.players[i];
@@ -724,10 +719,7 @@ RemotePlayer* netop_initialize_state(WorldScene* scene, byte* buffer, struct soc
         int area_id;
         read_from_buffer(buffer, &area_id, &pos, sizeof(area_id));
         SDL_assert(area_id >= 0);
-        int map_asset = map_asset_for_area(area_id);
-        SDL_assert(map_asset >= 0);
-        Map* map = cached_map(scene->game, map_asset);
-        map->area_id = area_id;
+        Map* map = cached_area(scene->game, area_id);
 
         clear_map_state(map);
         read_map_state(map, buffer, &pos);
@@ -1294,7 +1286,7 @@ int network_server_loop(void* vdata) {
                 // Load their map to send it to them.
                 int their_area_id = SDL_AtomicGet(&new_player->area_id);
                 SDL_assert(their_area_id == AREA_NET_ZONE);
-                Map* their_map = cached_map(scene->game, map_asset_for_area(their_area_id));
+                Map* their_map = cached_area(scene->game, their_area_id);
                 if (their_map->doors[1].flags & DOOR_VISIBLE)
                     printf("Netzone door visible!");
                 else
@@ -1351,8 +1343,7 @@ int network_server_loop(void* vdata) {
                         *flags = NETF_MAPSTATE;
 
                         int area_id = SDL_AtomicGet(&player->area_id);
-                        Map* map = cached_map(scene->game, map_asset_for_area(area_id));
-                        map->area_id = area_id;
+                        Map* map = cached_area(scene->game, area_id);
                         netwrite_guy_mapstate(buffer, player, map, &pos);
 
                         SDL_AtomicSet(&player->received_map_data, true);
@@ -1408,8 +1399,7 @@ int network_server_loop(void* vdata) {
                     *flags |= NETF_MAPSTATE;
 
                     int area_id = SDL_AtomicGet(&player->area_id);
-                    Map* map = cached_map(scene->game, map_asset_for_area(area_id));
-                    map->area_id = area_id;
+                    Map* map = cached_area(scene->game, area_id);
                     netwrite_guy_mapstate(buffer, player, map, &pos);
 
                     SDL_AtomicSet(&player->just_switched_maps, false);
@@ -1595,7 +1585,7 @@ void remote_player_enters_net_zone_door(void* vs) {
     printf("REMOTE PLAYER ENTERS NET ZONE DOOR!\n");
     WorldScene* s = (WorldScene*)vs;
     SDL_assert(s->net.status == HOSTING);
-    Map* net_zone = cached_map(s->game, map_asset_for_area(AREA_NET_ZONE));
+    Map* net_zone = cached_area(s->game, AREA_NET_ZONE);
     SDL_assert(s->current_area != AREA_NET_ZONE);
     net_zone->doors[1].dest_area = s->current_area;
     net_zone->doors[1].dest_x = s->guy.position.x[X];
@@ -1620,8 +1610,7 @@ int network_server_listen(void* vdata) {
         return 1;
     }
     else {
-        Map* net_zone = cached_map(scene->game, map_asset_for_area(AREA_NET_ZONE));
-        net_zone->area_id = AREA_NET_ZONE;
+        Map* net_zone = cached_area(scene->game, AREA_NET_ZONE);
 
         if (net_zone->doors[0].flags & DOOR_VISIBLE)
             net_zone->doors[0].flags ^= DOOR_VISIBLE;
@@ -1890,8 +1879,7 @@ void net_host(WorldScene* data) {
 
 void create_client_thread(void* vs) {
     WorldScene* s = (WorldScene*)vs;
-    Map* net_zone = cached_map(s->game, map_asset_for_area(AREA_NET_ZONE));
-    net_zone->area_id = AREA_NET_ZONE;
+    Map* net_zone = cached_area(s->game, AREA_NET_ZONE);
 
     Door* door_back  = &net_zone->doors[0];
     Door* door_there = &net_zone->doors[1];
@@ -2004,6 +1992,7 @@ bool save(WorldScene* scene) {
     Game* game = scene->game;
     wait_for_then_use_lock(game->data.locked);
 
+    // TODO TODO uhh hyeah (when joining, don't save guy position and shit)
     write_character_to_data(&scene->guy, &game->data.character);
 
     if (scene->net.status != JOINING) {
@@ -2112,8 +2101,7 @@ void scene_world_initialize(void* vdata, Game* game) {
 
     BENCH_START(loading_tiles);
     data->current_area = game->data.area;
-    data->map = cached_map(game, map_asset_for_area(data->current_area));
-    data->map->area_id = data->current_area;
+    data->map = cached_area(game, data->current_area);
     set_camera_target(game, data->map, &data->guy);
     game->camera.simd = game->camera_target.simd;
     BENCH_END(loading_tiles);
@@ -2273,8 +2261,7 @@ void scene_world_update(void* vs, Game* game) {
                 SDL_assert(plr->number_of_physics_updates_this_frame == 1 || plr->number_of_physics_updates_this_frame == 2);
 
                 int area_id = SDL_AtomicGet(&plr->area_id);
-                Map* map = cached_map(game, map_asset_for_area(area_id));
-                map->area_id = area_id;
+                Map* map = cached_area(game, area_id);
 
                 apply_character_inventory(&plr->guy, &plr->controls, game, map);
                 apply_character_physics(game, &plr->guy, &plr->controls, s->gravity, s->drag);
@@ -2417,7 +2404,7 @@ void scene_world_update(void* vs, Game* game) {
             int area_id = SDL_AtomicGet(&player->area_id);
             if (updated_maps[area_id]) continue;
 
-            Map* map = cached_map(game, map_asset_for_area(area_id));
+            Map* map = cached_area(game, area_id);
             update_map(map, game, s, after_mob_update);
             updated_maps[area_id] = true;
         }
