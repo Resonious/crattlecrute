@@ -106,6 +106,7 @@ int main(int argc, char** argv) {
     }
 
     game.data.locked = SDL_CreateMutex();
+    SDL_AtomicSet(&game.data.write_wanted, false);
 
 #ifdef _DEBUG
     // All scene ids should equal their index
@@ -121,6 +122,7 @@ int main(int argc, char** argv) {
 
     BENCH_START(loading_sdl);
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
+    game.gamedata_path = SDL_GetPrefPath("Resonious", "crattlecrute");
     open_assets_file(&game);
     memset(&game.controls, 0, sizeof(game.controls));
     BENCH_END(loading_sdl);
@@ -147,6 +149,25 @@ no_renderer:
     if (game.renderer == NULL) printf("No renderer!\n");
     SDL_SetRenderDrawColor(game.renderer, 20, 20, 20, 255);
     BENCH_END(loading_window);
+
+    if (game.gamedata_path) {
+        size_t filename_size = strlen(game.gamedata_path) + 10;
+        game.gamedata_file_path = malloc(filename_size);
+
+        SDL_snprintf(game.gamedata_file_path, filename_size, "%sc.dat", game.gamedata_path);
+
+#ifdef _DEBUG
+        printf("Game data: %s\n", game.gamedata_file_path);
+#endif
+    }
+    else {
+        game.gamedata_file_path = NULL;
+        const char* message = "Couldn't find place to write game data. Won't be able to save!";
+        if (game.window)
+            SDL_ShowSimpleMessageBox(0, "Error", message, game.window);
+        else
+            printf("%s\n", message);
+    }
 
     game.font = load_texture(game.renderer, ASSET_FONT_FONT_PNG);
 
@@ -250,6 +271,27 @@ no_renderer:
     bool keys_up[NUM_CONTROLS];
     bool keys_down[NUM_CONTROLS];
 
+    BENCH_START(loading_game_data);
+    if (game.gamedata_file_path) {
+        FILE* data_read = fopen(game.gamedata_file_path, "r");
+        if (data_read != NULL) {
+            read_game_data(&game.data, data_read);
+            fclose(data_read);
+#ifdef _DEBUG
+            printf("Loaded game data\n");
+#endif
+        }
+        else {
+#ifdef _DEBUG
+            printf("New game!\n");
+#endif
+            game.data.area = AREA_GARDEN;
+        }
+
+        SDL_CreateThread(write_game_data_thread, "Game data", &game);
+    }
+    BENCH_END(loading_game_data);
+
     SDL_assert(!game.mrb->exc);
     game.current_scene->initialize(game.current_scene_data, &game);
     SDL_assert(!game.mrb->exc);
@@ -333,8 +375,11 @@ no_renderer:
             ruby_p(game.mrb, mrb_obj_value(game.mrb->exc), 0);
             game.mrb->exc = 0;
         }
-        if (mrb_respond_to(game.mrb, ruby_context, game.ruby.sym_update))
-            mrb_funcall(game.mrb, ruby_context, "update", 1, rgame);
+        if (mrb_respond_to(game.mrb, ruby_context, game.ruby.sym_update)) {
+            int ai = mrb_gc_arena_save(game.mrb);
+            mrb_funcall_argv(game.mrb, ruby_context, game.ruby.sym_update, 1, &rgame);
+            mrb_gc_arena_restore(game.mrb, ai);
+        }
 
 #if _DEBUG
         // Execute ruby code from console i/o

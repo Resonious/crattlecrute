@@ -242,8 +242,10 @@ void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
     s->current_area = transition->destination_area;
     int map_asset = map_asset_for_area(s->current_area);
     SDL_assert(map_asset > -1);
-    s->map = cached_map(game, map_asset);
-    s->map->area_id = s->current_area;
+    s->map             = cached_map(game, map_asset);
+    s->map->area_id    = s->current_area;
+    s->game->data.area = s->current_area;
+    save_game(s->game);
 
     float dest_x = transition->destination_position.x;
     float dest_y;
@@ -1998,6 +2000,20 @@ mrb_value mrb_world_is_joining(mrb_state* mrb, mrb_value self) {
     return scene->net.status == JOINING ? mrb_true_value() : mrb_false_value();
 }
 
+bool save(WorldScene* scene) {
+    Game* game = scene->game;
+    wait_for_then_use_lock(game->data.locked);
+
+    write_character_to_data(&scene->guy, &game->data.character);
+
+    if (scene->net.status != JOINING) {
+        write_map_to_data(scene->map, &game->data.maps[scene->current_area]);
+    }
+
+    SDL_UnlockMutex(game->data.locked);
+    return save_game(game);
+}
+
 void scene_world_initialize(void* vdata, Game* game) {
     WorldScene* data = (WorldScene*)vdata;
     data->game = game;
@@ -2058,28 +2074,34 @@ void scene_world_initialize(void* vdata, Game* game) {
     SDL_assert(!game->mrb->exc);
     default_character_animations(game, &data->guy);
     SDL_assert(!game->mrb->exc);
-    data->guy.position.x[X] = 3918.0f;
-    data->guy.position.x[Y] = 988.0f;
-    data->guy.position.x[2] = 0.0f;
-    data->guy.position.x[3] = 0.0f;
-    data->guy.old_position.simd = data->guy.position.simd;
-    data->guy.body_color.r = rand() % 255;
-    data->guy.body_color.g = rand() % 255;
-    data->guy.body_color.b = rand() % 255;
-    data->guy.left_foot_color.r = rand() % 255;
-    data->guy.left_foot_color.g = rand() % 255;
-    data->guy.left_foot_color.b = rand() % 255;
-    if (rand() > RAND_MAX / 5)
-        data->guy.right_foot_color = data->guy.left_foot_color;
-    else {
-        data->guy.right_foot_color.r = rand() % 255;
-        data->guy.right_foot_color.g = rand() % 255;
-        data->guy.right_foot_color.b = rand() % 255;
+    if (game->data.character.bytes) {
+        read_character_from_data(&data->guy, &game->data.character);
     }
-    if (rand() < RAND_MAX / 5) {
-        data->guy.eye_color.r = rand() % 255;
-        data->guy.eye_color.g = rand() % 70;
-        data->guy.eye_color.b = rand() % 140;
+    else {
+        data->guy.position.x[X] = 3918.0f;
+        data->guy.position.x[Y] = 988.0f;
+        data->guy.position.x[2] = 0.0f;
+        data->guy.position.x[3] = 0.0f;
+        data->guy.old_position.simd = data->guy.position.simd;
+        data->guy.body_color.r = rand() % 255;
+        data->guy.body_color.g = rand() % 255;
+        data->guy.body_color.b = rand() % 255;
+        data->guy.left_foot_color.r = rand() % 255;
+        data->guy.left_foot_color.g = rand() % 255;
+        data->guy.left_foot_color.b = rand() % 255;
+        if (rand() > RAND_MAX / 5)
+            data->guy.right_foot_color = data->guy.left_foot_color;
+        else {
+            data->guy.right_foot_color.r = rand() % 255;
+            data->guy.right_foot_color.g = rand() % 255;
+            data->guy.right_foot_color.b = rand() % 255;
+        }
+        if (rand() < RAND_MAX / 5) {
+            data->guy.eye_color.r = rand() % 255;
+            data->guy.eye_color.g = rand() % 70;
+            data->guy.eye_color.b = rand() % 140;
+        }
+        printf("Generated character.\n");
     }
 
     data->inv_fade = INV_FADE_MAX;
@@ -2089,7 +2111,7 @@ void scene_world_initialize(void* vdata, Game* game) {
     BENCH_END(loading_crattle1);
 
     BENCH_START(loading_tiles);
-    data->current_area = AREA_GARDEN;
+    data->current_area = game->data.area;
     data->map = cached_map(game, map_asset_for_area(data->current_area));
     data->map->area_id = data->current_area;
     set_camera_target(game, data->map, &data->guy);
@@ -2781,4 +2803,9 @@ mrb_value mrb_world_current_map(mrb_state* mrb, mrb_value self) {
 mrb_value mrb_world_local_character(mrb_state* mrb, mrb_value self) {
     WorldScene* scene = DATA_PTR(self);
     return scene->rguy;
+}
+
+mrb_value mrb_world_save(mrb_state* mrb, mrb_value self) {
+    WorldScene* scene = DATA_PTR(self);
+    return mrb_bool_value(save(scene));
 }

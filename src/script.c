@@ -208,6 +208,10 @@ mrb_value mrb_game_world(mrb_state* mrb, mrb_value self) {
     return mrb_iv_get(mrb, self, game->ruby.sym_atworld);
 }
 
+mrb_value mrb_game_save(mrb_state* mrb, mrb_value self) {
+    return mrb_bool_value(save_game((Game*)DATA_PTR(self)));
+}
+
 mrb_value mrb_map_init(mrb_state* mrb, mrb_value self) {
     mrb_data_init(self, NULL, &mrb_map_type);
     return self;
@@ -475,6 +479,7 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.game_class, "initialize", mrb_game_init, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.game_class, "controls", mrb_game_controls, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.game_class, "world", mrb_game_world, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.game_class, "save", mrb_game_save, MRB_ARGS_NONE());
 
     // ==================================== class World ===============================
     game->ruby.world_class = mrb_define_class(game->mrb, "World", game->mrb->object_class);
@@ -488,6 +493,7 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.world_class, "hosting?", mrb_world_is_hosting, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.world_class, "current_map", mrb_world_current_map, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.world_class, "local_character", mrb_world_local_character, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.world_class, "save", mrb_world_save, MRB_ARGS_NONE());
 
     // ==================================== class Map =================================
     game->ruby.map_class = mrb_define_class(game->mrb, "Map", game->mrb->object_class);

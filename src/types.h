@@ -24,6 +24,11 @@
 
 #include <math.h>
 
+#ifdef _WIN32
+#define DIR_SEP "\\"
+#else
+#define DIR_SEP "/"
+#endif
 #define IS_WHITESPACE(c) (c == ' ' || c == '\n' || c == '\t')
 
 typedef unsigned char byte;

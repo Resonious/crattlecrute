@@ -262,10 +262,8 @@ void character_post_update(Character* guy) {
     guy->just_went_through_door = false;
 }
 
-void write_character_data(Character* guy, struct DataChunk* chunk) {
-    if (chunk->capacity == 0 || chunk->bytes == NULL) {
-        malloc(2048);
-    }
+void write_character_to_data(Character* guy, struct DataChunk* chunk) {
+    set_data_chunk_cap(chunk, 2048);
     chunk->size = 0;
 
     write_to_buffer(chunk->bytes, guy->position.x, &chunk->size, sizeof(vec4));
@@ -300,7 +298,7 @@ void write_character_data(Character* guy, struct DataChunk* chunk) {
     write_to_buffer(chunk->bytes, guy->inventory.items, &chunk->size, guy->inventory.capacity * sizeof(ItemCommon));
 }
 
-void read_character_data(Character* guy, struct DataChunk* chunk) {
+void read_character_from_data(Character* guy, struct DataChunk* chunk) {
     int pos = 0;
 
     read_from_buffer(chunk->bytes, guy->position.x, &pos, sizeof(vec4));

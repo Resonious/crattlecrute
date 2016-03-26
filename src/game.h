@@ -58,6 +58,7 @@ typedef struct GameData {
     DataChunk character;
     DataChunk maps[NUMBER_OF_AREAS];
     SDL_mutex* locked;
+    SDL_atomic_t write_wanted;
 } GameData;
 
 struct Scene;
@@ -68,6 +69,8 @@ typedef struct Game {
     SDL_Window* window;
     SDL_Renderer* renderer;
     mrb_state* mrb;
+    char* gamedata_path;
+    char* gamedata_file_path;
     struct {
 #ifdef _DEBUG
         SDL_mutex* io_locked;
@@ -133,14 +136,18 @@ typedef struct Game {
     bool running;
 } Game;
 
-void read_game_data(Game* game, FILE* file);
-void write_game_data(Game* game, FILE* file);
+bool save_game(Game* game);
+void set_data_chunk_cap(DataChunk* chunk, int capacity);
+void read_game_data(GameData* data, FILE* file);
+void write_game_data(GameData* data, FILE* file);
 
 // Switch to a new scene (COMING SOON: fade to scene!?)
 void switch_scene(Game* game, int to_scene);
 // input_rect can be null who gives a shit
 void start_editing_text(Game* game, char* text_to_edit, int buffer_size, SDL_Rect* input_rect);
 void stop_editing_text(Game* game);
+
+int write_game_data_thread(void*);
 
 // === Text functions ===
 

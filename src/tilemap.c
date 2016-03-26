@@ -1325,3 +1325,19 @@ void read_map_state(Map* map, byte* buffer, int* pos) {
     SYNC_MAP_STATE(MEDIUM, medium_mobs, read_from_buffer, load);
     SYNC_MAP_STATE(LARGE,  large_mobs,  read_from_buffer, load);
 }
+
+void write_map_to_data(Map* map, struct DataChunk* chunk) {
+    // NOTE this cap is sorta approximate
+    set_data_chunk_cap(chunk, sizeof(MapState));
+    chunk->size = 0;
+
+    write_to_buffer(chunk->bytes, &map->area_id, &chunk->size, sizeof(int));
+    write_map_state(map, chunk->bytes, &chunk->size);
+    SDL_assert(chunk->size <= chunk->capacity);
+}
+void read_map_from_data(Map* map, struct DataChunk* chunk) {
+    int pos = 0;
+
+    read_from_buffer(chunk->bytes, &map->area_id, &pos, sizeof(int));
+    read_map_state(map, chunk->bytes, &pos);
+}

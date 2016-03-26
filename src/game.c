@@ -165,6 +165,36 @@ bool area_is_garden(int area_id) {
     return area_id == AREA_GARDEN;
 }
 
+void set_data_chunk_cap(DataChunk* chunk, int capacity) {
+    if (chunk->bytes == NULL) {
+        chunk->bytes = malloc(capacity);
+        chunk->capacity = capacity;
+    }
+    else {
+        if (capacity > chunk->capacity) {
+            chunk->bytes = realloc(chunk->bytes, capacity);
+            chunk->capacity = capacity;
+        }
+    }
+}
+
+int write_game_data_thread(void* vgame) {
+    Game* game = (Game*)vgame;
+
+    while (true) {
+        while (!SDL_AtomicGet(&game->data.write_wanted))
+            SDL_Delay(1000);
+
+        FILE* game_data = fopen(game->gamedata_file_path, "w");
+        write_game_data(&game->data, game_data);
+        fclose(game_data);
+        SDL_AtomicSet(&game->data.write_wanted, false);
+#ifdef _DEBUG
+        printf("Wrote game data.\n");
+#endif
+    }
+}
+
 void write_data_chunk(DataChunk* chunk, FILE* file) {
     fwrite(&chunk->size, sizeof(int), 1, file);
     if (chunk->size > 0) {
@@ -175,22 +205,25 @@ void write_data_chunk(DataChunk* chunk, FILE* file) {
 void read_data_chunk(DataChunk* chunk, FILE* file) {
     fread(&chunk->size, sizeof(int), 1, file);
     if (chunk->size > 0) {
+        set_data_chunk_cap(chunk, chunk->size);
         fread(chunk->bytes, 1, chunk->size, file);
     }
 }
 
-void read_game_data(Game* game, FILE* file) {
-    wait_for_then_use_lock(game->data.locked);
+void read_game_data(GameData* data, FILE* file) {
+    wait_for_then_use_lock(data->locked);
 
     // ======== FILE VERSION =============
-    int cc_data_version = 0;
+    int cc_data_version = -1;
     fread(&cc_data_version, sizeof(int), 1, file);
 
+    SDL_assert(cc_data_version == 0);
+
     // ======== Current Area ID ==========
-    fread(&game->data.area, sizeof(int), 1, file);
+    fread(&data->area, sizeof(int), 1, file);
 
     // ======== Character Data ===========
-    fread(game->data.character.bytes, 1, game->data.character.size, file);
+    read_data_chunk(&data->character, file);
 
     // ======== NUMBER OF AREAS ==========
     const int number_of_areas = NUMBER_OF_AREAS;
@@ -200,23 +233,23 @@ void read_game_data(Game* game, FILE* file) {
         // ======= Area ID of this map ========
         fread(&i, sizeof(int), 1, file);
 
-        write_data_chunk(&game->data.maps, file);
+        write_data_chunk(&data->maps[i], file);
     }
 
-    SDL_UnlockMutex(game->data.locked);
+    SDL_UnlockMutex(data->locked);
 }
-void write_game_data(Game* game, FILE* file) {
-    wait_for_then_use_lock(game->data.locked);
+void write_game_data(GameData* data, FILE* file) {
+    wait_for_then_use_lock(data->locked);
 
     // ======== FILE VERSION =============
     int cc_data_version = 0;
     fwrite(&cc_data_version, sizeof(int), 1, file);
 
     // ======== Current Area ID ==========
-    fwrite(&game->data.area, sizeof(int), 1, file);
+    fwrite(&data->area, sizeof(int), 1, file);
 
     // ======== Character Data ===========
-    fwrite(game->data.character.bytes, 1, game->data.character.size, file);
+    write_data_chunk(&data->character, file);
 
     // ======== NUMBER OF AREAS ==========
     const int number_of_areas = NUMBER_OF_AREAS;
@@ -226,8 +259,13 @@ void write_game_data(Game* game, FILE* file) {
         // ======= Area ID of this map ========
         fwrite(&i, sizeof(int), 1, file);
 
-        write_data_chunk(&game->data.maps, file);
+        write_data_chunk(&data->maps[i], file);
     }
 
-    SDL_UnlockMutex(game->data.locked);
+    SDL_UnlockMutex(data->locked);
+}
+
+bool save_game(Game* game) {
+    SDL_AtomicSet(&game->data.write_wanted, true);
+    return !!game->gamedata_file_path;
 }

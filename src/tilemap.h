@@ -209,6 +209,9 @@ int index_from_mob_id(int id);
 void clear_map_state(Map* map);
 void write_map_state(Map* map, byte* buffer, int* pos);
 void read_map_state(Map* map, byte* buffer, int* pos);
+struct DataChunk;
+void write_map_to_data(Map* map, struct DataChunk* chunk);
+void read_map_from_data(Map* map, struct DataChunk* chunk);
 
 void collide_generic_body(struct GenericBody* body, CollisionMap* tile_collision);
 
