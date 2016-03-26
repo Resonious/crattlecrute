@@ -9,6 +9,7 @@ typedef struct Scene {
     void(*update)(void* data, Game* game);
     void(*render)(void* data, Game* game);
     void(*cleanup)(void* data, Game* game);
+    void(*save)(void* data, Game* game);
 } Scene;
 
 #define SCENE_WORLD 0
@@ -16,6 +17,7 @@ void scene_world_initialize(void* data, Game* game);
 void scene_world_update(void* data, Game* game);
 void scene_world_render(void* data, Game* game);
 void scene_world_cleanup(void* data, Game* game);
+void scene_world_save(void* data, Game* game);
 
 #define SCENE_OFFSET_VIEWER 1
 void scene_offset_viewer_initialize(void* data, Game* game);
@@ -29,14 +31,16 @@ static Scene SCENES[] = {
     scene_world_initialize,
     scene_world_update,
     scene_world_render,
-    scene_world_cleanup
+    scene_world_cleanup,
+    scene_world_save
     },
     {
         SCENE_OFFSET_VIEWER,
     scene_offset_viewer_initialize,
     scene_offset_viewer_update,
     scene_offset_viewer_render,
-    scene_offset_viewer_cleanup
+    scene_offset_viewer_cleanup,
+    NULL
     }
 };
 

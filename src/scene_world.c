@@ -2003,6 +2003,10 @@ bool save(WorldScene* scene) {
     return save_game(game);
 }
 
+void scene_world_save(void* data, Game* game) {
+    save((WorldScene*)data);
+}
+
 void scene_world_initialize(void* vdata, Game* game) {
     WorldScene* data = (WorldScene*)vdata;
     data->game = game;

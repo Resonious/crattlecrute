@@ -62,6 +62,7 @@ Uint64 ticks_per_second;
 
 #ifdef _DEBUG
 int ruby_io_thread(void* vdata) {
+    SDL_SetThreadPriority(SDL_THREAD_PRIORITY_LOW);
     Game* game = (Game*)vdata;
 
     while (true) {
@@ -88,25 +89,61 @@ mrb_value rb_exit(mrb_state* mrb, mrb_value self) {
     return mrb_str_new_cstr(mrb, "bye");
 }
 
+// WOOO PLEASE DON'T ACCESS THIS ANYWHERE. THANKS.
+Game* game_to_save_on_exit;
+
+void cleanup() {
+    Game* game = game_to_save_on_exit;
+    if (game->current_scene->save)
+        game->current_scene->save(game->current_scene_data, game);
+
+    SDL_AtomicSet(&game->data.write_wanted, false);
+
+    if (SDL_TryLockMutex(game->data.locked) == 0) {
+        FILE* game_data = fopen(game->gamedata_file_path, "w");
+        if (game_data) {
+            write_game_data(&game->data, game_data);
+            fclose(game_data);
+            printf("Saved game ONE LAST TIME.");
+        }
+    }
+    else {
+        printf("... I hope the gamedata thread has this handled.");
+        // TODO maybe we can write to a backup file right here?
+    }
+    
+    game->current_scene->cleanup(game->current_scene_data, game);
+    aligned_free(game->current_scene_data);
+    SDL_PauseAudio(true);
+    SDL_DestroyWindow(game->window);
+
+#ifdef _WIN32 // Windows sucks and needs networking cleaned up
+    WSACleanup();
+#endif
+
+    SDL_Quit();
+}
+
 int main(int argc, char** argv) {
     BENCH_START(total_initialization);
     SDL_assert(sizeof(byte) == 1);
     srand((unsigned int)time(0));
     ticks_per_second = SDL_GetPerformanceFrequency();
     _MM_SET_ROUNDING_MODE(_MM_ROUND_DOWN);
+    SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
 
-    Game game;
-    memset(&game, 0, sizeof(Game));
-    game.argc = argc;
-    game.argv = argv;
-    game.window_width = 640.0f;
-    game.window_height = 480.0f;
+    Game* game = aligned_malloc(sizeof(Game));
+    memset(game, 0, sizeof(Game));
+    game->argc = argc;
+    game->argv = argv;
+    game->window_width = 640.0f;
+    game->window_height = 480.0f;
     for (int i = 0; i < NUMBER_OF_ASSETS; i++) {
-        game.asset_cache.assets[i].id = ASSET_NOT_LOADED;
+        game->asset_cache.assets[i].id = ASSET_NOT_LOADED;
     }
 
-    game.data.locked = SDL_CreateMutex();
-    SDL_AtomicSet(&game.data.write_wanted, false);
+    game->data.locked = SDL_CreateMutex();
+    SDL_AtomicSet(&game->data.write_wanted, false);
 
 #ifdef _DEBUG
     // All scene ids should equal their index
@@ -114,17 +151,17 @@ int main(int argc, char** argv) {
         SDL_assert(SCENES[i].id == i);
 #endif
 
-    game.current_scene = &SCENES[SCENE_WORLD];
-    game.current_scene_data = aligned_malloc(SCENE_DATA_SIZE);
-    game.camera.simd = _mm_set1_ps(0.0f);
-    game.camera_target.simd = _mm_set1_ps(0.0f);
-    game.follow_cam_y = false;
+    game->current_scene = &SCENES[SCENE_WORLD];
+    game->current_scene_data = aligned_malloc(SCENE_DATA_SIZE);
+    game->camera.simd = _mm_set1_ps(0.0f);
+    game->camera_target.simd = _mm_set1_ps(0.0f);
+    game->follow_cam_y = false;
 
     BENCH_START(loading_sdl);
     SDL_Init(SDL_INIT_EVERYTHING & (~SDL_INIT_HAPTIC));
-    game.gamedata_path = SDL_GetPrefPath("Resonious", "crattlecrute");
-    open_assets_file(&game);
-    memset(&game.controls, 0, sizeof(game.controls));
+    game->gamedata_path = SDL_GetPrefPath("Resonious", "crattlecrute");
+    open_assets_file(game);
+    memset(&game->controls, 0, sizeof(game->controls));
     BENCH_END(loading_sdl);
 
     BENCH_START(loading_window);
@@ -133,43 +170,43 @@ int main(int argc, char** argv) {
           goto no_renderer;
         }
     }
-    initialize_sound(&game.audio);
+    initialize_sound(&game->audio);
 
-    game.window = SDL_CreateWindow(
+    game->window = SDL_CreateWindow(
         "Crattlecrute",
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
-        (int)game.window_width, (int)game.window_height,
+        (int)game->window_width, (int)game->window_height,
         SDL_WINDOW_RESIZABLE
     );
-    main_window = game.window;
+    main_window = game->window;
 
-    game.renderer = SDL_CreateRenderer(game.window, -1, 0);
+    game->renderer = SDL_CreateRenderer(game->window, -1, 0);
 no_renderer:
-    if (game.renderer == NULL) printf("No renderer!\n");
-    SDL_SetRenderDrawColor(game.renderer, 20, 20, 20, 255);
+    if (game->renderer == NULL) printf("No renderer!\n");
+    SDL_SetRenderDrawColor(game->renderer, 20, 20, 20, 255);
     BENCH_END(loading_window);
 
-    if (game.gamedata_path) {
-        size_t filename_size = strlen(game.gamedata_path) + 10;
-        game.gamedata_file_path = malloc(filename_size);
+    if (game->gamedata_path) {
+        size_t filename_size = strlen(game->gamedata_path) + 10;
+        game->gamedata_file_path = malloc(filename_size);
 
-        SDL_snprintf(game.gamedata_file_path, filename_size, "%sc.dat", game.gamedata_path);
+        SDL_snprintf(game->gamedata_file_path, filename_size, "%sc.dat", game->gamedata_path);
 
 #ifdef _DEBUG
-        printf("Game data: %s\n", game.gamedata_file_path);
+        printf("Game data: %s\n", game->gamedata_file_path);
 #endif
     }
     else {
-        game.gamedata_file_path = NULL;
+        game->gamedata_file_path = NULL;
         const char* message = "Couldn't find place to write game data. Won't be able to save!";
-        if (game.window)
-            SDL_ShowSimpleMessageBox(0, "Error", message, game.window);
+        if (game->window)
+            SDL_ShowSimpleMessageBox(0, "Error", message, game->window);
         else
             printf("%s\n", message);
     }
 
-    game.font = load_texture(game.renderer, ASSET_FONT_FONT_PNG);
+    game->font = load_texture(game->renderer, ASSET_FONT_FONT_PNG);
 
     // Gotta be a tad more aggressive about the icon on windows
     {
@@ -179,7 +216,7 @@ no_renderer:
         if (icon != NULL) {
             SDL_SysWMinfo wminfo;
             SDL_VERSION(&wminfo.version);
-            int result = SDL_GetWindowWMInfo(game.window, &wminfo);
+            int result = SDL_GetWindowWMInfo(game->window, &wminfo);
             if (result == 1) {
                 HWND hwnd = wminfo.info.win.window;
                 SetClassLongPtr(hwnd, -14, (LONG)icon);
@@ -188,7 +225,7 @@ no_renderer:
         }
 #else
         SDL_Surface* icon = load_image(ASSET_ICON_PNG);
-        SDL_SetWindowIcon(game.window, icon);
+        SDL_SetWindowIcon(game->window, icon);
         free_image(icon);
 #endif
     }
@@ -198,60 +235,60 @@ no_renderer:
 
 #ifdef _WIN32 // Windows sucks and needs networking initialized
     if (WSAStartup(MAKEWORD(2,2),&global_wsa) != 0)
-        SDL_ShowSimpleMessageBox(0, "Uh oh", "Couldn't initialize Windows networking", game.window);
+        SDL_ShowSimpleMessageBox(0, "Uh oh", "Couldn't initialize Windows networking", game->window);
 #endif
 
     // MRB ????
     BENCH_START(loading_ruby);
-    game.mrb = mrb_open();
-    if (game.mrb == NULL) {
-        SDL_ShowSimpleMessageBox(0, "NO MRUBY?", "ARE YOU KIDDING ME", game.window);
+    game->mrb = mrb_open();
+    if (game->mrb == NULL) {
+        SDL_ShowSimpleMessageBox(0, "NO MRUBY?", "ARE YOU KIDDING ME", game->window);
         return 0;
     }
-    script_init(&game);
-    SDL_assert(!game.mrb->exc);
+    script_init(game);
+    SDL_assert(!game->mrb->exc);
 
-    mrb_value ruby_context = mrb_obj_value(game.mrb->top_self);
+    mrb_value ruby_context = mrb_obj_value(game->mrb->top_self);
 #ifdef _DEBUG
     SDL_Thread* ruby_repl = NULL;
 
-    game.ruby.io_locked = SDL_CreateMutex();
-    if (!game.ruby.io_locked)
+    game->ruby.io_locked = SDL_CreateMutex();
+    if (!game->ruby.io_locked)
         printf("RUBY I/O IS MESSED UP.\n");
     else {
-        memset(game.ruby.io_buffer, 0, sizeof(game.ruby.io_buffer));
-        game.ruby.io_pos = 0;
-        game.ruby.io_cxt = mrbc_context_new(game.mrb);
-        game.ruby.io_cxt->capture_errors = true;
-        mrbc_filename(game.mrb, game.ruby.io_cxt, "(crattlecrute)");
-        SDL_AtomicSet(&game.ruby.io_ready, false);
-        ruby_repl = SDL_CreateThread(ruby_io_thread, "Ruby I/O", &game);
+        memset(game->ruby.io_buffer, 0, sizeof(game->ruby.io_buffer));
+        game->ruby.io_pos = 0;
+        game->ruby.io_cxt = mrbc_context_new(game->mrb);
+        game->ruby.io_cxt->capture_errors = true;
+        mrbc_filename(game->mrb, game->ruby.io_cxt, "(crattlecrute)");
+        SDL_AtomicSet(&game->ruby.io_ready, false);
+        ruby_repl = SDL_CreateThread(ruby_io_thread, "Ruby I/O", game);
     }
 
-    if (load_script_file(game.mrb))
+    if (load_script_file(game->mrb))
         printf("script.rb loaded\n");
     else
         printf("script.rb not loaded\n");
 
-    if (game.mrb->exc) {
+    if (game->mrb->exc) {
         printf("ERROR in script.rb: ");
-        ruby_p(game.mrb, mrb_obj_value(game.mrb->exc), 0);
-        game.mrb->exc = NULL;
+        ruby_p(game->mrb, mrb_obj_value(game->mrb->exc), 0);
+        game->mrb->exc = NULL;
     }
 #endif
 
-    mrb_value rgame = mrb_class_new_instance(game.mrb, 0, NULL, game.ruby.game_class);
-    DATA_PTR(rgame) = &game;
-    game.ruby.game = rgame;
+    mrb_value rgame = mrb_class_new_instance(game->mrb, 0, NULL, game->ruby.game_class);
+    DATA_PTR(rgame) = game;
+    game->ruby.game = rgame;
 
-    mrb_define_singleton_method(game.mrb, game.mrb->top_self, "game", rb_game, MRB_ARGS_NONE());
-    mrb_define_singleton_method(game.mrb, game.mrb->top_self, "exit", rb_exit, MRB_ARGS_NONE());
-    mrb_define_singleton_method(game.mrb, game.mrb->top_self, "quit", rb_exit, MRB_ARGS_NONE());
+    mrb_define_singleton_method(game->mrb, game->mrb->top_self, "game", rb_game, MRB_ARGS_NONE());
+    mrb_define_singleton_method(game->mrb, game->mrb->top_self, "exit", rb_exit, MRB_ARGS_NONE());
+    mrb_define_singleton_method(game->mrb, game->mrb->top_self, "quit", rb_exit, MRB_ARGS_NONE());
 
     mrb_const_set(
-        game.mrb,
-        mrb_obj_value(game.ruby.game_class),
-        mrb_intern_lit(game.mrb, "TICKS_PER_SECOND"),
+        game->mrb,
+        mrb_obj_value(game->ruby.game_class),
+        mrb_intern_lit(game->mrb, "TICKS_PER_SECOND"),
         mrb_fixnum_value(ticks_per_second)
     );
 
@@ -259,24 +296,24 @@ no_renderer:
 
     // Main loop bitch
     SDL_Event event;
-    game.running = true;
+    game->running = true;
     const Uint64 milliseconds_per_tick = 1000 / ticks_per_second;
     const Uint64 ticks_per_frame = ticks_per_second / 60;
     Uint64 frame_start, frame_end;
     Uint64 last_frame_ticks = 0;
     // For getting FPS
     double frame_count_this_second = 0;
-    game.frames_per_second = 60.0;
+    game->frames_per_second = 60.0;
     double tick_second_counter = 0;
     bool keys_up[NUM_CONTROLS];
     bool keys_down[NUM_CONTROLS];
 
     BENCH_START(loading_game_data);
     SDL_Thread* data_write_thread = NULL;
-    if (game.gamedata_file_path) {
-        FILE* data_read = fopen(game.gamedata_file_path, "r");
+    if (game->gamedata_file_path) {
+        FILE* data_read = fopen(game->gamedata_file_path, "r");
         if (data_read != NULL) {
-            read_game_data(&game.data, data_read);
+            read_game_data(&game->data, data_read);
             fclose(data_read);
 #ifdef _DEBUG
             printf("Loaded game data\n");
@@ -286,72 +323,75 @@ no_renderer:
 #ifdef _DEBUG
             printf("New game!\n");
 #endif
-            game.data.area = AREA_GARDEN;
+            game->data.area = AREA_GARDEN;
         }
 
-        data_write_thread = SDL_CreateThread(write_game_data_thread, "Game data", &game);
+        data_write_thread = SDL_CreateThread(write_game_data_thread, "Game data", game);
     }
     BENCH_END(loading_game_data);
 
-    SDL_assert(!game.mrb->exc);
-    game.current_scene->initialize(game.current_scene_data, &game);
-    SDL_assert(!game.mrb->exc);
+    SDL_assert(!game->mrb->exc);
+    game->current_scene->initialize(game->current_scene_data, game);
+    SDL_assert(!game->mrb->exc);
+
+    game_to_save_on_exit = game;
+    onexit(cleanup);
 
     BENCH_END(total_initialization);
 
-    while (game.running) {
+    while (game->running) {
         frame_start = SDL_GetPerformanceCounter();
-        game.frame_count += 1;
+        game->frame_count += 1;
         frame_count_this_second += 1;
-        game.tick_count += last_frame_ticks;
+        game->tick_count += last_frame_ticks;
         tick_second_counter += last_frame_ticks;
 
-        controls_pre_update(&game.controls);
+        controls_pre_update(&game->controls);
 
         memset(keys_up, 0, sizeof(keys_up));
         memset(keys_down, 0, sizeof(keys_down));
 
-        game.text_edit.enter_pressed = false;
-        game.text_edit.canceled = false;
+        game->text_edit.enter_pressed = false;
+        game->text_edit.canceled = false;
 
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
             case SDL_QUIT:
-                game.running = false;
+                game->running = false;
                 break;
 
             case SDL_TEXTINPUT:
-                input_text(&game, event.text.text);
+                input_text(game, event.text.text);
                 break;
             case SDL_TEXTEDITING:
-                if (game.text_edit.text) {
-                    game.text_edit.composition = event.edit.text;
-                    game.text_edit.cursor = event.edit.start;
-                    game.text_edit.selection_length = event.edit.length;
+                if (game->text_edit.text) {
+                    game->text_edit.composition = event.edit.text;
+                    game->text_edit.cursor = event.edit.start;
+                    game->text_edit.selection_length = event.edit.length;
                 }
                 break;
 
             case SDL_KEYDOWN:
-                if (game.text_edit.text)
-                    handle_key_during_text_edit(&game, &event);
+                if (game->text_edit.text)
+                    handle_key_during_text_edit(game, &event);
                 else
                     switch (event.key.keysym.scancode) { SET_CONTROL(keys_down, true) }
                 break;
             case SDL_KEYUP:
 #ifdef _DEBUG
                 if (event.key.keysym.sym == SDLK_F5 || (event.key.keysym.sym == SDLK_r && event.key.keysym.mod & KMOD_CTRL))
-                    load_script_file(game.mrb);
+                    load_script_file(game->mrb);
 #endif
 
-                if (!game.text_edit.text)
+                if (!game->text_edit.text)
                     switch (event.key.keysym.scancode) { SET_CONTROL(keys_up, true) }
                 break;
 
             case SDL_WINDOWEVENT:
                 switch (event.window.event) {
                 case SDL_WINDOWEVENT_RESIZED: case SDL_WINDOWEVENT_SIZE_CHANGED:
-                    game.window_width = (float)event.window.data1;
-                    game.window_height = (float)event.window.data2;
+                    game->window_width = (float)event.window.data1;
+                    game->window_height = (float)event.window.data2;
                     break;
                 case SDL_WINDOWEVENT_MAXIMIZED:
                     break;
@@ -362,9 +402,9 @@ no_renderer:
         // UNSURE IF NECESSARY (KEY STICK BUG STILL HAPPENS)
         for (int i = 0; i < NUM_CONTROLS; i++) {
             if (keys_up[i])
-                game.controls.this_frame[i] = false;
+                game->controls.this_frame[i] = false;
             else if (keys_down[i])
-                game.controls.this_frame[i] = true;
+                game->controls.this_frame[i] = true;
 
             if (keys_up[i] && keys_down[i]) {
                 printf("KEY %i IS DOWN AND UP!!!!\n", i);
@@ -372,83 +412,83 @@ no_renderer:
         }
 
         // Check for exception and print the details if necessary
-        if (game.mrb->exc) {
-            ruby_p(game.mrb, mrb_obj_value(game.mrb->exc), 0);
-            game.mrb->exc = 0;
+        if (game->mrb->exc) {
+            ruby_p(game->mrb, mrb_obj_value(game->mrb->exc), 0);
+            game->mrb->exc = 0;
         }
-        if (mrb_respond_to(game.mrb, ruby_context, game.ruby.sym_update)) {
-            int ai = mrb_gc_arena_save(game.mrb);
-            mrb_funcall_argv(game.mrb, ruby_context, game.ruby.sym_update, 1, &rgame);
-            mrb_gc_arena_restore(game.mrb, ai);
+        if (mrb_respond_to(game->mrb, ruby_context, game->ruby.sym_update)) {
+            int ai = mrb_gc_arena_save(game->mrb);
+            mrb_funcall_argv(game->mrb, ruby_context, game->ruby.sym_update, 1, &rgame);
+            mrb_gc_arena_restore(game->mrb, ai);
         }
 
 #if _DEBUG
         // Execute ruby code from console i/o
-        if (SDL_AtomicGet(&game.ruby.io_ready)) {
-            SDL_LockMutex(game.ruby.io_locked);
+        if (SDL_AtomicGet(&game->ruby.io_ready)) {
+            SDL_LockMutex(game->ruby.io_locked);
 
-            // mrb_p(game.mrb, mrb_load_nstring_cxt(game.mrb, game.ruby.io_buffer, game.ruby.io_pos, game.ruby.io_cxt));
-            struct mrb_parser_state* parser = mrb_parser_new(game.mrb);
-            parser->s = game.ruby.io_buffer;
-            parser->send = game.ruby.io_buffer + game.ruby.io_pos;
-            parser->lineno = ++game.ruby.io_cxt->lineno;
-            mrb_parser_parse(parser, game.ruby.io_cxt);
+            // mrb_p(game->mrb, mrb_load_nstring_cxt(game->mrb, game->ruby.io_buffer, game->ruby.io_pos, game->ruby.io_cxt));
+            struct mrb_parser_state* parser = mrb_parser_new(game->mrb);
+            parser->s = game->ruby.io_buffer;
+            parser->send = game->ruby.io_buffer + game->ruby.io_pos;
+            parser->lineno = ++game->ruby.io_cxt->lineno;
+            mrb_parser_parse(parser, game->ruby.io_cxt);
 
             if (0 < parser->nerr) {
                 printf("line %d: %s\n", parser->error_buffer[0].lineno, parser->error_buffer[0].message);
             }
             else {
-                struct RProc *proc = mrb_generate_code(game.mrb, parser);
+                struct RProc *proc = mrb_generate_code(game->mrb, parser);
                 if (proc == NULL)
                     printf("ruby parser fucked up.\n");
                 else {
-                    mrb_value result = mrb_toplevel_run_keep(game.mrb, proc, game.ruby.io_locals);
-                    game.ruby.io_locals = proc->body.irep->nlocals;
+                    mrb_value result = mrb_toplevel_run_keep(game->mrb, proc, game->ruby.io_locals);
+                    game->ruby.io_locals = proc->body.irep->nlocals;
 
-                    if (game.mrb->exc) {
-                        ruby_p(game.mrb, mrb_obj_value(game.mrb->exc), 0);
-                        game.mrb->exc = 0;
+                    if (game->mrb->exc) {
+                        ruby_p(game->mrb, mrb_obj_value(game->mrb->exc), 0);
+                        game->mrb->exc = 0;
                     }
                     else {
-                        ruby_p(game.mrb, result, 0);
+                        ruby_p(game->mrb, result, 0);
                     }
                 }
             }
             mrb_parser_free(parser);
 
-            game.ruby.io_pos = 0;
-            SDL_AtomicSet(&game.ruby.io_ready, false);
-            SDL_UnlockMutex(game.ruby.io_locked);
+            game->ruby.io_pos = 0;
+            SDL_AtomicSet(&game->ruby.io_ready, false);
+            SDL_UnlockMutex(game->ruby.io_locked);
         }
         // End of ruby parser
 
         // Freeze-frame
-        if (just_pressed(&game.controls, C_PAUSE))
+        if (just_pressed(&game->controls, C_PAUSE))
             debug_pause = !debug_pause;
-        if (!debug_pause || just_pressed(&game.controls, C_DEBUG_ADV))
+        if (!debug_pause || just_pressed(&game->controls, C_DEBUG_ADV))
 #endif
-        game.current_scene->update(game.current_scene_data, &game);
+        game->current_scene->update(game->current_scene_data, game);
 
         // Draw!!! Finally!!!
-        if (game.renderer) {
-            SDL_RenderClear(game.renderer);
-            game.current_scene->render(game.current_scene_data, &game);
+        if (game->renderer) {
+            SDL_RenderClear(game->renderer);
+            game->current_scene->render(game->current_scene_data, game);
 #if _DEBUG
             if (debug_pause) {
-                set_text_color(&game, 50, 50, 255);
-                draw_text_ex(&game, 32, game.window_height - 32, "FREEZE-FRAME!", 1, 0.7f);
+                set_text_color(game, 50, 50, 255);
+                draw_text_ex(game, 32, game->window_height - 32, "FREEZE-FRAME!", 1, 0.7f);
             }
 #endif
             if (tick_second_counter / (double)ticks_per_second >= 1.0) {
-                game.frames_per_second = frame_count_this_second / (tick_second_counter / (double)ticks_per_second);
+                game->frames_per_second = frame_count_this_second / (tick_second_counter / (double)ticks_per_second);
                 frame_count_this_second = 0;
                 tick_second_counter = 0;
             }
 #if DRAW_FPS
-            set_text_color(&game, 255, 255, 20);
-            draw_text_ex_f(&game, (int)game.window_width - 150, (int)game.window_height - 20, -1, 0.7f, "FPS: %.2f", game.frames_per_second);
+            set_text_color(game, 255, 255, 20);
+            draw_text_ex_f(game, (int)game->window_width - 150, (int)game->window_height - 20, -1, 0.7f, "FPS: %.2f", game->frames_per_second);
 #endif
-            SDL_RenderPresent(game.renderer);
+            SDL_RenderPresent(game->renderer);
         }
 
         // ======================= Cap Framerate =====================
@@ -472,7 +512,7 @@ no_renderer:
         {
             Uint64 i = SDL_GetPerformanceCounter();
             if (last_frame_ticks > 2 * ticks_per_frame) {
-                printf("Frame %i took longer than 16ms\n", (int)game.frame_count);
+                printf("Frame %i took longer than 16ms\n", (int)game->frame_count);
             }
             Uint64 f = SDL_GetPerformanceCounter();
             last_frame_ticks += f - i;
@@ -487,20 +527,5 @@ no_renderer:
     if (data_write_thread)
         SDL_DetachThread(data_write_thread);
     
-    SDL_AtomicSet(&game.data.write_wanted, false);
-    FILE* game_data = fopen(game.gamedata_file_path, "w");
-    write_game_data(&game.data, game_data);
-    fclose(game_data);
-    
-    game.current_scene->cleanup(game.current_scene_data, &game);
-    aligned_free(game.current_scene_data);
-    SDL_PauseAudio(true);
-    SDL_DestroyWindow(game.window);
-
-#ifdef _WIN32 // Windows sucks and needs networking cleaned up
-    WSACleanup();
-#endif
-
-    SDL_Quit();
     return 0;
 }

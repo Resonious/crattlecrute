@@ -179,6 +179,7 @@ void set_data_chunk_cap(DataChunk* chunk, int capacity) {
 }
 
 int write_game_data_thread(void* vgame) {
+    SDL_SetThreadPriority(SDL_THREAD_PRIORITY_LOW);
     Game* game = (Game*)vgame;
 
     while (true) {
@@ -217,6 +218,10 @@ void read_game_data(GameData* data, FILE* file) {
     int cc_data_version = -1;
     fread(&cc_data_version, sizeof(int), 1, file);
 
+    if (cc_data_version != 0) {
+        printf("WARNING: bad data file! version id %i. No gamedata loaded.\n", cc_data_version);
+        return;
+    }
     SDL_assert(cc_data_version == 0);
 
     // ======== Current Area ID ==========

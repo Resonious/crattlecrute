@@ -1331,6 +1331,8 @@ void write_map_to_data(Map* map, struct DataChunk* chunk) {
     set_data_chunk_cap(chunk, sizeof(MapState));
     chunk->size = 0;
 
+    // TODO I don't think we want to write the area id here.
+    // cached_area will take care of that.
     write_to_buffer(chunk->bytes, &map->area_id, &chunk->size, sizeof(int));
     write_map_state(map, chunk->bytes, &chunk->size);
     SDL_assert(chunk->size <= chunk->capacity);

@@ -48,7 +48,7 @@ struct Game;
 void free_cached_asset(struct Game* game, int asset);
 SDL_Texture* cached_texture(struct Game* game, int asset);
 AudioWave* cached_sound(struct Game* game, int asset);
-struct Map* cached_map(struct Game* game, int asset);
+// struct Map* cached_map(struct Game* game, int asset);
 struct Map* cached_area(struct Game* game, int area_id);
 AnimationAtlas* cached_atlas(struct Game* game, int asset, int sprite_width, int sprite_height, int eye_offset_layer);
 
