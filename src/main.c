@@ -335,7 +335,7 @@ no_renderer:
     SDL_assert(!game->mrb->exc);
 
     game_to_save_on_exit = game;
-    onexit(cleanup);
+    atexit(cleanup);
 
     BENCH_END(total_initialization);
 
