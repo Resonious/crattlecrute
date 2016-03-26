@@ -226,14 +226,14 @@ void read_game_data(GameData* data, FILE* file) {
     read_data_chunk(&data->character, file);
 
     // ======== NUMBER OF AREAS ==========
-    const int number_of_areas = NUMBER_OF_AREAS;
+    int number_of_areas = NUMBER_OF_AREAS;
     fread(&number_of_areas, sizeof(int), 1, file);
 
-    for (int i = 0; i < NUMBER_OF_AREAS; i++) {
+    for (int i = 0; i < number_of_areas; i++) {
         // ======= Area ID of this map ========
         fread(&i, sizeof(int), 1, file);
 
-        write_data_chunk(&data->maps[i], file);
+        read_data_chunk(&data->maps[i], file);
     }
 
     SDL_UnlockMutex(data->locked);
@@ -252,10 +252,10 @@ void write_game_data(GameData* data, FILE* file) {
     write_data_chunk(&data->character, file);
 
     // ======== NUMBER OF AREAS ==========
-    const int number_of_areas = NUMBER_OF_AREAS;
+    int number_of_areas = NUMBER_OF_AREAS;
     fwrite(&number_of_areas, sizeof(int), 1, file);
 
-    for (int i = 0; i < NUMBER_OF_AREAS; i++) {
+    for (int i = 0; i < number_of_areas; i++) {
         // ======= Area ID of this map ========
         fwrite(&i, sizeof(int), 1, file);
 

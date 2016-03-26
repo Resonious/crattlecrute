@@ -272,6 +272,7 @@ no_renderer:
     bool keys_down[NUM_CONTROLS];
 
     BENCH_START(loading_game_data);
+    SDL_Thread* data_write_thread = NULL;
     if (game.gamedata_file_path) {
         FILE* data_read = fopen(game.gamedata_file_path, "r");
         if (data_read != NULL) {
@@ -288,7 +289,7 @@ no_renderer:
             game.data.area = AREA_GARDEN;
         }
 
-        SDL_CreateThread(write_game_data_thread, "Game data", &game);
+        data_write_thread = SDL_CreateThread(write_game_data_thread, "Game data", &game);
     }
     BENCH_END(loading_game_data);
 
@@ -483,6 +484,14 @@ no_renderer:
     if (ruby_repl)
         SDL_DetachThread(ruby_repl);
 #endif
+    if (data_write_thread)
+        SDL_DetachThread(data_write_thread);
+    
+    SDL_AtomicSet(&game.data.write_wanted, false);
+    FILE* game_data = fopen(game.gamedata_file_path, "w");
+    write_game_data(&game.data, game_data);
+    fclose(game_data);
+    
     game.current_scene->cleanup(game.current_scene_data, &game);
     aligned_free(game.current_scene_data);
     SDL_PauseAudio(true);
