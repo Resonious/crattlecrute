@@ -104,11 +104,11 @@ void cleanup() {
         if (game_data) {
             write_game_data(&game->data, game_data);
             fclose(game_data);
-            printf("Saved game ONE LAST TIME.");
+            printf("Saved game ONE LAST TIME.\n");
         }
     }
     else {
-        printf("... I hope the gamedata thread has this handled.");
+        printf("... I hope the gamedata thread has this handled.\n");
         // TODO maybe we can write to a backup file right here?
     }
     

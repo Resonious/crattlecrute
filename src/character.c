@@ -3,6 +3,7 @@
 #include "character.h"
 #include "tilemap.h"
 #include <math.h>
+#include <stdlib.h>
 
 #define TERMINAL_VELOCITY 17.0f
 
@@ -262,18 +263,11 @@ void character_post_update(Character* guy) {
     guy->just_went_through_door = false;
 }
 
-void write_character_to_data(Character* guy, struct DataChunk* chunk) {
+void write_character_to_data(Character* guy, struct DataChunk* chunk, bool attributes_only) {
     set_data_chunk_cap(chunk, 2048);
     chunk->size = 0;
 
-    write_to_buffer(chunk->bytes, guy->position.x, &chunk->size, sizeof(vec4));
-    write_to_buffer(chunk->bytes, guy->old_position.x, &chunk->size, sizeof(vec4));
-
-    write_to_buffer(chunk->bytes, &guy->ground_angle, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->dy, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->ground_speed, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->run_speed, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->slide_speed, &chunk->size, sizeof(float));
+#define WRITE_UNLESS_ATTRS_ONLY(field, bsize) (attributes_only ? chunk->size += (bsize) : write_to_buffer(chunk->bytes, (field), &chunk->size, (bsize)))
 
     write_to_buffer(chunk->bytes, &guy->ground_speed_max, &chunk->size, sizeof(float));
     write_to_buffer(chunk->bytes, &guy->run_speed_max, &chunk->size, sizeof(float));
@@ -281,25 +275,45 @@ void write_character_to_data(Character* guy, struct DataChunk* chunk) {
     write_to_buffer(chunk->bytes, &guy->ground_deceleration, &chunk->size, sizeof(float));
     write_to_buffer(chunk->bytes, &guy->jump_acceleration, &chunk->size, sizeof(float));
     write_to_buffer(chunk->bytes, &guy->jump_cancel_dy, &chunk->size, sizeof(float));
-
-    write_to_buffer(chunk->bytes, &guy->jumped, &chunk->size, 1);
-    write_to_buffer(chunk->bytes, &guy->just_jumped, &chunk->size, 1);
-    write_to_buffer(chunk->bytes, &guy->width, &chunk->size, sizeof(int));
-    write_to_buffer(chunk->bytes, &guy->height, &chunk->size, sizeof(int));
-
-    write_to_buffer(chunk->bytes, &guy->animation_state, &chunk->size, sizeof(enum CharacterAnimation));
-    write_to_buffer(chunk->bytes, &guy->flip, &chunk->size, sizeof(SDL_RendererFlip));
-
     write_to_buffer(chunk->bytes, &guy->eye_color, &chunk->size, sizeof(SDL_Color));
     write_to_buffer(chunk->bytes, &guy->body_color, &chunk->size, sizeof(SDL_Color));
     write_to_buffer(chunk->bytes, &guy->left_foot_color, &chunk->size, sizeof(SDL_Color));
     write_to_buffer(chunk->bytes, &guy->right_foot_color, &chunk->size, sizeof(SDL_Color));
-
     write_to_buffer(chunk->bytes, guy->inventory.items, &chunk->size, guy->inventory.capacity * sizeof(ItemCommon));
+
+    // TODO this kinda sucks 'cause it checks every fucking time... it's fuckup-proof though.
+    WRITE_UNLESS_ATTRS_ONLY(guy->position.x, sizeof(vec4));
+    WRITE_UNLESS_ATTRS_ONLY(guy->old_position.x, sizeof(vec4));
+
+    WRITE_UNLESS_ATTRS_ONLY(&guy->ground_angle, sizeof(float));
+    WRITE_UNLESS_ATTRS_ONLY(&guy->dy, sizeof(float));
+    WRITE_UNLESS_ATTRS_ONLY(&guy->ground_speed, sizeof(float));
+    WRITE_UNLESS_ATTRS_ONLY(&guy->run_speed, sizeof(float));
+    WRITE_UNLESS_ATTRS_ONLY(&guy->slide_speed, sizeof(float));
+
+    WRITE_UNLESS_ATTRS_ONLY(&guy->jumped, 1);
+    WRITE_UNLESS_ATTRS_ONLY(&guy->just_jumped, 1);
+    WRITE_UNLESS_ATTRS_ONLY(&guy->width, sizeof(int));
+    WRITE_UNLESS_ATTRS_ONLY(&guy->height, sizeof(int));
+
+    WRITE_UNLESS_ATTRS_ONLY(&guy->animation_state, sizeof(enum CharacterAnimation));
+    WRITE_UNLESS_ATTRS_ONLY(&guy->flip, sizeof(SDL_RendererFlip));
 }
 
 void read_character_from_data(Character* guy, struct DataChunk* chunk) {
     int pos = 0;
+
+    read_from_buffer(chunk->bytes, &guy->ground_speed_max, &pos, sizeof(float));
+    read_from_buffer(chunk->bytes, &guy->run_speed_max, &pos, sizeof(float));
+    read_from_buffer(chunk->bytes, &guy->ground_acceleration, &pos, sizeof(float));
+    read_from_buffer(chunk->bytes, &guy->ground_deceleration, &pos, sizeof(float));
+    read_from_buffer(chunk->bytes, &guy->jump_acceleration, &pos, sizeof(float));
+    read_from_buffer(chunk->bytes, &guy->jump_cancel_dy, &pos, sizeof(float));
+    read_from_buffer(chunk->bytes, &guy->eye_color, &pos, sizeof(SDL_Color));
+    read_from_buffer(chunk->bytes, &guy->body_color, &pos, sizeof(SDL_Color));
+    read_from_buffer(chunk->bytes, &guy->left_foot_color, &pos, sizeof(SDL_Color));
+    read_from_buffer(chunk->bytes, &guy->right_foot_color, &pos, sizeof(SDL_Color));
+    read_from_buffer(chunk->bytes, guy->inventory.items, &pos, guy->inventory.capacity * sizeof(ItemCommon));
 
     read_from_buffer(chunk->bytes, guy->position.x, &pos, sizeof(vec4));
     read_from_buffer(chunk->bytes, guy->old_position.x, &pos, sizeof(vec4));
@@ -310,13 +324,6 @@ void read_character_from_data(Character* guy, struct DataChunk* chunk) {
     read_from_buffer(chunk->bytes, &guy->run_speed, &pos, sizeof(float));
     read_from_buffer(chunk->bytes, &guy->slide_speed, &pos, sizeof(float));
 
-    read_from_buffer(chunk->bytes, &guy->ground_speed_max, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->run_speed_max, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->ground_acceleration, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->ground_deceleration, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->jump_acceleration, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->jump_cancel_dy, &pos, sizeof(float));
-
     read_from_buffer(chunk->bytes, &guy->jumped, &pos, 1);
     read_from_buffer(chunk->bytes, &guy->just_jumped, &pos, 1);
     read_from_buffer(chunk->bytes, &guy->width, &pos, sizeof(int));
@@ -324,13 +331,6 @@ void read_character_from_data(Character* guy, struct DataChunk* chunk) {
 
     read_from_buffer(chunk->bytes, &guy->animation_state, &pos, sizeof(enum CharacterAnimation));
     read_from_buffer(chunk->bytes, &guy->flip, &pos, sizeof(SDL_RendererFlip));
-
-    read_from_buffer(chunk->bytes, &guy->eye_color, &pos, sizeof(SDL_Color));
-    read_from_buffer(chunk->bytes, &guy->body_color, &pos, sizeof(SDL_Color));
-    read_from_buffer(chunk->bytes, &guy->left_foot_color, &pos, sizeof(SDL_Color));
-    read_from_buffer(chunk->bytes, &guy->right_foot_color, &pos, sizeof(SDL_Color));
-
-    read_from_buffer(chunk->bytes, guy->inventory.items, &pos, guy->inventory.capacity * sizeof(ItemCommon));
 }
 
 // ======= RENDERING =========
@@ -517,6 +517,28 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
         SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
     }
 #endif
+}
+
+void randomize_character(Character* guy) {
+    guy->body_color.r = rand() % 255;
+    guy->body_color.g = rand() % 255;
+    guy->body_color.b = rand() % 255;
+    guy->left_foot_color.r = rand() % 255;
+    guy->left_foot_color.g = rand() % 255;
+    guy->left_foot_color.b = rand() % 255;
+    if (rand() > RAND_MAX / 5)
+        guy->right_foot_color = guy->left_foot_color;
+    else {
+        guy->right_foot_color.r = rand() % 255;
+        guy->right_foot_color.g = rand() % 255;
+        guy->right_foot_color.b = rand() % 255;
+    }
+    if (rand() < RAND_MAX / 5) {
+        guy->eye_color.r = rand() % 255;
+        guy->eye_color.g = rand() % 255;
+        guy->eye_color.b = rand() % 255;
+    }
+    SDL_AtomicSet(&guy->dirty, true);
 }
 
 void default_character(struct Game* game, Character* target) {

@@ -168,8 +168,9 @@ void load_character_atlases(struct Game* game, Character* guy);
 enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls, struct Game* game, struct Map* map);
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag);
 void update_character_animation(Character* guy);
+void randomize_character(Character* guy);
 
-void write_character_to_data(Character* guy, struct DataChunk* chunk);
+void write_character_to_data(Character* guy, struct DataChunk* chunk, bool attributes_only);
 void read_character_from_data(Character* guy, struct DataChunk* chunk);
 
 // data will be passed to any of the provided callbacks when called.

@@ -186,6 +186,21 @@ typedef struct ServerLoop {
     WorldScene* scene;
 } ServerLoop;
 
+bool save(WorldScene* scene) {
+    Game* game = scene->game;
+    wait_for_then_use_lock(game->data.locked);
+
+    bool should_write_positions = scene->net.status != JOINING && scene->current_area != AREA_NET_ZONE;
+    write_character_to_data(&scene->guy, &game->data.character, !should_write_positions);
+
+    if (scene->net.status != JOINING) {
+        write_map_to_data(scene->map, &game->data.maps[scene->current_area]);
+    }
+
+    SDL_UnlockMutex(game->data.locked);
+    return save_game(game);
+}
+
 void set_camera_target(Game* game, Map* map, Character* guy) {
     game->camera_target.x[X] = guy->position.x[X] - game->window_width / 2.0f;
 
@@ -232,7 +247,8 @@ void local_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
 }
 
 void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
-    wait_for_then_use_lock(s->transition.locked);
+    if (s->transition.locked)
+        wait_for_then_use_lock(s->transition.locked);
 
     if (s->transition.on_transition) {
         s->transition.on_transition(s);
@@ -242,8 +258,8 @@ void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
     s->current_area = transition->destination_area;
     s->map             = cached_area(game, s->current_area);
     s->map->area_id    = s->current_area;
-    s->game->data.area = s->current_area;
-    save_game(s->game);
+    if (s->current_area != AREA_NET_ZONE)
+        s->game->data.area = s->current_area;
 
     float dest_x = transition->destination_position.x;
     float dest_y;
@@ -257,10 +273,13 @@ void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
     s->guy.old_position.x[X] = dest_x;
     s->guy.old_position.x[Y] = dest_y;
 
+    save(s);
+
     set_camera_target(game, s->map, &s->guy);
     game->camera.simd = game->camera_target.simd;
 
-    SDL_UnlockMutex(s->transition.locked);
+    if (s->transition.locked)
+        SDL_UnlockMutex(s->transition.locked);
 }
 
 void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
@@ -1900,6 +1919,7 @@ void create_client_thread(void* vs) {
 }
 
 void net_join(WorldScene* s) {
+    save(s);
     s->net.status = NOT_CONNECTED;
     if (s->current_area == AREA_NET_ZONE) {
         create_client_thread(s);
@@ -1988,21 +2008,6 @@ mrb_value mrb_world_is_joining(mrb_state* mrb, mrb_value self) {
     return scene->net.status == JOINING ? mrb_true_value() : mrb_false_value();
 }
 
-bool save(WorldScene* scene) {
-    Game* game = scene->game;
-    wait_for_then_use_lock(game->data.locked);
-
-    // TODO TODO uhh hyeah (when joining, don't save guy position and shit)
-    write_character_to_data(&scene->guy, &game->data.character);
-
-    if (scene->net.status != JOINING) {
-        write_map_to_data(scene->map, &game->data.maps[scene->current_area]);
-    }
-
-    SDL_UnlockMutex(game->data.locked);
-    return save_game(game);
-}
-
 void scene_world_save(void* data, Game* game) {
     save((WorldScene*)data);
 }
@@ -2071,29 +2076,13 @@ void scene_world_initialize(void* vdata, Game* game) {
         read_character_from_data(&data->guy, &game->data.character);
     }
     else {
+        randomize_character(&data->guy);
         data->guy.position.x[X] = 3918.0f;
         data->guy.position.x[Y] = 988.0f;
         data->guy.position.x[2] = 0.0f;
         data->guy.position.x[3] = 0.0f;
         data->guy.old_position.simd = data->guy.position.simd;
-        data->guy.body_color.r = rand() % 255;
-        data->guy.body_color.g = rand() % 255;
-        data->guy.body_color.b = rand() % 255;
-        data->guy.left_foot_color.r = rand() % 255;
-        data->guy.left_foot_color.g = rand() % 255;
-        data->guy.left_foot_color.b = rand() % 255;
-        if (rand() > RAND_MAX / 5)
-            data->guy.right_foot_color = data->guy.left_foot_color;
-        else {
-            data->guy.right_foot_color.r = rand() % 255;
-            data->guy.right_foot_color.g = rand() % 255;
-            data->guy.right_foot_color.b = rand() % 255;
-        }
-        if (rand() < RAND_MAX / 5) {
-            data->guy.eye_color.r = rand() % 255;
-            data->guy.eye_color.g = rand() % 70;
-            data->guy.eye_color.b = rand() % 140;
-        }
+        SDL_AtomicSet(&data->guy.dirty, false);
         printf("Generated character.\n");
     }
 
@@ -2799,4 +2788,37 @@ mrb_value mrb_world_local_character(mrb_state* mrb, mrb_value self) {
 mrb_value mrb_world_save(mrb_state* mrb, mrb_value self) {
     WorldScene* scene = DATA_PTR(self);
     return mrb_bool_value(save(scene));
+}
+
+mrb_value mrb_world_area(mrb_state* mrb, mrb_value self) {
+    WorldScene* scene = DATA_PTR(self);
+    return mrb_fixnum_value(scene->current_area);
+}
+
+mrb_value mrb_world_area_eq(mrb_state* mrb, mrb_value self) {
+    WorldScene* scene = DATA_PTR(self);
+
+    if (scene->net.status == JOINING) {
+        mrb_raise(
+            mrb,
+            mrb_class_get(mrb, "RuntimeError"),
+            "Can't teleport when joining a netgame"
+        );
+        return mrb_nil_value();
+    }
+
+    mrb_int dest_area;
+    mrb_value rb_dest_position = mrb_nil_value();
+    mrb_get_args(mrb, "io", &dest_area, &rb_dest_position);
+    vec2 dest_position = mrb_vec2(mrb, rb_dest_position);
+
+    Door door;
+    door.callback = NULL;
+    door.dest_area = dest_area;
+    door.dest_x = dest_position.x;
+    door.dest_y = dest_position.y;
+    door.flags = 0;
+    local_go_through_door(scene, (Game*)scene->game, &scene->guy, &door);
+
+    return mrb_fixnum_value(dest_area);
 }
