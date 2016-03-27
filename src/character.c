@@ -217,6 +217,17 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
     }
 }
 
+void apply_character_age(struct Game* game, Character* guy) {
+    guy->age += 1;
+    if (guy->age == guy->age_of_maturity) {
+        // TODO MATURE!
+        guy->body_type = CRATTLECRUTE_STANDARD;
+        guy->feet_type = CRATTLECRUTE_STANDARD;
+        set_character_bounds(guy);
+        load_character_atlases(game, guy);
+    }
+}
+
 void update_character_animation(Character* guy) {
     guy->animation_counter += 1;
 
@@ -280,6 +291,8 @@ void write_character_to_data(Character* guy, struct DataChunk* chunk, bool attri
     write_to_buffer(chunk->bytes, &guy->left_foot_color, &chunk->size, sizeof(SDL_Color));
     write_to_buffer(chunk->bytes, &guy->right_foot_color, &chunk->size, sizeof(SDL_Color));
     write_to_buffer(chunk->bytes, guy->inventory.items, &chunk->size, guy->inventory.capacity * sizeof(ItemCommon));
+    write_to_buffer(chunk->bytes, &guy->age, &chunk->size, sizeof(Uint64));
+    write_to_buffer(chunk->bytes, &guy->age_of_maturity, &chunk->size, sizeof(Uint64));
 
     // TODO this kinda sucks 'cause it checks every fucking time... it's fuckup-proof though.
     WRITE_UNLESS_ATTRS_ONLY(guy->position.x, sizeof(vec4));
@@ -314,6 +327,8 @@ void read_character_from_data(Character* guy, struct DataChunk* chunk) {
     read_from_buffer(chunk->bytes, &guy->left_foot_color, &pos, sizeof(SDL_Color));
     read_from_buffer(chunk->bytes, &guy->right_foot_color, &pos, sizeof(SDL_Color));
     read_from_buffer(chunk->bytes, guy->inventory.items, &pos, guy->inventory.capacity * sizeof(ItemCommon));
+    read_from_buffer(chunk->bytes, &guy->age, &pos, sizeof(Uint64));
+    read_from_buffer(chunk->bytes, &guy->age_of_maturity, &pos, sizeof(Uint64));
 
     read_from_buffer(chunk->bytes, guy->position.x, &pos, sizeof(vec4));
     read_from_buffer(chunk->bytes, guy->old_position.x, &pos, sizeof(vec4));
@@ -541,7 +556,59 @@ void randomize_character(Character* guy) {
     SDL_AtomicSet(&guy->dirty, true);
 }
 
+void set_character_bounds(Character* target) {
+    // top1: left
+    target->top_sensors.x[S1X] = -14;
+    target->top_sensors.x[S1Y] = 27;
+    // top2: right
+    target->top_sensors.x[S2X] = 13;
+    target->top_sensors.x[S2Y] = 27;
+
+    // bottom1: left
+    target->bottom_sensors.x[S1X] = -14;
+    target->bottom_sensors.x[S1Y] = -29;
+    // bottom2: right
+    target->bottom_sensors.x[S2X] = 13;
+    target->bottom_sensors.x[S2Y] = -29;
+
+    // left1: top
+    target->left_sensors.x[S1X] = -15;
+    target->left_sensors.x[S1Y] = 26;
+    // left2: bottom
+    target->left_sensors.x[S2X] = -14;
+    target->left_sensors.x[S2Y] = -28;
+
+    // right1: top
+    target->right_sensors.x[S1X] = 14;
+    target->right_sensors.x[S1Y] = 26;
+    // right2: bottom
+    target->right_sensors.x[S2X] = 14;
+    target->right_sensors.x[S2Y] = -28;
+
+    if (target->age < target->age_of_maturity) {
+        vec4i top_offset = (vec4i) {+5, -5, -5, -5};
+        target->top_sensors.simd = _mm_add_epi32(target->top_sensors.simd, top_offset.simd);
+
+        vec4i bottom_offset = (vec4i) {+5, +5, -5, +5};
+        target->bottom_sensors.simd = _mm_add_epi32(target->bottom_sensors.simd, bottom_offset.simd);
+
+        vec4i left_offset = (vec4i) {+5, -5, +5, +5};
+        target->left_sensors.simd = _mm_add_epi32(target->left_sensors.simd, left_offset.simd);
+
+        vec4i right_offset = (vec4i) {-5, -5, -5, +5};
+        target->right_sensors.simd = _mm_add_epi32(target->right_sensors.simd, right_offset.simd);
+    }
+
+    target->middle_sensors.x[S1X] = target->left_sensors.x[S1X];
+    target->middle_sensors.x[S1Y] = (target->left_sensors.x[S1Y] + target->left_sensors.x[S2Y]) / 2.0f;
+    target->middle_sensors.x[S2X] = target->right_sensors.x[S1X];
+    target->middle_sensors.x[S2Y] = (target->right_sensors.x[S1Y] + target->right_sensors.x[S2Y]) / 2.0f;
+}
+
 void default_character(struct Game* game, Character* target) {
+    target->age = 0;
+    target->age_of_maturity = 2 HOURS;
+
     target->player_id = -1;
     target->animation_counter = 0;
     target->width  = 90;
@@ -575,43 +642,12 @@ void default_character(struct Game* game, Character* target) {
     target->left_hit = false;
     target->right_hit = false;
 
-    // top1: left
-    target->top_sensors.x[S1X] = -14;
-    target->top_sensors.x[S1Y] = 27;
-    // top2: right
-    target->top_sensors.x[S2X] = 13;
-    target->top_sensors.x[S2Y] = 27;
-
-    // bottom1: left
-    target->bottom_sensors.x[S1X] = -14;
-    target->bottom_sensors.x[S1Y] = -29;
-    // bottom2: right
-    target->bottom_sensors.x[S2X] = 13;
-    target->bottom_sensors.x[S2Y] = -29;
-
-    // left1: top
-    target->left_sensors.x[S1X] = -15;
-    target->left_sensors.x[S1Y] = 26;
-    // left2: bottom
-    target->left_sensors.x[S2X] = -14;
-    target->left_sensors.x[S2Y] = -28;
-
-    // right1: top
-    target->right_sensors.x[S1X] = 14;
-    target->right_sensors.x[S1Y] = 26;
-    // right2: bottom
-    target->right_sensors.x[S2X] = 14;
-    target->right_sensors.x[S2Y] = -28;
-
-    target->middle_sensors.x[S1X] = target->left_sensors.x[S1X];
-    target->middle_sensors.x[S1Y] = (target->left_sensors.x[S1Y] + target->left_sensors.x[S2Y]) / 2.0f;
-    target->middle_sensors.x[S2X] = target->right_sensors.x[S1X];
-    target->middle_sensors.x[S2Y] = (target->right_sensors.x[S1Y] + target->right_sensors.x[S2Y]) / 2.0f;
+    set_character_bounds(target);
 
     target->just_went_through_door = false;
 
-    target->body_type = CRATTLECRUTE_STANDARD;
-    target->feet_type = CRATTLECRUTE_STANDARD;
+    target->body_type = CRATTLECRUTE_YOUNG;
+    target->feet_type = CRATTLECRUTE_YOUNG;
 
     target->body_color.r = 0;
     target->body_color.g = 210;

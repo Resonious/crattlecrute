@@ -256,6 +256,16 @@ mrb_value mrb_character_init(mrb_state* mrb, mrb_value self) {
     return self;
 }
 
+mrb_value mrb_character_age(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    return mrb_fixnum_value(guy->age);
+}
+
+mrb_value mrb_character_age_of_maturity(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    return mrb_fixnum_value(guy->age_of_maturity);
+}
+
 mrb_value mrb_character_mark_dirty(mrb_state* mrb, mrb_value self) {
     Character* guy = DATA_PTR(self);
     SDL_AtomicSet(&guy->dirty, true);
@@ -580,6 +590,9 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.character_class, "randomize", mrb_character_randomize, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "mark_dirty", mrb_character_mark_dirty, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "dirty!", mrb_character_mark_dirty, MRB_ARGS_NONE());
+
+    mrb_define_method(game->mrb, game->ruby.character_class, "age", mrb_character_age, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "age_of_maturity", mrb_character_age_of_maturity, MRB_ARGS_NONE());
 
     // ==================================== class Item =================================
     game->ruby.item_class = mrb_define_class(game->mrb, "Item", game->mrb->object_class);

@@ -2375,6 +2375,7 @@ void scene_world_update(void* vs, Game* game) {
         collide_character(&s->guy, &s->map->tile_collision);
         slide_character(s->gravity, &s->guy);
         interact_character_with_world(game, &s->guy, &game->controls, s->map, s, local_go_through_door);
+        apply_character_age(game, &s->guy);
         update_character_animation(&s->guy);
         updated_guy_physics = true;
     }

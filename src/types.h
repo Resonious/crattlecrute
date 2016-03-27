@@ -31,6 +31,10 @@
 #endif
 #define IS_WHITESPACE(c) (c == ' ' || c == '\n' || c == '\t')
 
+#define SECONDS * 60
+#define MINUTES * 3600
+#define HOURS * 216000
+
 typedef unsigned char byte;
 typedef struct TextureDimensions {
     SDL_Texture* tex;
