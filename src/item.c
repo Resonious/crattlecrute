@@ -85,11 +85,17 @@ void item_egg_initialize(void* vitem, struct Game* game) {
     SDL_assert(sizeof(Inventory) <= sizeof(ItemCommon));
     ItemEgg* egg = (ItemEgg*)vitem;
     egg->layer_count = 2;
+    egg->age = 0;
+    egg->hatching_age = 15 MINUTES;
 }
 bool item_egg_drop(void* vitem, struct Game* game, struct Map* map, vec2 position) {
-    // ItemEgg* egg = (ItemEgg*)vitem;
+    ItemEgg* egg = (ItemEgg*)vitem;
 
-    game->net.spawn_mob(game->current_scene_data, map, game, MOB_EGG, position);
+    MobEgg* egg_drop = (MobEgg*)game->net.spawn_mob(game->current_scene_data, map, game, MOB_EGG, position);
+    if (egg_drop) {
+        egg_drop->age = egg->age;
+        egg_drop->hatching_age = egg->hatching_age;
+    }
 
     return true;
 }

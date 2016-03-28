@@ -186,13 +186,15 @@ int write_game_data_thread(void* vgame) {
         while (!SDL_AtomicGet(&game->data.write_wanted))
             SDL_Delay(1000);
 
-        FILE* game_data = fopen(game->gamedata_file_path, "w");
-        write_game_data(&game->data, game_data);
-        fclose(game_data);
-        SDL_AtomicSet(&game->data.write_wanted, false);
+        if (game->data.should_even_save_yet) {
+            FILE* game_data = fopen(game->gamedata_file_path, "w");
+            write_game_data(&game->data, game_data);
+            fclose(game_data);
 #ifdef _DEBUG
-        printf("Wrote game data.\n");
+            printf("Wrote game data.\n");
 #endif
+        }
+        SDL_AtomicSet(&game->data.write_wanted, false);
     }
 }
 

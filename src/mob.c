@@ -238,6 +238,7 @@ void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos
     egg->body.grounded = false;
     egg->dy = 0;
     egg->age = 0;
+    egg->hatching_age = 15 MINUTES;
 }
 void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
     MobEgg* egg = (MobEgg*)vegg;
@@ -249,8 +250,13 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
 
     collide_generic_body(&egg->body, &map->tile_collision);
 
-    // TODO if garden...
-    egg->age += 1;
+    if (area_is_garden(map->area_id)) {
+        egg->age += 1;
+        if (egg->age == egg->hatching_age) {
+            printf("I HATCHED!!!!!!!!!!!!!!!!!!!!!!\n");
+            // TODO TODO TODO
+        }
+    }
 }
 void mob_egg_interact(void* vegg, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls) {
     pick_up_item((PhysicsMob*)vegg, ITEM_EGG, game, map, character, ctrls);
@@ -277,6 +283,7 @@ void mob_egg_save(void* vegg, struct Map* map, byte* buffer, int* pos) {
     write_body_to_buffer(buffer, &egg->body, pos);
     write_to_buffer(buffer, &egg->dy, pos, sizeof(float));
     write_to_buffer(buffer, &egg->age, pos, sizeof(int));
+    write_to_buffer(buffer, &egg->hatching_age, pos, sizeof(int));
 }
 void mob_egg_load(void* vegg, struct Map* map, byte* buffer, int* pos) {
     MobEgg* egg = (MobEgg*)vegg;
@@ -284,4 +291,5 @@ void mob_egg_load(void* vegg, struct Map* map, byte* buffer, int* pos) {
     read_body_from_buffer(buffer, &egg->body, pos);
     read_from_buffer(buffer, &egg->dy, pos, sizeof(float));
     read_from_buffer(buffer, &egg->age, pos, sizeof(int));
+    read_from_buffer(buffer, &egg->hatching_age, pos, sizeof(int));
 }

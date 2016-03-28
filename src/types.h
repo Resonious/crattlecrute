@@ -32,8 +32,11 @@
 #define IS_WHITESPACE(c) (c == ' ' || c == '\n' || c == '\t')
 
 #define SECONDS * 60
+#define SECOND * 60
 #define MINUTES * 3600
+#define MINUTE * 3600
 #define HOURS * 216000
+#define HOUR * 216000
 
 typedef unsigned char byte;
 typedef struct TextureDimensions {
@@ -154,7 +157,7 @@ struct Map;
 struct MobCommon;
 typedef void(*Callback)(void*);
 typedef void(*SetItemFunc)(void*, struct Character*, struct Game*, int, int);
-typedef void(*SpawnMobFunc)(void*, struct Map*, struct Game*, int, vec2);
+typedef struct MobCommon(*(*SpawnMobFunc)(void*, struct Map*, struct Game*, int, vec2));
 typedef void(*DespawnMobFunc)(void*, struct Map*, struct Game*, struct MobCommon*);
 
 #endif // TYPES_H

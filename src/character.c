@@ -88,7 +88,7 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
 
             vec2 pos_offset;
             pos_offset.x = guy->flip == SDL_FLIP_HORIZONTAL ? -20 : 20;
-            pos_offset.y = 0;
+            pos_offset.y = 20;
             vec2 drop_pos = { guy->position.x[X], guy->position.x[Y] };
             v2_add_to(&drop_pos, pos_offset);
 

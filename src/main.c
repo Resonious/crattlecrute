@@ -324,6 +324,7 @@ no_renderer:
             printf("New game!\n");
 #endif
             game->data.area = AREA_GARDEN;
+            game->data.should_even_save_yet = false;
         }
 
         data_write_thread = SDL_CreateThread(write_game_data_thread, "Game data", game);

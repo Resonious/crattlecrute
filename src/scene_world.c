@@ -405,14 +405,16 @@ void connected_despawn_mob(void* vs, Map* map, struct Game* game, MobCommon* mob
     }
 }
 
-// Never spawn mobs when joining
-void unconnected_spawn_mob(void* vs, Map* map, struct Game* game, int mobtype, vec2 pos) {
+MobCommon* unconnected_spawn_mob(void* vs, Map* map, struct Game* game, int mobtype, vec2 pos) {
     WorldScene* s = (WorldScene*)vs;
+    // Never spawn mobs when joining
     if (s->net.status != JOINING)
-        spawn_mob(map, game, mobtype, pos);
+        return spawn_mob(map, game, mobtype, pos);
+    else
+        return NULL;
 }
 
-void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id, vec2 pos) {
+MobCommon* connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id, vec2 pos) {
     WorldScene* s = (WorldScene*)vs;
     SDL_assert(s->net.status == HOSTING);
 
@@ -438,6 +440,7 @@ void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id,
             SDL_UnlockMutex(player->mob_event_buffer_locked);
         }
     }
+    return mob;
 }
 
 void net_character_post_update(RemotePlayer* plr) {
@@ -656,6 +659,8 @@ void read_guy_info_from_buffer(byte* buffer, Character* guy, int* area_id, int* 
     read_from_buffer(buffer, &guy->ground_deceleration, pos, sizeof(guy->ground_deceleration));
     read_from_buffer(buffer, &guy->jump_acceleration,   pos, sizeof(guy->jump_acceleration));
     read_from_buffer(buffer, &guy->jump_cancel_dy,      pos, sizeof(guy->jump_cancel_dy));
+    read_from_buffer(buffer, &guy->age,                pos, sizeof(guy->age));
+    read_from_buffer(buffer, &guy->age_of_maturity,    pos, sizeof(guy->age_of_maturity));
     read_from_buffer(buffer, area_id,          pos, sizeof(int));
 }
 
@@ -674,6 +679,8 @@ void write_guy_info_to_buffer(byte* buffer, Character* guy, int area_id, int* po
     write_to_buffer(buffer, &guy->ground_deceleration, pos, sizeof(guy->ground_deceleration));
     write_to_buffer(buffer, &guy->jump_acceleration,   pos, sizeof(guy->jump_acceleration));
     write_to_buffer(buffer, &guy->jump_cancel_dy,      pos, sizeof(guy->jump_cancel_dy));
+    write_to_buffer(buffer, &guy->age,                 pos, sizeof(guy->age));
+    write_to_buffer(buffer, &guy->age_of_maturity,     pos, sizeof(guy->age_of_maturity));
     write_to_buffer(buffer, &area_id, pos, sizeof(int));
 }
 
@@ -2066,6 +2073,12 @@ void scene_world_initialize(void* vdata, Game* game) {
         printf("BAD CTRLS STREAM MUTEX\n");
     }
 
+    BENCH_START(loading_tiles);
+    data->current_area = game->data.area;
+    data->map = cached_area(game, data->current_area);
+    game->camera.simd = game->camera_target.simd;
+    BENCH_END(loading_tiles);
+
     BENCH_START(loading_crattle1);
     SDL_assert(!game->mrb->exc);
     default_character(game, &data->guy);
@@ -2074,8 +2087,13 @@ void scene_world_initialize(void* vdata, Game* game) {
     SDL_assert(!game->mrb->exc);
     if (game->data.character.bytes) {
         read_character_from_data(&data->guy, &game->data.character);
+        set_camera_target(game, data->map, &data->guy);
     }
     else {
+        MobEgg* egg = spawn_mob(data->map, game, MOB_EGG, (vec2) { 3862.0f, 985.0f });
+        egg->hatching_age = 5 SECONDS;
+
+        // TODO dont... instead just the egg
         randomize_character(&data->guy);
         data->guy.position.x[X] = 3918.0f;
         data->guy.position.x[Y] = 988.0f;
@@ -2084,6 +2102,7 @@ void scene_world_initialize(void* vdata, Game* game) {
         data->guy.old_position.simd = data->guy.position.simd;
         SDL_AtomicSet(&data->guy.dirty, false);
         printf("Generated character.\n");
+        set_camera_target(game, data->map, &data->guy);
     }
 
     data->inv_fade = INV_FADE_MAX;
@@ -2091,13 +2110,6 @@ void scene_world_initialize(void* vdata, Game* game) {
 
     SDL_assert(((int)&data->guy.position) % 16 == 0);
     BENCH_END(loading_crattle1);
-
-    BENCH_START(loading_tiles);
-    data->current_area = game->data.area;
-    data->map = cached_area(game, data->current_area);
-    set_camera_target(game, data->map, &data->guy);
-    game->camera.simd = game->camera_target.simd;
-    BENCH_END(loading_tiles);
 
     BENCH_START(loading_sound);
     data->music = cached_sound(game, ASSET_MUSIC_ARENA_OGG);
