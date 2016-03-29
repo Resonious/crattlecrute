@@ -2035,7 +2035,7 @@ void scene_world_initialize(void* vdata, Game* game) {
 
     // Testing physics!!!!
     data->gravity = 1.15f; // In pixels per frame per frame
-    data->drag = 0.025f; // Again p/s^2
+    data->drag = 0.025f; // Again p/f^2
 
     data->controls_stream.current_frame = -1;
     data->controls_stream.pos = 1;

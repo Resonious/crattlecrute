@@ -7,6 +7,7 @@
 #include "cache.h"
 #include "script.h"
 #include "item.h"
+#include "mob.h"
 
 struct Game;
 struct Controls;
@@ -121,6 +122,11 @@ typedef struct Character {
 
     mrb_value rinventory;
 } Character;
+
+typedef struct MobGardenCrattle {
+    MOB_FIELDS;
+    Character guy;
+} MobGardenCrattle;
 
 #define CHARACTER_SPRITE_WIDTH 90
 #define CHARACTER_SPRITE_HEIGHT 90

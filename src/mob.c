@@ -147,7 +147,7 @@ void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos) {
 }
 bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
-    
+
     if (pon->hop) {
         write_to_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
         write_to_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
@@ -265,7 +265,11 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
             if (game->text_edit.enter_pressed) {
                 stop_editing_text(game);
                 // TODO actually set the name I guess, maybe pop it out of the egg
-                printf("k thanks");
+
+                vec2 pos = { egg->body.position.x[X], egg->body.position.x[Y] + 100 };
+                game->net.spawn_mob(game->current_scene_data, map, game, MOB_GARDEN_CRATTLECRUTE, pos, NULL, NULL);
+
+                printf("k thanks\n");
             }
         }
     }
@@ -328,4 +332,47 @@ void mob_egg_load(void* vegg, struct Map* map, byte* buffer, int* pos) {
     read_from_buffer(buffer, &egg->dy, pos, sizeof(float));
     read_from_buffer(buffer, &egg->age, pos, sizeof(int));
     read_from_buffer(buffer, &egg->hatching_age, pos, sizeof(int));
+}
+
+// ============= GARDEN CRATTLECRUTE ================
+
+void mob_mgc_initialize(void* vmgc, struct Game* game, struct Map* map, vec2 pos) {
+    SDL_assert(sizeof(MobGardenCrattle) <= sizeof(LargeMob));
+
+    MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
+    default_character(game, &mob->guy);
+    default_character_animations(game, &mob->guy);
+    mob->guy.position.x[X] = pos.x;
+    mob->guy.position.x[Y] = pos.y;
+    mob->guy.dy = 100;
+}
+void mob_mgc_update(void* vmgc, struct Game* game, struct Map* map) {
+    MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
+
+    apply_character_physics(game, &mob->guy, &game->controls, 1.15f, 0.025f);
+    collide_character(&mob->guy, &map->tile_collision);
+    slide_character(1.15f, &mob->guy);
+    update_character_animation(&mob->guy);
+}
+void mob_mgc_interact(void* vmgc, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls) {
+    // ...
+}
+void mob_mgc_render(void* vmgc, struct Game* game, struct Map* map) {
+    MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
+    draw_character(game, &mob->guy, mob->guy.view);
+}
+void mob_mgc_save(void* vmgc, struct Map* map, byte* buffer, int* pos) {
+    // ...
+}
+void mob_mgc_load(void* vmgc, struct Map* map, byte* buffer, int* pos) {
+    MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
+    printf("DON'T KNOW WHAT 2 DO!!!!!");
+    // default_character(&mob->guy);
+    // ...
+}
+bool mob_mgc_sync_send(void* vmgc, struct Map* map, byte* buffer, int* pos) {
+    return false;
+}
+void mob_mgc_sync_receive(void* vmgc, struct Map* map, byte* buffer, int* pos) {
+    // ...
 }

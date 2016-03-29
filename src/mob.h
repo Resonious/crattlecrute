@@ -66,6 +66,7 @@ enum MobId {
     MOB_PON,
     MOB_FRUIT,
     MOB_EGG,
+    MOB_GARDEN_CRATTLECRUTE,
     NUMBER_OF_MOB_TYPES
 };
 
@@ -118,6 +119,16 @@ void mob_egg_load(void* vegg, struct Map* map, byte* buffer, int* pos);
 bool mob_egg_sync_send(void* vegg, struct Map* map, byte* buffer, int* pos);
 void mob_egg_sync_receive(void* vegg, struct Map* map, byte* buffer, int* pos);
 
+struct MobGardenCrattle;
+void mob_mgc_initialize(void* vmgc, struct Game* game, struct Map* map, vec2 pos);
+void mob_mgc_update(void* vmgc, struct Game* game, struct Map* map);
+void mob_mgc_interact(void* vmgc, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls);
+void mob_mgc_render(void* vmgc, struct Game* game, struct Map* map);
+void mob_mgc_save(void* vmgc, struct Map* map, byte* buffer, int* pos);
+void mob_mgc_load(void* vmgc, struct Map* map, byte* buffer, int* pos);
+bool mob_mgc_sync_send(void* vmgc, struct Map* map, byte* buffer, int* pos);
+void mob_mgc_sync_receive(void* vmgc, struct Map* map, byte* buffer, int* pos);
+
 static MobType mob_registry[] = {
     {
         MOB_PON,
@@ -154,6 +165,18 @@ static MobType mob_registry[] = {
         mob_egg_load,
         NULL, // mob_egg_sync_send,
         NULL, // mob_egg_sync_receive,
+    },
+    {
+        MOB_GARDEN_CRATTLECRUTE,
+        LARGE,
+        mob_mgc_initialize,
+        mob_mgc_update,
+        mob_mgc_interact,
+        mob_mgc_render,
+        mob_mgc_save,
+        mob_mgc_load,
+        mob_mgc_sync_send,
+        mob_mgc_sync_receive,
     }
 };
 
