@@ -1052,7 +1052,7 @@ void update_map(
                         zone->x + (rand() % zone->width),
                         zone->y + (rand() % zone->height)
                     };
-                    game->net.spawn_mob(game->current_scene_data, map, game, spawn->mob_type_id, target_pos);
+                    game->net.spawn_mob(game->current_scene_data, map, game, spawn->mob_type_id, target_pos, NULL, NULL);
 
                     // TODO add spawn frequency or something to maps.
                     zone->countdown_until_next_spawn_attempt = 60 * 60 * 60;

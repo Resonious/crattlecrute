@@ -34,6 +34,7 @@ void draw_text_box(struct Game* game, SDL_Rect* text_box_rect, char* text) {
 }
 
 void start_editing_text(Game* game, char* text_to_edit, int buffer_size, SDL_Rect* input_rect) {
+    SDL_memset(game->controls.this_frame, 0, sizeof(game->controls.this_frame));
     game->text_edit.text = text_to_edit;
     game->text_edit.text_buf_size = buffer_size;
     game->text_edit.cursor = strlen(text_to_edit);

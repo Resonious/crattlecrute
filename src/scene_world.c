@@ -405,21 +405,25 @@ void connected_despawn_mob(void* vs, Map* map, struct Game* game, MobCommon* mob
     }
 }
 
-MobCommon* unconnected_spawn_mob(void* vs, Map* map, struct Game* game, int mobtype, vec2 pos) {
+void unconnected_spawn_mob(void* vs, Map* map, struct Game* game, int mobtype, vec2 pos, void* data, DataCallback onspawn) {
     WorldScene* s = (WorldScene*)vs;
     // Never spawn mobs when joining
-    if (s->net.status != JOINING)
-        return spawn_mob(map, game, mobtype, pos);
-    else
-        return NULL;
+    if (s->net.status != JOINING) {
+        MobCommon* mob = spawn_mob(map, game, mobtype, pos);
+        if (mob && onspawn)
+            onspawn(data, mob);
+    }
 }
 
-MobCommon* connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id, vec2 pos) {
+void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id, vec2 pos, void* data, DataCallback onspawn) {
     WorldScene* s = (WorldScene*)vs;
     SDL_assert(s->net.status == HOSTING);
 
     MobCommon* mob = spawn_mob(map, game, mob_type_id, pos);
     if (mob != NULL) {
+        if (mob && onspawn)
+            onspawn(data, mob);
+
         MobType* mob_type = &mob_registry[mob_type_id];
         int m_id = mob_id(map, mob);
 
@@ -440,7 +444,6 @@ MobCommon* connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_ty
             SDL_UnlockMutex(player->mob_event_buffer_locked);
         }
     }
-    return mob;
 }
 
 void net_character_post_update(RemotePlayer* plr) {
@@ -2094,6 +2097,8 @@ void scene_world_initialize(void* vdata, Game* game) {
         egg->hatching_age = 5 SECONDS;
 
         // TODO dont... instead just the egg
+        data->guy.age = data->guy.age_of_maturity + 1;
+        set_character_bounds(&data->guy);
         randomize_character(&data->guy);
         data->guy.position.x[X] = 3918.0f;
         data->guy.position.x[Y] = 988.0f;

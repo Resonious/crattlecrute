@@ -74,7 +74,7 @@ void item_fruit_initialize(void* vitem, struct Game* game) {
 bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 position) {
     // ItemFruit* fruit = (ItemFruit*)vitem;
 
-    game->net.spawn_mob(game->current_scene_data, map, game, MOB_FRUIT, position);
+    game->net.spawn_mob(game->current_scene_data, map, game, MOB_FRUIT, position, NULL, NULL);
 
     return true;
 }
@@ -88,14 +88,19 @@ void item_egg_initialize(void* vitem, struct Game* game) {
     egg->age = 0;
     egg->hatching_age = 15 MINUTES;
 }
+void egg_dropped(void* vdata, void* vegg) {
+    MobEgg* egg_drop = (MobEgg*)vegg;
+    struct { int a, b; }* data = vdata;
+    egg_drop->age = data->a;
+    egg_drop->hatching_age = data->b;
+}
 bool item_egg_drop(void* vitem, struct Game* game, struct Map* map, vec2 position) {
     ItemEgg* egg = (ItemEgg*)vitem;
 
-    MobEgg* egg_drop = (MobEgg*)game->net.spawn_mob(game->current_scene_data, map, game, MOB_EGG, position);
-    if (egg_drop) {
-        egg_drop->age = egg->age;
-        egg_drop->hatching_age = egg->hatching_age;
-    }
+    struct { int a, b; } data;
+    data.a = egg->age;
+    data.b = egg->hatching_age;
+    game->net.spawn_mob(game->current_scene_data, map, game, MOB_EGG, position, &data, egg_dropped);
 
     return true;
 }

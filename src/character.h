@@ -127,6 +127,7 @@ typedef struct Character {
 #define CHARACTER_EYE_LAYER 4 
 
 // So, all eyes must be the same dimensions
+// TODO chaaaange thiiiis shiiiit
 #define EYE_SPRITE_WIDTH 3
 #define EYE_SPRITE_HEIGHT 6
 enum EyeFrame {

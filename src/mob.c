@@ -307,10 +307,10 @@ void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
             350, 40
         };
         name_rect.x -= name_rect.w / 2;
-        name_rect.y -= name_rect.h / 2;
+        name_rect.y -= name_rect.h / 2 + 64;
 
         set_text_color(game, 0, 0, 0);
-        draw_text(game, name_rect.x, name_rect.y - 32, "Name your Crattlecrute:");
+        draw_text(game, name_rect.x, (game->window_height - name_rect.y) + 128, "Enter a name:");
         draw_text_box(game, &name_rect, game->text_edit.text);
     }
 }
