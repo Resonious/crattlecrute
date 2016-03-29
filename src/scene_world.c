@@ -1872,6 +1872,7 @@ int set_tcp_nodelay(SOCKET socket) {
 }
 
 void net_host(WorldScene* data) {
+    cached_area(data->game, AREA_NET_ZONE);
     data->net.status = HOSTING;
     SDL_CreateThread(network_server_listen, "Network server listen", data);
 }
