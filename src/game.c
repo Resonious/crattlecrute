@@ -20,7 +20,21 @@ void switch_scene(Game* game, int to_scene) {
     // TODO do an update here? (this is the only case where a render can happen WITHOUT an update preceding..)
 }
 
+void draw_text_box(struct Game* game, SDL_Rect* text_box_rect, char* text) {
+    Uint8 r, g, b, a;
+    SDL_GetRenderDrawColor(game->renderer, &r, &g, &b, &a);
+    SDL_SetRenderDrawColor(game->renderer, 255, 255, 255, 255);
+    SDL_RenderFillRect(game->renderer, text_box_rect);
+
+    set_text_color(game, 0, 0, 0);
+    SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
+    int caret = game->frame_count % 30 < (30 / 2) ? game->text_edit.cursor : -1;
+    draw_text_caret(game, text_box_rect->x + 4, (game->window_height - text_box_rect->y) - 4, text, caret);
+    SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
+}
+
 void start_editing_text(Game* game, char* text_to_edit, int buffer_size, SDL_Rect* input_rect) {
+    SDL_memset(game->controls.this_frame, 0, sizeof(game->controls.this_frame));
     game->text_edit.text = text_to_edit;
     game->text_edit.text_buf_size = buffer_size;
     game->text_edit.cursor = strlen(text_to_edit);
@@ -179,19 +193,22 @@ void set_data_chunk_cap(DataChunk* chunk, int capacity) {
 }
 
 int write_game_data_thread(void* vgame) {
+    SDL_SetThreadPriority(SDL_THREAD_PRIORITY_LOW);
     Game* game = (Game*)vgame;
 
     while (true) {
         while (!SDL_AtomicGet(&game->data.write_wanted))
             SDL_Delay(1000);
 
-        FILE* game_data = fopen(game->gamedata_file_path, "w");
-        write_game_data(&game->data, game_data);
-        fclose(game_data);
-        SDL_AtomicSet(&game->data.write_wanted, false);
+        if (game->data.should_even_save_yet) {
+            FILE* game_data = fopen(game->gamedata_file_path, "w");
+            write_game_data(&game->data, game_data);
+            fclose(game_data);
 #ifdef _DEBUG
-        printf("Wrote game data.\n");
+            printf("Wrote game data.\n");
 #endif
+        }
+        SDL_AtomicSet(&game->data.write_wanted, false);
     }
 }
 
@@ -217,6 +234,10 @@ void read_game_data(GameData* data, FILE* file) {
     int cc_data_version = -1;
     fread(&cc_data_version, sizeof(int), 1, file);
 
+    if (cc_data_version != 0) {
+        printf("WARNING: bad data file! version id %i. No gamedata loaded.\n", cc_data_version);
+        return;
+    }
     SDL_assert(cc_data_version == 0);
 
     // ======== Current Area ID ==========

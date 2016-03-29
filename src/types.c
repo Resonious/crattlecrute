@@ -3,12 +3,8 @@
 #include <math.h>
 
 void wait_for_then_use_lock(SDL_mutex* mutex) {
-    /*
-    while (SDL_AtomicGet(lock)) {}
-    SDL_AtomicSet(lock, true);
-    */
     if (SDL_LockMutex(mutex) != 0)
-        exit(137);
+        printf("ERROR MUTEX DIDN'T LOCK!");
 }
 
 void write_to_buffer(byte* buffer, void* src, int* pos, int size) {

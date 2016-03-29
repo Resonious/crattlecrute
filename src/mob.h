@@ -107,6 +107,7 @@ typedef struct MobEgg {
     PHYSICS_MOB_FIELDS;
     float dy;
     int age; // in frames.
+    int hatching_age;
 } MobEgg;
 void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos);
 void mob_egg_update(void* vegg, struct Game* game, struct Map* map);

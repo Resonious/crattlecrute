@@ -3,6 +3,7 @@
 #include "character.h"
 #include "tilemap.h"
 #include <math.h>
+#include <stdlib.h>
 
 #define TERMINAL_VELOCITY 17.0f
 
@@ -87,7 +88,7 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
 
             vec2 pos_offset;
             pos_offset.x = guy->flip == SDL_FLIP_HORIZONTAL ? -20 : 20;
-            pos_offset.y = 0;
+            pos_offset.y = 20;
             vec2 drop_pos = { guy->position.x[X], guy->position.x[Y] };
             v2_add_to(&drop_pos, pos_offset);
 
@@ -216,6 +217,17 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
     }
 }
 
+void apply_character_age(struct Game* game, Character* guy) {
+    guy->age += 1;
+    if (guy->age == guy->age_of_maturity) {
+        // TODO MATURE!
+        guy->body_type = CRATTLECRUTE_STANDARD;
+        guy->feet_type = CRATTLECRUTE_STANDARD;
+        set_character_bounds(guy);
+        load_character_atlases(game, guy);
+    }
+}
+
 void update_character_animation(Character* guy) {
     guy->animation_counter += 1;
 
@@ -262,18 +274,11 @@ void character_post_update(Character* guy) {
     guy->just_went_through_door = false;
 }
 
-void write_character_to_data(Character* guy, struct DataChunk* chunk) {
+void write_character_to_data(Character* guy, struct DataChunk* chunk, bool attributes_only) {
     set_data_chunk_cap(chunk, 2048);
     chunk->size = 0;
 
-    write_to_buffer(chunk->bytes, guy->position.x, &chunk->size, sizeof(vec4));
-    write_to_buffer(chunk->bytes, guy->old_position.x, &chunk->size, sizeof(vec4));
-
-    write_to_buffer(chunk->bytes, &guy->ground_angle, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->dy, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->ground_speed, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->run_speed, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->slide_speed, &chunk->size, sizeof(float));
+#define WRITE_UNLESS_ATTRS_ONLY(field, bsize) (attributes_only ? chunk->size += (bsize) : write_to_buffer(chunk->bytes, (field), &chunk->size, (bsize)))
 
     write_to_buffer(chunk->bytes, &guy->ground_speed_max, &chunk->size, sizeof(float));
     write_to_buffer(chunk->bytes, &guy->run_speed_max, &chunk->size, sizeof(float));
@@ -281,25 +286,49 @@ void write_character_to_data(Character* guy, struct DataChunk* chunk) {
     write_to_buffer(chunk->bytes, &guy->ground_deceleration, &chunk->size, sizeof(float));
     write_to_buffer(chunk->bytes, &guy->jump_acceleration, &chunk->size, sizeof(float));
     write_to_buffer(chunk->bytes, &guy->jump_cancel_dy, &chunk->size, sizeof(float));
-
-    write_to_buffer(chunk->bytes, &guy->jumped, &chunk->size, 1);
-    write_to_buffer(chunk->bytes, &guy->just_jumped, &chunk->size, 1);
-    write_to_buffer(chunk->bytes, &guy->width, &chunk->size, sizeof(int));
-    write_to_buffer(chunk->bytes, &guy->height, &chunk->size, sizeof(int));
-
-    write_to_buffer(chunk->bytes, &guy->animation_state, &chunk->size, sizeof(enum CharacterAnimation));
-    write_to_buffer(chunk->bytes, &guy->flip, &chunk->size, sizeof(SDL_RendererFlip));
-
     write_to_buffer(chunk->bytes, &guy->eye_color, &chunk->size, sizeof(SDL_Color));
     write_to_buffer(chunk->bytes, &guy->body_color, &chunk->size, sizeof(SDL_Color));
     write_to_buffer(chunk->bytes, &guy->left_foot_color, &chunk->size, sizeof(SDL_Color));
     write_to_buffer(chunk->bytes, &guy->right_foot_color, &chunk->size, sizeof(SDL_Color));
-
     write_to_buffer(chunk->bytes, guy->inventory.items, &chunk->size, guy->inventory.capacity * sizeof(ItemCommon));
+    write_to_buffer(chunk->bytes, &guy->age, &chunk->size, sizeof(Uint64));
+    write_to_buffer(chunk->bytes, &guy->age_of_maturity, &chunk->size, sizeof(Uint64));
+
+    // TODO this kinda sucks 'cause it checks every fucking time... it's fuckup-proof though.
+    WRITE_UNLESS_ATTRS_ONLY(guy->position.x, sizeof(vec4));
+    WRITE_UNLESS_ATTRS_ONLY(guy->old_position.x, sizeof(vec4));
+
+    WRITE_UNLESS_ATTRS_ONLY(&guy->ground_angle, sizeof(float));
+    WRITE_UNLESS_ATTRS_ONLY(&guy->dy, sizeof(float));
+    WRITE_UNLESS_ATTRS_ONLY(&guy->ground_speed, sizeof(float));
+    WRITE_UNLESS_ATTRS_ONLY(&guy->run_speed, sizeof(float));
+    WRITE_UNLESS_ATTRS_ONLY(&guy->slide_speed, sizeof(float));
+
+    WRITE_UNLESS_ATTRS_ONLY(&guy->jumped, 1);
+    WRITE_UNLESS_ATTRS_ONLY(&guy->just_jumped, 1);
+    WRITE_UNLESS_ATTRS_ONLY(&guy->width, sizeof(int));
+    WRITE_UNLESS_ATTRS_ONLY(&guy->height, sizeof(int));
+
+    WRITE_UNLESS_ATTRS_ONLY(&guy->animation_state, sizeof(enum CharacterAnimation));
+    WRITE_UNLESS_ATTRS_ONLY(&guy->flip, sizeof(SDL_RendererFlip));
 }
 
 void read_character_from_data(Character* guy, struct DataChunk* chunk) {
     int pos = 0;
+
+    read_from_buffer(chunk->bytes, &guy->ground_speed_max, &pos, sizeof(float));
+    read_from_buffer(chunk->bytes, &guy->run_speed_max, &pos, sizeof(float));
+    read_from_buffer(chunk->bytes, &guy->ground_acceleration, &pos, sizeof(float));
+    read_from_buffer(chunk->bytes, &guy->ground_deceleration, &pos, sizeof(float));
+    read_from_buffer(chunk->bytes, &guy->jump_acceleration, &pos, sizeof(float));
+    read_from_buffer(chunk->bytes, &guy->jump_cancel_dy, &pos, sizeof(float));
+    read_from_buffer(chunk->bytes, &guy->eye_color, &pos, sizeof(SDL_Color));
+    read_from_buffer(chunk->bytes, &guy->body_color, &pos, sizeof(SDL_Color));
+    read_from_buffer(chunk->bytes, &guy->left_foot_color, &pos, sizeof(SDL_Color));
+    read_from_buffer(chunk->bytes, &guy->right_foot_color, &pos, sizeof(SDL_Color));
+    read_from_buffer(chunk->bytes, guy->inventory.items, &pos, guy->inventory.capacity * sizeof(ItemCommon));
+    read_from_buffer(chunk->bytes, &guy->age, &pos, sizeof(Uint64));
+    read_from_buffer(chunk->bytes, &guy->age_of_maturity, &pos, sizeof(Uint64));
 
     read_from_buffer(chunk->bytes, guy->position.x, &pos, sizeof(vec4));
     read_from_buffer(chunk->bytes, guy->old_position.x, &pos, sizeof(vec4));
@@ -310,13 +339,6 @@ void read_character_from_data(Character* guy, struct DataChunk* chunk) {
     read_from_buffer(chunk->bytes, &guy->run_speed, &pos, sizeof(float));
     read_from_buffer(chunk->bytes, &guy->slide_speed, &pos, sizeof(float));
 
-    read_from_buffer(chunk->bytes, &guy->ground_speed_max, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->run_speed_max, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->ground_acceleration, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->ground_deceleration, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->jump_acceleration, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->jump_cancel_dy, &pos, sizeof(float));
-
     read_from_buffer(chunk->bytes, &guy->jumped, &pos, 1);
     read_from_buffer(chunk->bytes, &guy->just_jumped, &pos, 1);
     read_from_buffer(chunk->bytes, &guy->width, &pos, sizeof(int));
@@ -324,13 +346,6 @@ void read_character_from_data(Character* guy, struct DataChunk* chunk) {
 
     read_from_buffer(chunk->bytes, &guy->animation_state, &pos, sizeof(enum CharacterAnimation));
     read_from_buffer(chunk->bytes, &guy->flip, &pos, sizeof(SDL_RendererFlip));
-
-    read_from_buffer(chunk->bytes, &guy->eye_color, &pos, sizeof(SDL_Color));
-    read_from_buffer(chunk->bytes, &guy->body_color, &pos, sizeof(SDL_Color));
-    read_from_buffer(chunk->bytes, &guy->left_foot_color, &pos, sizeof(SDL_Color));
-    read_from_buffer(chunk->bytes, &guy->right_foot_color, &pos, sizeof(SDL_Color));
-
-    read_from_buffer(chunk->bytes, guy->inventory.items, &pos, guy->inventory.capacity * sizeof(ItemCommon));
 }
 
 // ======= RENDERING =========
@@ -519,7 +534,85 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
 #endif
 }
 
+void randomize_character(Character* guy) {
+    guy->body_color.r = rand() % 255;
+    guy->body_color.g = rand() % 255;
+    guy->body_color.b = rand() % 255;
+    guy->left_foot_color.r = rand() % 255;
+    guy->left_foot_color.g = rand() % 255;
+    guy->left_foot_color.b = rand() % 255;
+    if (rand() > RAND_MAX / 5)
+        guy->right_foot_color = guy->left_foot_color;
+    else {
+        guy->right_foot_color.r = rand() % 255;
+        guy->right_foot_color.g = rand() % 255;
+        guy->right_foot_color.b = rand() % 255;
+    }
+    if (rand() < RAND_MAX / 5) {
+        guy->eye_color.r = rand() % 255;
+        guy->eye_color.g = rand() % 255;
+        guy->eye_color.b = rand() % 255;
+    }
+    SDL_AtomicSet(&guy->dirty, true);
+}
+
+void set_character_bounds(Character* target) {
+    // top1: left
+    target->top_sensors.x[S1X] = -14;
+    target->top_sensors.x[S1Y] = 27;
+    // top2: right
+    target->top_sensors.x[S2X] = 13;
+    target->top_sensors.x[S2Y] = 27;
+
+    // bottom1: left
+    target->bottom_sensors.x[S1X] = -14;
+    target->bottom_sensors.x[S1Y] = -29;
+    // bottom2: right
+    target->bottom_sensors.x[S2X] = 13;
+    target->bottom_sensors.x[S2Y] = -29;
+
+    // left1: top
+    target->left_sensors.x[S1X] = -15;
+    target->left_sensors.x[S1Y] = 26;
+    // left2: bottom
+    target->left_sensors.x[S2X] = -14;
+    target->left_sensors.x[S2Y] = -28;
+
+    // right1: top
+    target->right_sensors.x[S1X] = 14;
+    target->right_sensors.x[S1Y] = 26;
+    // right2: bottom
+    target->right_sensors.x[S2X] = 14;
+    target->right_sensors.x[S2Y] = -28;
+
+    if (target->age < target->age_of_maturity) {
+        vec4i top_offset;
+        top_offset.rect = (SDL_Rect) { +10, -10, -10, -10 };
+        target->top_sensors.simd = _mm_add_epi32(target->top_sensors.simd, top_offset.simd);
+
+        vec4i bottom_offset;
+        bottom_offset.rect = (SDL_Rect) {+10, +10, -10, +10};
+        target->bottom_sensors.simd = _mm_add_epi32(target->bottom_sensors.simd, bottom_offset.simd);
+
+        vec4i left_offset;
+        left_offset.rect = (SDL_Rect) {+10, -10, +10, +10};
+        target->left_sensors.simd = _mm_add_epi32(target->left_sensors.simd, left_offset.simd);
+
+        vec4i right_offset;
+        right_offset.rect = (SDL_Rect) {-10, -10, -10, +10};
+        target->right_sensors.simd = _mm_add_epi32(target->right_sensors.simd, right_offset.simd);
+    }
+
+    target->middle_sensors.x[S1X] = target->left_sensors.x[S1X];
+    target->middle_sensors.x[S1Y] = (target->left_sensors.x[S1Y] + target->left_sensors.x[S2Y]) / 2.0f;
+    target->middle_sensors.x[S2X] = target->right_sensors.x[S1X];
+    target->middle_sensors.x[S2Y] = (target->right_sensors.x[S1Y] + target->right_sensors.x[S2Y]) / 2.0f;
+}
+
 void default_character(struct Game* game, Character* target) {
+    target->age = 0;
+    target->age_of_maturity = 2 HOURS;
+
     target->player_id = -1;
     target->animation_counter = 0;
     target->width  = 90;
@@ -553,43 +646,12 @@ void default_character(struct Game* game, Character* target) {
     target->left_hit = false;
     target->right_hit = false;
 
-    // top1: left
-    target->top_sensors.x[S1X] = -14;
-    target->top_sensors.x[S1Y] = 27;
-    // top2: right
-    target->top_sensors.x[S2X] = 13;
-    target->top_sensors.x[S2Y] = 27;
-
-    // bottom1: left
-    target->bottom_sensors.x[S1X] = -14;
-    target->bottom_sensors.x[S1Y] = -29;
-    // bottom2: right
-    target->bottom_sensors.x[S2X] = 13;
-    target->bottom_sensors.x[S2Y] = -29;
-
-    // left1: top
-    target->left_sensors.x[S1X] = -15;
-    target->left_sensors.x[S1Y] = 26;
-    // left2: bottom
-    target->left_sensors.x[S2X] = -14;
-    target->left_sensors.x[S2Y] = -28;
-
-    // right1: top
-    target->right_sensors.x[S1X] = 14;
-    target->right_sensors.x[S1Y] = 26;
-    // right2: bottom
-    target->right_sensors.x[S2X] = 14;
-    target->right_sensors.x[S2Y] = -28;
-
-    target->middle_sensors.x[S1X] = target->left_sensors.x[S1X];
-    target->middle_sensors.x[S1Y] = (target->left_sensors.x[S1Y] + target->left_sensors.x[S2Y]) / 2.0f;
-    target->middle_sensors.x[S2X] = target->right_sensors.x[S1X];
-    target->middle_sensors.x[S2Y] = (target->right_sensors.x[S1Y] + target->right_sensors.x[S2Y]) / 2.0f;
+    set_character_bounds(target);
 
     target->just_went_through_door = false;
 
-    target->body_type = CRATTLECRUTE_STANDARD;
-    target->feet_type = CRATTLECRUTE_STANDARD;
+    target->body_type = CRATTLECRUTE_YOUNG;
+    target->feet_type = CRATTLECRUTE_YOUNG;
 
     target->body_color.r = 0;
     target->body_color.g = 210;

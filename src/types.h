@@ -31,6 +31,15 @@
 #endif
 #define IS_WHITESPACE(c) (c == ' ' || c == '\n' || c == '\t')
 
+#define SECONDS * 60
+#define SECOND * 60
+#define MINUTES * 3600
+#define MINUTE * 3600
+#define HOURS * 216000
+#define HOUR * 216000
+
+#define CHARACTER_NAME_LENGTH 32
+
 typedef unsigned char byte;
 typedef struct TextureDimensions {
     SDL_Texture* tex;
@@ -149,8 +158,9 @@ typedef struct GenericBody {
 struct Map;
 struct MobCommon;
 typedef void(*Callback)(void*);
+typedef void(*DataCallback)(void*, void*);
 typedef void(*SetItemFunc)(void*, struct Character*, struct Game*, int, int);
-typedef void(*SpawnMobFunc)(void*, struct Map*, struct Game*, int, vec2);
+typedef void(*SpawnMobFunc)(void*, struct Map*, struct Game*, int, vec2, void*, DataCallback);
 typedef void(*DespawnMobFunc)(void*, struct Map*, struct Game*, struct MobCommon*);
 
 #endif // TYPES_H

@@ -186,6 +186,21 @@ typedef struct ServerLoop {
     WorldScene* scene;
 } ServerLoop;
 
+bool save(WorldScene* scene) {
+    Game* game = scene->game;
+    wait_for_then_use_lock(game->data.locked);
+
+    bool should_write_positions = scene->net.status != JOINING && scene->current_area != AREA_NET_ZONE;
+    write_character_to_data(&scene->guy, &game->data.character, !should_write_positions);
+
+    if (scene->net.status != JOINING) {
+        write_map_to_data(scene->map, &game->data.maps[scene->current_area]);
+    }
+
+    SDL_UnlockMutex(game->data.locked);
+    return save_game(game);
+}
+
 void set_camera_target(Game* game, Map* map, Character* guy) {
     game->camera_target.x[X] = guy->position.x[X] - game->window_width / 2.0f;
 
@@ -232,7 +247,8 @@ void local_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
 }
 
 void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
-    wait_for_then_use_lock(s->transition.locked);
+    if (s->transition.locked)
+        wait_for_then_use_lock(s->transition.locked);
 
     if (s->transition.on_transition) {
         s->transition.on_transition(s);
@@ -242,8 +258,8 @@ void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
     s->current_area = transition->destination_area;
     s->map             = cached_area(game, s->current_area);
     s->map->area_id    = s->current_area;
-    s->game->data.area = s->current_area;
-    save_game(s->game);
+    if (s->current_area != AREA_NET_ZONE)
+        s->game->data.area = s->current_area;
 
     float dest_x = transition->destination_position.x;
     float dest_y;
@@ -257,10 +273,13 @@ void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
     s->guy.old_position.x[X] = dest_x;
     s->guy.old_position.x[Y] = dest_y;
 
+    save(s);
+
     set_camera_target(game, s->map, &s->guy);
     game->camera.simd = game->camera_target.simd;
 
-    SDL_UnlockMutex(s->transition.locked);
+    if (s->transition.locked)
+        SDL_UnlockMutex(s->transition.locked);
 }
 
 void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
@@ -386,19 +405,25 @@ void connected_despawn_mob(void* vs, Map* map, struct Game* game, MobCommon* mob
     }
 }
 
-// Never spawn mobs when joining
-void unconnected_spawn_mob(void* vs, Map* map, struct Game* game, int mobtype, vec2 pos) {
+void unconnected_spawn_mob(void* vs, Map* map, struct Game* game, int mobtype, vec2 pos, void* data, DataCallback onspawn) {
     WorldScene* s = (WorldScene*)vs;
-    if (s->net.status != JOINING)
-        spawn_mob(map, game, mobtype, pos);
+    // Never spawn mobs when joining
+    if (s->net.status != JOINING) {
+        MobCommon* mob = spawn_mob(map, game, mobtype, pos);
+        if (mob && onspawn)
+            onspawn(data, mob);
+    }
 }
 
-void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id, vec2 pos) {
+void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id, vec2 pos, void* data, DataCallback onspawn) {
     WorldScene* s = (WorldScene*)vs;
     SDL_assert(s->net.status == HOSTING);
 
     MobCommon* mob = spawn_mob(map, game, mob_type_id, pos);
     if (mob != NULL) {
+        if (mob && onspawn)
+            onspawn(data, mob);
+
         MobType* mob_type = &mob_registry[mob_type_id];
         int m_id = mob_id(map, mob);
 
@@ -637,6 +662,8 @@ void read_guy_info_from_buffer(byte* buffer, Character* guy, int* area_id, int* 
     read_from_buffer(buffer, &guy->ground_deceleration, pos, sizeof(guy->ground_deceleration));
     read_from_buffer(buffer, &guy->jump_acceleration,   pos, sizeof(guy->jump_acceleration));
     read_from_buffer(buffer, &guy->jump_cancel_dy,      pos, sizeof(guy->jump_cancel_dy));
+    read_from_buffer(buffer, &guy->age,                pos, sizeof(guy->age));
+    read_from_buffer(buffer, &guy->age_of_maturity,    pos, sizeof(guy->age_of_maturity));
     read_from_buffer(buffer, area_id,          pos, sizeof(int));
 }
 
@@ -655,6 +682,8 @@ void write_guy_info_to_buffer(byte* buffer, Character* guy, int area_id, int* po
     write_to_buffer(buffer, &guy->ground_deceleration, pos, sizeof(guy->ground_deceleration));
     write_to_buffer(buffer, &guy->jump_acceleration,   pos, sizeof(guy->jump_acceleration));
     write_to_buffer(buffer, &guy->jump_cancel_dy,      pos, sizeof(guy->jump_cancel_dy));
+    write_to_buffer(buffer, &guy->age,                 pos, sizeof(guy->age));
+    write_to_buffer(buffer, &guy->age_of_maturity,     pos, sizeof(guy->age_of_maturity));
     write_to_buffer(buffer, &area_id, pos, sizeof(int));
 }
 
@@ -1901,6 +1930,7 @@ void create_client_thread(void* vs) {
 }
 
 void net_join(WorldScene* s) {
+    save(s);
     s->net.status = NOT_CONNECTED;
     if (s->current_area == AREA_NET_ZONE) {
         create_client_thread(s);
@@ -1989,19 +2019,8 @@ mrb_value mrb_world_is_joining(mrb_state* mrb, mrb_value self) {
     return scene->net.status == JOINING ? mrb_true_value() : mrb_false_value();
 }
 
-bool save(WorldScene* scene) {
-    Game* game = scene->game;
-    wait_for_then_use_lock(game->data.locked);
-
-    // TODO TODO uhh hyeah (when joining, don't save guy position and shit)
-    write_character_to_data(&scene->guy, &game->data.character);
-
-    if (scene->net.status != JOINING) {
-        write_map_to_data(scene->map, &game->data.maps[scene->current_area]);
-    }
-
-    SDL_UnlockMutex(game->data.locked);
-    return save_game(game);
+void scene_world_save(void* data, Game* game) {
+    save((WorldScene*)data);
 }
 
 void scene_world_initialize(void* vdata, Game* game) {
@@ -2058,6 +2077,12 @@ void scene_world_initialize(void* vdata, Game* game) {
         printf("BAD CTRLS STREAM MUTEX\n");
     }
 
+    BENCH_START(loading_tiles);
+    data->current_area = game->data.area;
+    data->map = cached_area(game, data->current_area);
+    game->camera.simd = game->camera_target.simd;
+    BENCH_END(loading_tiles);
+
     BENCH_START(loading_crattle1);
     SDL_assert(!game->mrb->exc);
     default_character(game, &data->guy);
@@ -2066,32 +2091,24 @@ void scene_world_initialize(void* vdata, Game* game) {
     SDL_assert(!game->mrb->exc);
     if (game->data.character.bytes) {
         read_character_from_data(&data->guy, &game->data.character);
+        set_camera_target(game, data->map, &data->guy);
     }
     else {
+        MobEgg* egg = spawn_mob(data->map, game, MOB_EGG, (vec2) { 3862.0f, 985.0f });
+        egg->hatching_age = 5 SECONDS;
+
+        // TODO dont... instead just the egg
+        data->guy.age = data->guy.age_of_maturity + 1;
+        set_character_bounds(&data->guy);
+        randomize_character(&data->guy);
         data->guy.position.x[X] = 3918.0f;
         data->guy.position.x[Y] = 988.0f;
         data->guy.position.x[2] = 0.0f;
         data->guy.position.x[3] = 0.0f;
         data->guy.old_position.simd = data->guy.position.simd;
-        data->guy.body_color.r = rand() % 255;
-        data->guy.body_color.g = rand() % 255;
-        data->guy.body_color.b = rand() % 255;
-        data->guy.left_foot_color.r = rand() % 255;
-        data->guy.left_foot_color.g = rand() % 255;
-        data->guy.left_foot_color.b = rand() % 255;
-        if (rand() > RAND_MAX / 5)
-            data->guy.right_foot_color = data->guy.left_foot_color;
-        else {
-            data->guy.right_foot_color.r = rand() % 255;
-            data->guy.right_foot_color.g = rand() % 255;
-            data->guy.right_foot_color.b = rand() % 255;
-        }
-        if (rand() < RAND_MAX / 5) {
-            data->guy.eye_color.r = rand() % 255;
-            data->guy.eye_color.g = rand() % 70;
-            data->guy.eye_color.b = rand() % 140;
-        }
+        SDL_AtomicSet(&data->guy.dirty, false);
         printf("Generated character.\n");
+        set_camera_target(game, data->map, &data->guy);
     }
 
     data->inv_fade = INV_FADE_MAX;
@@ -2099,13 +2116,6 @@ void scene_world_initialize(void* vdata, Game* game) {
 
     SDL_assert(((int)&data->guy.position) % 16 == 0);
     BENCH_END(loading_crattle1);
-
-    BENCH_START(loading_tiles);
-    data->current_area = game->data.area;
-    data->map = cached_area(game, data->current_area);
-    set_camera_target(game, data->map, &data->guy);
-    game->camera.simd = game->camera_target.simd;
-    BENCH_END(loading_tiles);
 
     BENCH_START(loading_sound);
     data->music = cached_sound(game, ASSET_MUSIC_ARENA_OGG);
@@ -2383,6 +2393,7 @@ void scene_world_update(void* vs, Game* game) {
         collide_character(&s->guy, &s->map->tile_collision);
         slide_character(s->gravity, &s->guy);
         interact_character_with_world(game, &s->guy, &game->controls, s->map, s, local_go_through_door);
+        apply_character_age(game, &s->guy);
         update_character_animation(&s->guy);
         updated_guy_physics = true;
     }
@@ -2523,20 +2534,6 @@ void scene_world_update(void* vs, Game* game) {
         }
     }
 }
-
-void draw_text_box(struct Game* game, SDL_Rect* text_box_rect, char* text) {
-    Uint8 r, g, b, a;
-    SDL_GetRenderDrawColor(game->renderer, &r, &g, &b, &a);
-    SDL_SetRenderDrawColor(game->renderer, 255, 255, 255, 255);
-    SDL_RenderFillRect(game->renderer, text_box_rect);
-
-    set_text_color(game, 0, 0, 0);
-    SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
-    int caret = game->frame_count % 30 < (30 / 2) ? game->text_edit.cursor : -1;
-    draw_text_caret(game, text_box_rect->x + 4, (game->window_height - text_box_rect->y) - 4, text, caret);
-    SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
-}
-
 
 void scene_world_render(void* vs, Game* game) {
     WorldScene* s = (WorldScene*)vs;
@@ -2796,4 +2793,37 @@ mrb_value mrb_world_local_character(mrb_state* mrb, mrb_value self) {
 mrb_value mrb_world_save(mrb_state* mrb, mrb_value self) {
     WorldScene* scene = DATA_PTR(self);
     return mrb_bool_value(save(scene));
+}
+
+mrb_value mrb_world_area(mrb_state* mrb, mrb_value self) {
+    WorldScene* scene = DATA_PTR(self);
+    return mrb_fixnum_value(scene->current_area);
+}
+
+mrb_value mrb_world_area_eq(mrb_state* mrb, mrb_value self) {
+    WorldScene* scene = DATA_PTR(self);
+
+    if (scene->net.status == JOINING) {
+        mrb_raise(
+            mrb,
+            mrb_class_get(mrb, "RuntimeError"),
+            "Can't teleport when joining a netgame"
+        );
+        return mrb_nil_value();
+    }
+
+    mrb_int dest_area;
+    mrb_value rb_dest_position = mrb_nil_value();
+    mrb_get_args(mrb, "io", &dest_area, &rb_dest_position);
+    vec2 dest_position = mrb_vec2(mrb, rb_dest_position);
+
+    Door door;
+    door.callback = NULL;
+    door.dest_area = dest_area;
+    door.dest_x = dest_position.x;
+    door.dest_y = dest_position.y;
+    door.flags = 0;
+    local_go_through_door(scene, (Game*)scene->game, &scene->guy, &door);
+
+    return mrb_fixnum_value(dest_area);
 }

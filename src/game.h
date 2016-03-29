@@ -54,6 +54,8 @@ typedef struct DataChunk {
 } DataChunk;
 
 typedef struct GameData {
+    // If the player opens the game and does not even hatch the egg then wtf.
+    bool should_even_save_yet;
     int area;
     DataChunk character;
     DataChunk maps[NUMBER_OF_AREAS];
@@ -114,6 +116,7 @@ typedef struct Game {
         SpawnMobFunc spawn_mob;
         DespawnMobFunc despawn_mob;
     } net;
+    char new_character_name_buffer[CHARACTER_NAME_LENGTH];
     struct GameData data;
     int argc;
     char** argv;
@@ -146,6 +149,7 @@ void switch_scene(Game* game, int to_scene);
 // input_rect can be null who gives a shit
 void start_editing_text(Game* game, char* text_to_edit, int buffer_size, SDL_Rect* input_rect);
 void stop_editing_text(Game* game);
+void draw_text_box(struct Game* game, SDL_Rect* text_box_rect, char* text);
 
 int write_game_data_thread(void*);
 

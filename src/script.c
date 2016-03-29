@@ -15,6 +15,24 @@ mrb_value mrb_instance_alloc(mrb_state* mrb, struct RClass* c) {
   return mrb_obj_value(o);
 }
 
+vec2 mrb_vec2(mrb_state* mrb, mrb_value value) {
+    Game* game = (Game*)mrb->ud;
+
+    if (mrb_array_p(value)) {
+        mrb_value* array = RARRAY_PTR(value);
+        int len = RARRAY_LEN(value);
+        if (len < 2)
+            return (vec2) { mrb_float(array[0]), mrb_float(array[0]) };
+        else
+            return (vec2) { mrb_float(array[0]), mrb_float(array[1]) };
+    }
+    else if (mrb_obj_class(mrb, value) == game->ruby.vec2_class) {
+        return *(vec2*)DATA_PTR(value);
+    }
+    else
+        return (vec2){0, 0};
+}
+
 mrb_value mrb_sym_to_i(mrb_state* mrb, mrb_value self) {
     return mrb_fixnum_value(self.value.i);
 }
@@ -238,9 +256,25 @@ mrb_value mrb_character_init(mrb_state* mrb, mrb_value self) {
     return self;
 }
 
+mrb_value mrb_character_age(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    return mrb_fixnum_value(guy->age);
+}
+
+mrb_value mrb_character_age_of_maturity(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    return mrb_fixnum_value(guy->age_of_maturity);
+}
+
 mrb_value mrb_character_mark_dirty(mrb_state* mrb, mrb_value self) {
     Character* guy = DATA_PTR(self);
     SDL_AtomicSet(&guy->dirty, true);
+    return mrb_true_value();
+}
+
+mrb_value mrb_character_randomize(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    randomize_character(guy);
     return mrb_true_value();
 }
 
@@ -494,6 +528,8 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.world_class, "current_map", mrb_world_current_map, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.world_class, "local_character", mrb_world_local_character, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.world_class, "save", mrb_world_save, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.world_class, "area", mrb_world_area, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.world_class, "move_to", mrb_world_area_eq, MRB_ARGS_REQ(2));
 
     // ==================================== class Map =================================
     game->ruby.map_class = mrb_define_class(game->mrb, "Map", game->mrb->object_class);
@@ -551,8 +587,12 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.character_class, "jump_acceleration=", mrb_character_jump_acceleration_eq, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.character_class, "jump_cancel_dy=", mrb_character_jump_cancel_dy_eq, MRB_ARGS_REQ(1));
 
+    mrb_define_method(game->mrb, game->ruby.character_class, "randomize", mrb_character_randomize, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "mark_dirty", mrb_character_mark_dirty, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "dirty!", mrb_character_mark_dirty, MRB_ARGS_NONE());
+
+    mrb_define_method(game->mrb, game->ruby.character_class, "age", mrb_character_age, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "age_of_maturity", mrb_character_age_of_maturity, MRB_ARGS_NONE());
 
     // ==================================== class Item =================================
     game->ruby.item_class = mrb_define_class(game->mrb, "Item", game->mrb->object_class);

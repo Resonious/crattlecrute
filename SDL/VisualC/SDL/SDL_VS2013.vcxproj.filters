@@ -306,9 +306,6 @@
     </ClInclude>
     <ClInclude Include="..\..\src\main\windows\resource.h" />
     <ClInclude Include="..\..\..\win\embedded_assets.h" />
-    <ClInclude Include="..\..\..\src\scene.h">
-      <Filter>game</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\game.h">
       <Filter>game</Filter>
     </ClInclude>
@@ -332,6 +329,9 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\item.h">
       <Filter>game\items</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\scene.h">
+      <Filter>game\scenes</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

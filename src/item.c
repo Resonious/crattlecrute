@@ -74,7 +74,7 @@ void item_fruit_initialize(void* vitem, struct Game* game) {
 bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 position) {
     // ItemFruit* fruit = (ItemFruit*)vitem;
 
-    game->net.spawn_mob(game->current_scene_data, map, game, MOB_FRUIT, position);
+    game->net.spawn_mob(game->current_scene_data, map, game, MOB_FRUIT, position, NULL, NULL);
 
     return true;
 }
@@ -85,11 +85,22 @@ void item_egg_initialize(void* vitem, struct Game* game) {
     SDL_assert(sizeof(Inventory) <= sizeof(ItemCommon));
     ItemEgg* egg = (ItemEgg*)vitem;
     egg->layer_count = 2;
+    egg->age = 0;
+    egg->hatching_age = 15 MINUTES;
+}
+void egg_dropped(void* vdata, void* vegg) {
+    MobEgg* egg_drop = (MobEgg*)vegg;
+    struct { int a, b; }* data = vdata;
+    egg_drop->age = data->a;
+    egg_drop->hatching_age = data->b;
 }
 bool item_egg_drop(void* vitem, struct Game* game, struct Map* map, vec2 position) {
-    // ItemEgg* egg = (ItemEgg*)vitem;
+    ItemEgg* egg = (ItemEgg*)vitem;
 
-    game->net.spawn_mob(game->current_scene_data, map, game, MOB_EGG, position);
+    struct { int a, b; } data;
+    data.a = egg->age;
+    data.b = egg->hatching_age;
+    game->net.spawn_mob(game->current_scene_data, map, game, MOB_EGG, position, &data, egg_dropped);
 
     return true;
 }

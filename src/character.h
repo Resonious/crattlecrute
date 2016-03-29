@@ -62,6 +62,10 @@ typedef struct Character {
     // (x[0], x[1])  (x[2], x[3])
     vec4i middle_sensors;
 
+    // In frames
+    Uint64 age;
+    Uint64 age_of_maturity;
+
     int animation_counter;
     float dy;
     float ground_speed;
@@ -69,6 +73,7 @@ typedef struct Character {
     float run_speed;
 
     // === attributes ===
+    char name[CHARACTER_NAME_LENGTH];
     float ground_speed_max;
     float run_speed_max;
     float ground_acceleration;
@@ -122,6 +127,7 @@ typedef struct Character {
 #define CHARACTER_EYE_LAYER 4 
 
 // So, all eyes must be the same dimensions
+// TODO chaaaange thiiiis shiiiit
 #define EYE_SPRITE_WIDTH 3
 #define EYE_SPRITE_HEIGHT 6
 enum EyeFrame {
@@ -161,15 +167,18 @@ enum InventoryAction {
 };
 
 // === Routine character functions === //
+void set_character_bounds(Character* target);
 void default_character(struct Game* game, Character* target);
 void default_character_animations(struct Game* game, Character* guy);
 // This should be called after changing the body or feet type.
 void load_character_atlases(struct Game* game, Character* guy);
 enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls, struct Game* game, struct Map* map);
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag);
+void apply_character_age(struct Game* game, Character* guy);
 void update_character_animation(Character* guy);
+void randomize_character(Character* guy);
 
-void write_character_to_data(Character* guy, struct DataChunk* chunk);
+void write_character_to_data(Character* guy, struct DataChunk* chunk, bool attributes_only);
 void read_character_from_data(Character* guy, struct DataChunk* chunk);
 
 // data will be passed to any of the provided callbacks when called.

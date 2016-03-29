@@ -1052,7 +1052,7 @@ void update_map(
                         zone->x + (rand() % zone->width),
                         zone->y + (rand() % zone->height)
                     };
-                    game->net.spawn_mob(game->current_scene_data, map, game, spawn->mob_type_id, target_pos);
+                    game->net.spawn_mob(game->current_scene_data, map, game, spawn->mob_type_id, target_pos, NULL, NULL);
 
                     // TODO add spawn frequency or something to maps.
                     zone->countdown_until_next_spawn_attempt = 60 * 60 * 60;
@@ -1328,11 +1328,22 @@ void read_map_state(Map* map, byte* buffer, int* pos) {
 
 void write_map_to_data(Map* map, struct DataChunk* chunk) {
     // NOTE this cap is sorta approximate
-    set_data_chunk_cap(chunk, sizeof(MapState));
+    set_data_chunk_cap(chunk, sizeof(MapState) + map->number_of_spawn_zones * sizeof(MobSpawnZone));
     chunk->size = 0;
 
+    // TODO I don't think we want to write the area id here.
+    // cached_area will take care of that.
     write_to_buffer(chunk->bytes, &map->area_id, &chunk->size, sizeof(int));
     write_map_state(map, chunk->bytes, &chunk->size);
+
+    // In case the number of spawn zones changes between loads, we write the actual number here.
+    write_to_buffer(chunk->bytes, &map->number_of_spawn_zones, &chunk->size, sizeof(int));
+
+    for (int i = 0; i < map->number_of_spawn_zones; i++) {
+        MobSpawnZone* zone = &map->spawn_zones[i];
+        write_to_buffer(chunk->bytes, &zone->countdown_until_next_spawn_attempt, &chunk->size, sizeof(int));
+    }
+
     SDL_assert(chunk->size <= chunk->capacity);
 }
 void read_map_from_data(Map* map, struct DataChunk* chunk) {
@@ -1340,4 +1351,19 @@ void read_map_from_data(Map* map, struct DataChunk* chunk) {
 
     read_from_buffer(chunk->bytes, &map->area_id, &pos, sizeof(int));
     read_map_state(map, chunk->bytes, &pos);
+
+    // So that we know not to overflow anything...
+    int number_of_spawn_zones;
+    read_from_buffer(chunk->bytes, &number_of_spawn_zones, &pos, sizeof(int));
+
+    for (int i = 0; i < number_of_spawn_zones; i++) {
+        if (i >= map->number_of_spawn_zones) {
+            // Since we normally would read sizeof(int) bytes, just increment it beyond this point, ignoring the data.
+            pos += sizeof(int);
+        }
+        else {
+            MobSpawnZone* zone = &map->spawn_zones[i];
+            read_from_buffer(chunk->bytes, &zone->countdown_until_next_spawn_attempt, &pos, sizeof(int));
+        }
+    }
 }

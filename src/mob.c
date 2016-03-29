@@ -238,6 +238,7 @@ void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos
     egg->body.grounded = false;
     egg->dy = 0;
     egg->age = 0;
+    egg->hatching_age = 15 MINUTES;
 }
 void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
     MobEgg* egg = (MobEgg*)vegg;
@@ -249,14 +250,31 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
 
     collide_generic_body(&egg->body, &map->tile_collision);
 
-    // TODO if garden...
-    egg->age += 1;
+    if (game->net_joining)
+        return;
+
+    if (area_is_garden(map->area_id)) {
+        if (game->text_edit.text == NULL) {
+            egg->age += 1;
+            if (egg->age == egg->hatching_age) {
+                printf("I HATCHED!!!!!!!!!!!!!!!!!!!!!!\n");
+                start_editing_text(game, game->new_character_name_buffer, CHARACTER_NAME_LENGTH, NULL);
+            }
+        }
+        else if (game->text_edit.text == game->new_character_name_buffer) {
+            if (game->text_edit.enter_pressed) {
+                stop_editing_text(game);
+                // TODO actually set the name I guess, maybe pop it out of the egg
+                printf("k thanks");
+            }
+        }
+    }
 }
 void mob_egg_interact(void* vegg, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls) {
     pick_up_item((PhysicsMob*)vegg, ITEM_EGG, game, map, character, ctrls);
 }
 void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
-    MobFruit* egg = (MobFruit*)vegg;
+    MobEgg* egg = (MobEgg*)vegg;
 
     vec2 p = { egg->body.position.x[X], egg->body.position.x[Y] };
     vec2 c = { 32, 32 };
@@ -265,18 +283,43 @@ void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
     SDL_Texture* tex = cached_texture(game, ASSET_EGG_BASIC_PNG);
     SDL_QueryTexture(tex, NULL, NULL, &image_width, &image_height);
 
-    SDL_Rect src = src_rect_frame(3, image_width, image_height, 64, 64);
+    if (egg->age < egg->hatching_age) {
+        SDL_Rect src = src_rect_frame(3, image_width, image_height, 64, 64);
 
-    // Just render the egg bottom and top on frames 3 and 5.
-    world_render_copy(game, tex, &src, &p, 64, 64, &c);
-    increment_src_rect(&src, 2, image_width, image_height);
-    world_render_copy(game, tex, &src, &p, 64, 64, &c);
+        // Just render the egg bottom and top on frames 3 and 5.
+        world_render_copy(game, tex, &src, &p, 64, 64, &c);
+        increment_src_rect(&src, 2, image_width, image_height);
+        world_render_copy(game, tex, &src, &p, 64, 64, &c);
+    }
+    else {
+        SDL_Rect src = src_rect_frame(0, image_width, image_height, 64, 64);
+
+        world_render_copy(game, tex, &src, &p, 64, 64, &c);
+        increment_src_rect(&src, 1, image_width, image_height);
+        world_render_copy(game, tex, &src, &p, 64, 64, &c);
+        increment_src_rect(&src, 2, image_width, image_height);
+        world_render_copy(game, tex, &src, &p, 64, 64, &c);
+    }
+
+    if (game->text_edit.text == game->new_character_name_buffer) {
+        SDL_Rect name_rect = {
+            game->window_width / 2, game->window_height / 2,
+            350, 40
+        };
+        name_rect.x -= name_rect.w / 2;
+        name_rect.y -= name_rect.h / 2 + 64;
+
+        set_text_color(game, 0, 0, 0);
+        draw_text(game, name_rect.x, (game->window_height - name_rect.y) + 128, "Enter a name:");
+        draw_text_box(game, &name_rect, game->text_edit.text);
+    }
 }
 void mob_egg_save(void* vegg, struct Map* map, byte* buffer, int* pos) {
     MobEgg* egg = (MobEgg*)vegg;
     write_body_to_buffer(buffer, &egg->body, pos);
     write_to_buffer(buffer, &egg->dy, pos, sizeof(float));
     write_to_buffer(buffer, &egg->age, pos, sizeof(int));
+    write_to_buffer(buffer, &egg->hatching_age, pos, sizeof(int));
 }
 void mob_egg_load(void* vegg, struct Map* map, byte* buffer, int* pos) {
     MobEgg* egg = (MobEgg*)vegg;
@@ -284,4 +327,5 @@ void mob_egg_load(void* vegg, struct Map* map, byte* buffer, int* pos) {
     read_body_from_buffer(buffer, &egg->body, pos);
     read_from_buffer(buffer, &egg->dy, pos, sizeof(float));
     read_from_buffer(buffer, &egg->age, pos, sizeof(int));
+    read_from_buffer(buffer, &egg->hatching_age, pos, sizeof(int));
 }
