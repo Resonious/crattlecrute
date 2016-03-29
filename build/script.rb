@@ -78,8 +78,26 @@ class DelayedAction
   end
 end
 
+class OnUpdate
+  attr_accessor :block
+  attr_accessor :args
+
+  def initialize(b, *args)
+    @block = b
+    @args = args
+  end
+
+  def inspect
+    "#<OnUpdate (#{args.size})>"
+  end
+end
+
+class Done < StandardError
+end
+
 @control_presses = []
 @delayed_actions = []
+@on_updates = []
 
 def press(control_sym, options = {})
   frames = options[:for] || 1
@@ -98,10 +116,68 @@ def every(frame_interval, *args, &action)
   block.call(*args)
 end
 
+def on_update(*args, &block)
+  @on_updates << OnUpdate.new(block, *args)
+end
+
+# Some extensions..
 class Crattlecrute
   def change
     yield self
     mark_dirty
+  end
+end
+
+def phash(h)
+  puts "-----------------------------"
+  h.each do |name, seconds|
+    puts "#{name} ==> #{seconds} seconds"
+    puts "-----------------------------"
+  end
+  nil
+end
+
+def average_bench_over(time)
+  bench  = game.bench
+  totals = Hash.new(0.0)
+  count  = 0
+
+  on_update do
+    bench.each do |name, seconds|
+      totals[name] += seconds
+    end
+    count += 1
+
+    if count >= time
+      puts "-----------------------------"
+      totals.each do |name, seconds|
+        puts "#{name} ==> #{seconds / count} seconds"
+        puts "-----------------------------"
+      end
+
+      raise Done
+    end
+  end
+end
+alias avg_bench average_bench_over
+
+def peak_bench_over(time)
+  bench = game.bench
+  peaks = Hash.new(0)
+  count = 0
+
+  on_update do
+    bench.each do |name, seconds|
+      existing = peaks[name]
+      peaks[name] = seconds if seconds > existing
+    end
+    count += 1
+
+    if count >= time
+      phash peaks
+
+      raise Done
+    end
   end
 end
 
@@ -132,6 +208,17 @@ def update(game)
       end
     rescue StandardError => e
       puts "DELAYED ACTION: #{e.class}: #{e.message}"
+      true
+    end
+  end
+  @on_updates.delete_if do |u|
+    begin
+      u.block.call(*u.args)
+      false
+    rescue Done => _
+      true
+    rescue StandardError => e
+      puts "ON-UPDATE: #{e.class}: #{e.message}"
       true
     end
   end

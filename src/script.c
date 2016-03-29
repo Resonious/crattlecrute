@@ -33,6 +33,10 @@ vec2 mrb_vec2(mrb_state* mrb, mrb_value value) {
         return (vec2){0, 0};
 }
 
+mrb_value mrb_debug_game_bench(mrb_state* mrb, mrb_value self) {
+  return _bench_hash;
+}
+
 mrb_value mrb_sym_to_i(mrb_state* mrb, mrb_value self) {
     return mrb_fixnum_value(self.value.i);
 }
@@ -510,6 +514,11 @@ void script_init(struct Game* game) {
     game->ruby.game_class = mrb_define_class(game->mrb, "Game", game->mrb->object_class);
     MRB_SET_INSTANCE_TT(game->ruby.game_class, MRB_TT_DATA);
 
+#ifdef _DEBUG
+    _bench_mrb = game->mrb;
+    _bench_hash = mrb_hash_new_capa(_bench_mrb, 16);
+    mrb_define_method(game->mrb, game->ruby.game_class, "bench", mrb_debug_game_bench, MRB_ARGS_NONE());
+#endif
     mrb_define_method(game->mrb, game->ruby.game_class, "initialize", mrb_game_init, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.game_class, "controls", mrb_game_controls, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.game_class, "world", mrb_game_world, MRB_ARGS_NONE());
@@ -631,6 +640,7 @@ void ruby_p(mrb_state *mrb, mrb_value obj, int prompt) {
 }
 
 #ifdef _DEBUG
+// Dear lord do this better...
 bool load_script_file(mrb_state* mrb) {
     FILE* file = fopen("script.rb", "r");
     if (file == NULL) {
@@ -639,8 +649,11 @@ bool load_script_file(mrb_state* mrb) {
             file = fopen("C:\\Users\\Metre\\game\\crattlecrute\\build\\script.rb", "r");
             if (file == NULL) {
                 file = fopen("C:\\Users\\Nigel\\game\\crattle\\build\\script.rb", "r");
-                if (file == NULL)
-                    return false;
+                if (file == NULL) {
+                    file = fopen("/Users/nigelbaillie/p/crattlecrute/build/script.rb", "r");
+                    if (file == NULL)
+                        return false;
+                }
             }
         }
     }

@@ -49,12 +49,18 @@ typedef struct TextureDimensions {
 extern Uint64 ticks_per_second;
 
 #ifdef _DEBUG
+#include <mruby.h>
+#include <mruby/hash.h>
+extern mrb_state* _bench_mrb;
+extern mrb_value _bench_hash;
 #define BENCH_START(var) Uint64 var ## _before = SDL_GetPerformanceCounter();
 // Break after this and check out <var>_seconds to see elapsed time.
 #define BENCH_END(var) \
     Uint64 var ## _after = SDL_GetPerformanceCounter();\
     Uint64 var ## _ticks = var ## _after - var ## _before;\
-    double var ## _seconds = (double)var ## _ticks / (double)ticks_per_second;
+    double var ## _seconds = (double)var ## _ticks / (double)ticks_per_second;\
+    if (_bench_mrb && !mrb_nil_p(_bench_hash))\
+      mrb_hash_set(_bench_mrb, _bench_hash, mrb_symbol_value(mrb_intern_lit(_bench_mrb, #var)), mrb_float_value(_bench_mrb, var ## _seconds))
 #else
 #define BENCH_START(x)
 #define BENCH_END(x)

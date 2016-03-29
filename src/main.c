@@ -38,6 +38,8 @@ Uint64 ticks_per_second;
 
 #if _DEBUG
     bool debug_pause = false;
+    mrb_state* _bench_mrb = NULL;
+    mrb_value _bench_hash;
 #endif
 
 #define SET_CONTROL(this_frame, to) \
@@ -87,6 +89,10 @@ mrb_value rb_exit(mrb_state* mrb, mrb_value self) {
     Game* game = (Game*)mrb->ud;
     game->running = false;
     return mrb_str_new_cstr(mrb, "bye");
+}
+
+mrb_value rb_reload(mrb_state* mrb, mrb_value self) {
+    return mrb_bool_value(load_script_file(mrb));
 }
 
 // WOOO PLEASE DON'T ACCESS THIS ANYWHERE. THANKS.
@@ -249,6 +255,8 @@ no_renderer:
     SDL_assert(!game->mrb->exc);
 
     mrb_value ruby_context = mrb_obj_value(game->mrb->top_self);
+
+    // repl stuff:
 #ifdef _DEBUG
     SDL_Thread* ruby_repl = NULL;
 
@@ -275,6 +283,7 @@ no_renderer:
         ruby_p(game->mrb, mrb_obj_value(game->mrb->exc), 0);
         game->mrb->exc = NULL;
     }
+    mrb_define_singleton_method(game->mrb, game->mrb->top_self, "reload", rb_reload, MRB_ARGS_NONE());
 #endif
 
     mrb_value rgame = mrb_class_new_instance(game->mrb, 0, NULL, game->ruby.game_class);
