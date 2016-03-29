@@ -73,6 +73,7 @@ typedef struct Character {
     float run_speed;
 
     // === attributes ===
+    char name[CHARACTER_NAME_LENGTH];
     float ground_speed_max;
     float run_speed_max;
     float ground_acceleration;

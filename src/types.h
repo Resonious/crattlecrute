@@ -38,6 +38,8 @@
 #define HOURS * 216000
 #define HOUR * 216000
 
+#define CHARACTER_NAME_LENGTH 32
+
 typedef unsigned char byte;
 typedef struct TextureDimensions {
     SDL_Texture* tex;

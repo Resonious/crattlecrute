@@ -20,6 +20,19 @@ void switch_scene(Game* game, int to_scene) {
     // TODO do an update here? (this is the only case where a render can happen WITHOUT an update preceding..)
 }
 
+void draw_text_box(struct Game* game, SDL_Rect* text_box_rect, char* text) {
+    Uint8 r, g, b, a;
+    SDL_GetRenderDrawColor(game->renderer, &r, &g, &b, &a);
+    SDL_SetRenderDrawColor(game->renderer, 255, 255, 255, 255);
+    SDL_RenderFillRect(game->renderer, text_box_rect);
+
+    set_text_color(game, 0, 0, 0);
+    SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
+    int caret = game->frame_count % 30 < (30 / 2) ? game->text_edit.cursor : -1;
+    draw_text_caret(game, text_box_rect->x + 4, (game->window_height - text_box_rect->y) - 4, text, caret);
+    SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
+}
+
 void start_editing_text(Game* game, char* text_to_edit, int buffer_size, SDL_Rect* input_rect) {
     game->text_edit.text = text_to_edit;
     game->text_edit.text_buf_size = buffer_size;

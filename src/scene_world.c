@@ -2529,20 +2529,6 @@ void scene_world_update(void* vs, Game* game) {
     }
 }
 
-void draw_text_box(struct Game* game, SDL_Rect* text_box_rect, char* text) {
-    Uint8 r, g, b, a;
-    SDL_GetRenderDrawColor(game->renderer, &r, &g, &b, &a);
-    SDL_SetRenderDrawColor(game->renderer, 255, 255, 255, 255);
-    SDL_RenderFillRect(game->renderer, text_box_rect);
-
-    set_text_color(game, 0, 0, 0);
-    SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
-    int caret = game->frame_count % 30 < (30 / 2) ? game->text_edit.cursor : -1;
-    draw_text_caret(game, text_box_rect->x + 4, (game->window_height - text_box_rect->y) - 4, text, caret);
-    SDL_SetRenderDrawColor(game->renderer, r, g, b, a);
-}
-
-
 void scene_world_render(void* vs, Game* game) {
     WorldScene* s = (WorldScene*)vs;
     /* == Keeping this around in case I want it ==
