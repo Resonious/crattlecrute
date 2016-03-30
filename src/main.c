@@ -22,6 +22,8 @@ WSADATA global_wsa;
 #include "stb_image.h"
 #undef STB_IMAGE_IMPLEMENTATION
 #include "game.h"
+#include "character.h"
+#include "types.h"
 #include "assets.h"
 #include "scene.h"
 #include "coords.h"
@@ -156,6 +158,10 @@ int main(int argc, char** argv) {
     for (int i = 0; i < sizeof(SCENES) / sizeof(Scene); i++)
         SDL_assert(SCENES[i].id == i);
 #endif
+
+    game->characters = aligned_malloc(sizeof(GameCharacter) * MAX_CHARACTERS);
+    game->data.character = -1;
+    game->data.character_count = 0;
 
     game->current_scene = &SCENES[SCENE_WORLD];
     game->current_scene_data = aligned_malloc(SCENE_DATA_SIZE);

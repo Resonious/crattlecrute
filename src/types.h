@@ -39,6 +39,7 @@
 #define HOUR * 216000
 
 #define CHARACTER_NAME_LENGTH 32
+#define MAX_CHARACTERS 10
 
 typedef unsigned char byte;
 typedef struct TextureDimensions {

@@ -263,13 +263,31 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
         }
         else if (game->text_edit.text == game->new_character_name_buffer) {
             if (game->text_edit.enter_pressed) {
-                stop_editing_text(game);
-                // TODO actually set the name I guess, maybe pop it out of the egg
+                if (game->data.character_count == 0) {
+                    stop_editing_text(game);
 
-                vec2 pos = { egg->body.position.x[X], egg->body.position.x[Y] + 100 };
-                // game->net.spawn_mob(game->current_scene_data, map, game, MOB_GARDEN_CRATTLECRUTE, pos, NULL, NULL);
+                    game->data.character = 0;
+                    game->data.character_count += 1;
 
-                printf("k thanks\n");
+                    Character* guy = &game->characters[0].guy;
+                    SDL_memset(guy, 0, sizeof(Character));
+
+                    default_character(game, guy);
+                    default_character_animations(game, guy);
+                    randomize_character(guy);
+
+                    vec4 offset;
+                    offset.x[0] = 0;
+                    offset.x[1] = 50;
+                    guy->position.simd = _mm_add_ps(egg->body.position.simd, offset.simd);
+                    guy->old_position.simd = _mm_add_ps(egg->body.old_position.simd, offset.simd);
+
+                    printf("k thanks\n");
+                }
+                else {
+                    // game->net.spawn_mob(game->current_scene_data, map, game, MOB_GARDEN_CRATTLECRUTE, pos, NULL, NULL);
+                    printf("NO IDEA HOW TO HANDLE ADDITIONAL CRUTES YET\n");
+                }
             }
         }
     }

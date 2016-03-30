@@ -57,13 +57,17 @@ typedef struct GameData {
     // If the player opens the game and does not even hatch the egg then wtf.
     bool should_even_save_yet;
     int area;
-    DataChunk character;
+    int character;
+    int character_count;
+    DataChunk characters[MAX_CHARACTERS];
     DataChunk maps[NUMBER_OF_AREAS];
     SDL_mutex* locked;
     SDL_atomic_t write_wanted;
 } GameData;
 
 struct Scene;
+struct GameCharacter;
+
 #ifdef _DEBUG
 struct mrbc_context;
 #endif
@@ -117,6 +121,7 @@ typedef struct Game {
         DespawnMobFunc despawn_mob;
     } net;
     char new_character_name_buffer[CHARACTER_NAME_LENGTH];
+    struct GameCharacter* characters;
     struct GameData data;
     int argc;
     char** argv;

@@ -123,6 +123,11 @@ typedef struct Character {
     mrb_value rinventory;
 } Character;
 
+typedef struct GameCharacter {
+    // TODO I'm hoping adding to this will make sense in the future :(
+    Character guy;
+} GameCharacter;
+
 typedef struct MobGardenCrattle {
     MOB_FIELDS;
     Character guy;

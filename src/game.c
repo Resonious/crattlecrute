@@ -244,7 +244,12 @@ void read_game_data(GameData* data, FILE* file) {
     fread(&data->area, sizeof(int), 1, file);
 
     // ======== Character Data ===========
-    read_data_chunk(&data->character, file);
+    fread(&data->character_count, sizeof(int), 1, file);
+    SDL_assert(data->character_count < MAX_CHARACTERS);
+    fread(&data->character, sizeof(int), 1, file);
+    for (int i = 0; i < data->character_count; i++) {
+        read_data_chunk(&data->characters[i], file);
+    }
 
     // ======== NUMBER OF AREAS ==========
     int number_of_areas = NUMBER_OF_AREAS;
@@ -270,7 +275,11 @@ void write_game_data(GameData* data, FILE* file) {
     fwrite(&data->area, sizeof(int), 1, file);
 
     // ======== Character Data ===========
-    write_data_chunk(&data->character, file);
+    fwrite(&data->character_count, sizeof(int), 1, file);
+    fwrite(&data->character, sizeof(int), 1, file);
+    for(int i = 0; i < data->character_count; i++) {
+        write_data_chunk(&data->characters[i], file);
+    }
 
     // ======== NUMBER OF AREAS ==========
     int number_of_areas = NUMBER_OF_AREAS;

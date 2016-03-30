@@ -137,7 +137,8 @@ typedef struct WorldScene {
     // TODO TODO MOVE GRAVITY AND DRAG TO MAPS
     float gravity;
     float drag;
-    Character guy;
+    MobEgg* pending_egg;
+    Character* guy;
 
     // inventory interface stuff
     int inv_fade;
@@ -191,7 +192,7 @@ bool save(WorldScene* scene) {
     wait_for_then_use_lock(game->data.locked);
 
     bool should_write_positions = scene->net.status != JOINING && scene->current_area != AREA_NET_ZONE;
-    write_character_to_data(&scene->guy, &game->data.character, !should_write_positions);
+    write_character_to_data(scene->guy, &game->data.characters[game->data.character], !should_write_positions);
 
     if (scene->net.status != JOINING) {
         write_map_to_data(scene->map, &game->data.maps[scene->current_area]);
@@ -201,7 +202,7 @@ bool save(WorldScene* scene) {
     return save_game(game);
 }
 
-void set_camera_target(Game* game, Map* map, Character* guy) {
+void set_camera_target(Game* game, Map* map, GenericBody* guy) {
     game->camera_target.x[X] = guy->position.x[X] - game->window_width / 2.0f;
 
     if (game->window_width > map->width) {
@@ -268,14 +269,14 @@ void transition_maps(WorldScene* s, Game* game, MapTransition* transition) {
     else
         dest_y = transition->destination_position.y;
 
-    s->guy.position.x[X]     = dest_x;
-    s->guy.position.x[Y]     = dest_y;
-    s->guy.old_position.x[X] = dest_x;
-    s->guy.old_position.x[Y] = dest_y;
+    s->guy->position.x[X]     = dest_x;
+    s->guy->position.x[Y]     = dest_y;
+    s->guy->old_position.x[X] = dest_x;
+    s->guy->old_position.x[Y] = dest_y;
 
     save(s);
 
-    set_camera_target(game, s->map, &s->guy);
+    set_camera_target(game, s->map, (GenericBody*)s->guy);
     game->camera.simd = game->camera_target.simd;
 
     if (s->transition.locked)
@@ -954,10 +955,10 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
                     read_map_state(scene->map, buffer, &pos);
 
                     // Not sure if this makes sense.
-                    scene->guy.position.x[0] = dest_x;
-                    scene->guy.position.x[1] = dest_y;
-                    scene->guy.old_position.x[0] = dest_x;
-                    scene->guy.old_position.x[1] = dest_y;
+                    scene->guy->position.x[0] = dest_x;
+                    scene->guy->position.x[1] = dest_y;
+                    scene->guy->old_position.x[0] = dest_x;
+                    scene->guy->old_position.x[1] = dest_y;
                     printf("JUST SET POSITION TO DESTINATION. Did any weird warping happen?\n");
 
                     SDL_UnlockMutex(scene->map->locked);
@@ -1063,7 +1064,7 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
         // Indeed this just sets the local inventory and ignores the current player that the other
         // updates apply to.
         if (flags & NETF_INVENTORY) {
-            read_guy_inventory_from_buffer(buffer, &scene->guy, &pos);
+            read_guy_inventory_from_buffer(buffer, scene->guy, &pos);
             printf("received inventory\n");
         }
     }//while (pos < bufsize)
@@ -1198,8 +1199,8 @@ int netwrite_guy_initialization(WorldScene* scene, byte* buffer) {
     write_to_buffer(buffer, &zero, &pos, sizeof(zero));
 
     buffer[pos++] = (byte)scene->net.remote_id;
-    write_guy_info_to_buffer(buffer, &scene->guy, scene->current_area, &pos);
-    write_guy_inventory_to_buffer(buffer, &scene->guy, &pos);
+    write_guy_info_to_buffer(buffer, scene->guy, scene->current_area, &pos);
+    write_guy_inventory_to_buffer(buffer, scene->guy, &pos);
 
     return pos;
 }
@@ -1217,8 +1218,8 @@ int netwrite_state(WorldScene* scene, byte* buffer, RemotePlayer* target_player,
     write_to_buffer(buffer, &map_count, &pos, sizeof(map_count));
 
     buffer[pos++] = (byte)scene->net.remote_id;
-    write_guy_info_to_buffer(buffer, &scene->guy, scene->current_area, &pos);
-    write_guy_inventory_to_buffer(buffer, &scene->guy, &pos);
+    write_guy_info_to_buffer(buffer, scene->guy, scene->current_area, &pos);
+    write_guy_inventory_to_buffer(buffer, scene->guy, &pos);
 
     // Write players
     for (int i = 0; i < scene->net.number_of_players; i++) {
@@ -1410,14 +1411,14 @@ int network_server_loop(void* vdata) {
                     );
                     if (send_physics_state) {
                         netwrite_guy_area(buffer, scene->current_area, &pos);
-                        netwrite_guy_position(buffer, &scene->controls_stream, &scene->guy, &pos);
+                        netwrite_guy_position(buffer, &scene->controls_stream, scene->guy, &pos);
                     }
                 }
                 else {
                     *flags |= NETF_AREA;
                     *flags |= NETF_POSITION;
                     netwrite_guy_area(buffer, scene->current_area, &pos);
-                    netwrite_guy_position(buffer, &scene->controls_stream, &scene->guy, &pos);
+                    netwrite_guy_position(buffer, &scene->controls_stream, scene->guy, &pos);
 
                     player->local_stream_spot.frame = scene->controls_stream.current_frame;
                     player->local_stream_spot.pos   = scene->controls_stream.pos;
@@ -1452,10 +1453,10 @@ int network_server_loop(void* vdata) {
 
                 SDL_assert(!((*flags & NETF_MAPSTATE) && (*flags & NETF_MOBEVENT)));
 
-                if (SDL_AtomicGet(&scene->guy.dirty)) {
+                if (SDL_AtomicGet(&scene->guy->dirty)) {
                     *flags |= NETF_ATTRIBUTES;
-                    write_guy_info_to_buffer(buffer, &scene->guy, scene->current_area, &pos);
-                    SDL_AtomicSet(&scene->guy.dirty, false);
+                    write_guy_info_to_buffer(buffer, scene->guy, scene->current_area, &pos);
+                    SDL_AtomicSet(&scene->guy->dirty, false);
                     printf("sent local guy attrs.\n");
                 }
 
@@ -1617,8 +1618,8 @@ void remote_player_enters_net_zone_door(void* vs) {
     Map* net_zone = cached_area(s->game, AREA_NET_ZONE);
     SDL_assert(s->current_area != AREA_NET_ZONE);
     net_zone->doors[1].dest_area = s->current_area;
-    net_zone->doors[1].dest_x = s->guy.position.x[X];
-    net_zone->doors[1].dest_y = s->guy.position.x[Y];
+    net_zone->doors[1].dest_x = s->guy->position.x[X];
+    net_zone->doors[1].dest_y = s->guy->position.x[Y];
     if (net_zone->doors[1].flags & DOOR_INVERT_Y)
         net_zone->doors[1].flags ^= DOOR_INVERT_Y;
 }
@@ -1649,7 +1650,7 @@ int network_server_listen(void* vdata) {
     }
 
     scene->net.remote_id = 0;
-    scene->guy.player_id = 0;
+    scene->guy->player_id = 0;
     scene->net.next_id = 1;
 
     struct sockaddr_in other_address;
@@ -1784,10 +1785,10 @@ int network_client_loop(void* vdata) {
                 NULL, &pos, false
             );
 
-            if (SDL_AtomicGet(&scene->guy.dirty)) {
+            if (SDL_AtomicGet(&scene->guy->dirty)) {
                 *flags |= NETF_ATTRIBUTES;
-                write_guy_info_to_buffer(buffer, &scene->guy, scene->current_area, &pos);
-                SDL_AtomicSet(&scene->guy.dirty, false);
+                write_guy_info_to_buffer(buffer, scene->guy, scene->current_area, &pos);
+                SDL_AtomicSet(&scene->guy->dirty, false);
             }
 
             if (scene->net.just_finished_transition) {
@@ -1828,7 +1829,7 @@ int network_client_loop(void* vdata) {
             switch (buffer[0]) {
             case NETOP_HERES_YOUR_ID: {
                 scene->net.remote_id = buffer[1];
-                scene->guy.player_id = scene->net.remote_id;
+                scene->guy->player_id = scene->net.remote_id;
                 // Allocate players for when update_position comes in
                 SDL_assert(scene->net.number_of_players == 0);
                 scene->net.players[scene->net.number_of_players++] = allocate_new_player(scene, 0, &other_address);
@@ -1917,8 +1918,8 @@ void create_client_thread(void* vs) {
     door_back->flags = 0;
     if (s->current_area != AREA_NET_ZONE) {
         door_back->dest_area = s->current_area;
-        door_back->dest_x = s->guy.position.x[X];
-        door_back->dest_y = s->guy.position.x[Y];
+        door_back->dest_x = s->guy->position.x[X];
+        door_back->dest_y = s->guy->position.x[Y];
     }
 
     door_there->flags = 0;
@@ -2084,37 +2085,44 @@ void scene_world_initialize(void* vdata, Game* game) {
     BENCH_END(loading_tiles);
 
     BENCH_START(loading_crattle1);
-    SDL_assert(!game->mrb->exc);
-    default_character(game, &data->guy);
-    SDL_assert(!game->mrb->exc);
-    default_character_animations(game, &data->guy);
-    SDL_assert(!game->mrb->exc);
-    if (game->data.character.bytes) {
-        read_character_from_data(&data->guy, &game->data.character);
-        set_camera_target(game, data->map, &data->guy);
+    if (game->data.character >= 0) {
+        data->guy = &game->characters[game->data.character].guy;
+          
+        default_character(game, data->guy);
+        default_character_animations(game, data->guy);
+        DataChunk* character_chunk = &game->data.characters[game->data.character];
+        if (character_chunk->bytes) {
+            read_character_from_data(data->guy, character_chunk);
+            set_camera_target(game, data->map, (GenericBody*)data->guy);
+        }
     }
     else {
+        data->guy = NULL;
         MobEgg* egg = spawn_mob(data->map, game, MOB_EGG, (vec2) { 3862.0f, 985.0f });
         egg->hatching_age = 5 SECONDS;
+        data->pending_egg = egg;
+        set_camera_target(game, data->map, &egg->body);
 
-        // TODO dont... instead just the egg
+        /*
         //data->guy.age = data->guy.age_of_maturity + 1;
-        set_character_bounds(&data->guy);
-        randomize_character(&data->guy);
-        data->guy.position.x[X] = 3918.0f;
-        data->guy.position.x[Y] = 988.0f;
-        data->guy.position.x[2] = 0.0f;
-        data->guy.position.x[3] = 0.0f;
-        data->guy.old_position.simd = data->guy.position.simd;
-        SDL_AtomicSet(&data->guy.dirty, false);
+        set_character_bounds(data->guy);
+        randomize_character(data->guy);
+        data->guy->position.x[X] = 3918.0f;
+        data->guy->position.x[Y] = 988.0f;
+        data->guy->position.x[2] = 0.0f;
+        data->guy->position.x[3] = 0.0f;
+        data->guy->old_position.simd = data->guy->position.simd;
+        SDL_AtomicSet(&data->guy->dirty, false);
         printf("Generated character.\n");
-        set_camera_target(game, data->map, &data->guy);
+        set_camera_target(game, data->map, data->guy);
+        */
     }
 
     data->inv_fade = INV_FADE_MAX;
     data->inv_fade_countdown = 0;
 
-    SDL_assert(((int)&data->guy.position) % 16 == 0);
+    if (data->guy)
+        SDL_assert(((int)&data->guy->position) % 16 == 0);
     BENCH_END(loading_crattle1);
 
     BENCH_START(loading_sound);
@@ -2143,7 +2151,8 @@ void scene_world_initialize(void* vdata, Game* game) {
     mrb_iv_set(game->mrb, data->script_obj, game->ruby.sym_atgame, game->ruby.game);
 
     data->rguy = mrb_obj_new(game->mrb, game->ruby.character_class, 0, NULL);
-    mrb_data_init(data->rguy, &data->guy, &mrb_character_type);
+    // TODO shit
+    // mrb_data_init(data->rguy, &data->guy, &mrb_character_type);
 
     mrb_define_singleton_method(game->mrb, game->mrb->top_self, "world", rb_world, MRB_ARGS_NONE());
 }
@@ -2328,6 +2337,12 @@ void scene_world_update(void* vs, Game* game) {
 
     // Update local player and map transition
     bool updated_guy_physics = false;
+    if (s->guy == NULL) {
+        if (game->data.character >= 0)
+            s->guy = &game->characters[game->data.character].guy;
+        else
+            goto done_with_physics;
+    }
     if (s->transition.progress_percent <= 100) {
         int map_data_status = SDL_AtomicGet(&s->transition.map_data_status);
         if (map_data_status == MAP_DATA_NOT_NEEDED)
@@ -2362,7 +2377,7 @@ void scene_world_update(void* vs, Game* game) {
         }
     }
     if (s->transition.progress_percent > TRANSITION_POINT) {
-        switch (apply_character_inventory(&s->guy, &game->controls, game, s->map)) {
+        switch (apply_character_inventory(s->guy, &game->controls, game, s->map)) {
         case INV_TOGGLE:
             if (s->inv_fade_countdown > 0) {
                 s->inv_fade_countdown = 0;
@@ -2389,14 +2404,15 @@ void scene_world_update(void* vs, Game* game) {
                 s->inv_fade = 0;
         }
 
-        apply_character_physics(game, &s->guy, &game->controls, s->gravity, s->drag);
-        collide_character(&s->guy, &s->map->tile_collision);
-        slide_character(s->gravity, &s->guy);
-        interact_character_with_world(game, &s->guy, &game->controls, s->map, s, local_go_through_door);
-        apply_character_age(game, &s->guy);
-        update_character_animation(&s->guy);
+        apply_character_physics(game, s->guy, &game->controls, s->gravity, s->drag);
+        collide_character(s->guy, &s->map->tile_collision);
+        slide_character(s->gravity, s->guy);
+        interact_character_with_world(game, s->guy, &game->controls, s->map, s, local_go_through_door);
+        apply_character_age(game, s->guy);
+        update_character_animation(s->guy);
         updated_guy_physics = true;
     }
+done_with_physics:;
 
     // Update everything else on the map(s)
     void(*after_mob_update)(void*, Map*, struct Game*, MobCommon*) = NULL;
@@ -2423,7 +2439,10 @@ void scene_world_update(void* vs, Game* game) {
     }
 
     // Follow local player with camera
-    set_camera_target(game, s->map, &s->guy);
+    if (s->guy)
+      set_camera_target(game, s->map, (GenericBody*)s->guy);
+    else
+      set_camera_target(game, s->map, &s->pending_egg->body);
     // move cam position towards cam target
     game->camera.simd = _mm_add_ps(game->camera.simd, _mm_mul_ps(_mm_sub_ps(game->camera_target.simd, game->camera.simd), _mm_set_ps(0, 0, 0.1f, 0.1f)));
 
@@ -2490,7 +2509,8 @@ void scene_world_update(void* vs, Game* game) {
     SDL_UnlockMutex(s->controls_stream.locked);
 
     // This should happen after all entities are done interacting (riiight at the end of the frame)
-    character_post_update(&s->guy);
+    if (s->guy)
+      character_post_update(s->guy);
 
     // Perform last update on all net guys
     for (int i = 0; i < s->net.number_of_players; i++) {
@@ -2579,31 +2599,32 @@ void scene_world_render(void* vs, Game* game) {
     draw_map(game, s->map);
     BENCH_END(draw_map);
 
-    BENCH_START(characters);
+    BENCH_START(draw_characters);
     // Draw guys
     {
-        draw_character(game, &s->guy, s->guy.view);
+        if (s->guy)
+            draw_character(game, s->guy, s->guy->view);
         for (int i = 0; i < s->net.number_of_players; i++) {
             RemotePlayer* player = s->net.players[i];
             if (player && SDL_AtomicGet(&player->area_id) == s->current_area)
                 draw_character(game, &player->guy, player->guy.view);
         }
     }
-    BENCH_END(characters);
+    BENCH_END(draw_characters);
 
     // Draw inventory
-    BENCH_START(inventory);
+    BENCH_START(draw_inventory);
     {
-        if (s->inv_fade >= INV_FADE_MAX)
+        if (s->inv_fade >= INV_FADE_MAX || s->guy == NULL)
             goto done_with_inventory;
 
-        wait_for_then_use_lock(s->guy.inventory.locked);
+        wait_for_then_use_lock(s->guy->inventory.locked);
 
         // Space between slots
         const float base_padding = 3.0f;
         const int selection_bump = 4;
         const int render_y = game->window_height - 36;
-        const int render_x_start = (game->window_width / 2) - ((s->guy.inventory.capacity * 32) / 2);
+        const int render_x_start = (game->window_width / 2) - ((s->guy->inventory.capacity * 32) / 2);
 
         int x_padding = (int)((1.0f - (float)s->inv_fade / (float)INV_FADE_ZERO_POINT) * base_padding);
         int y_padding = base_padding;
@@ -2611,7 +2632,7 @@ void scene_world_render(void* vs, Game* game) {
         SDL_Rect bar = {
             render_x_start - base_padding, render_y - y_padding,
 
-            (s->guy.inventory.capacity * 32) + base_padding + (x_padding * s->guy.inventory.capacity),
+            (s->guy->inventory.capacity * 32) + base_padding + (x_padding * s->guy->inventory.capacity),
             32 + y_padding * 2
         };
         SDL_Rect top_bar = bar;
@@ -2619,9 +2640,9 @@ void scene_world_render(void* vs, Game* game) {
         SDL_Rect bot_bar = top_bar;
         bot_bar.y += top_bar.h;
 
-        SDL_Color left_color = s->guy.left_foot_color;
-        SDL_Color right_color = s->guy.right_foot_color;
-        SDL_Color slot_color = s->guy.body_color;
+        SDL_Color left_color = s->guy->left_foot_color;
+        SDL_Color right_color = s->guy->right_foot_color;
+        SDL_Color slot_color = s->guy->body_color;
 
         SDL_SetRenderDrawBlendMode(game->renderer, SDL_BLENDMODE_BLEND);
         SDL_SetRenderDrawColor(game->renderer, left_color.r, left_color.g, left_color.b, 200);
@@ -2631,20 +2652,20 @@ void scene_world_render(void* vs, Game* game) {
         SDL_SetRenderDrawBlendMode(game->renderer, SDL_BLENDMODE_NONE);
 
         SDL_Texture* slot_tex = cached_texture(game, ASSET_MISC_SLOT_PNG);
-        for (int i = 0; i < s->guy.inventory.capacity; i++) {
-            ItemCommon* item = &s->guy.inventory.items[i];
+        for (int i = 0; i < s->guy->inventory.capacity; i++) {
+            ItemCommon* item = &s->guy->inventory.items[i];
 
             SDL_Rect dest = {
                 render_x_start + (i * 32) + (i * x_padding), render_y,
                 32, 32
             };
-            if (s->inv_fade_countdown > 0 && i == s->guy.selected_slot)
+            if (s->inv_fade_countdown > 0 && i == s->guy->selected_slot)
                 dest.y -= selection_bump;
 
             SDL_SetTextureColorMod(slot_tex, slot_color.r, slot_color.g, slot_color.b);
             SDL_RenderCopy(game->renderer, slot_tex, NULL, &dest);
 
-            if (item->item_type_id != ITEM_NONE && i != s->guy.grabbed_slot) {
+            if (item->item_type_id != ITEM_NONE && i != s->guy->grabbed_slot) {
                 SDL_assert(item->item_type_id < NUMBER_OF_ITEM_TYPES);
 
                 ItemType* reg = &item_registry[item->item_type_id];
@@ -2652,10 +2673,10 @@ void scene_world_render(void* vs, Game* game) {
             }
         }
 
-        if (s->guy.grabbed_slot >= 0 && s->guy.grabbed_slot < s->guy.inventory.capacity) {
-            int sel  = s->guy.selected_slot;
-            int grab = s->guy.grabbed_slot;
-            ItemCommon* item = &s->guy.inventory.items[grab];
+        if (s->guy->grabbed_slot >= 0 && s->guy->grabbed_slot < s->guy->inventory.capacity) {
+            int sel  = s->guy->selected_slot;
+            int grab = s->guy->grabbed_slot;
+            ItemCommon* item = &s->guy->inventory.items[grab];
             ItemType* reg    = &item_registry[item->item_type_id];
 
             SDL_Rect dest = {
@@ -2666,10 +2687,10 @@ void scene_world_render(void* vs, Game* game) {
             reg->render(item, game, &dest);
         }
 
-        SDL_UnlockMutex(s->guy.inventory.locked);
+        SDL_UnlockMutex(s->guy->inventory.locked);
     }
 done_with_inventory:;
-    BENCH_END(inventory);
+    BENCH_END(draw_inventory);
 
     // Recording indicator
     /*
@@ -2690,7 +2711,7 @@ done_with_inventory:;
     }
     */
 
-    BENCH_START(editable_text);
+    BENCH_START(draw_editable_text);
     // Draw editable text box!!
     if (game->text_edit.text == s->editable_text) {
         draw_text_box(game, &text_box_rect, s->editable_text);
@@ -2706,19 +2727,19 @@ done_with_inventory:;
             draw_text_box(game, &text_box_rect, s->net.textinput_ip_address);
         }
     }
-    BENCH_END(editable_text);
+    BENCH_END(draw_editable_text);
 
-    BENCH_START(status_message);
+    BENCH_START(draw_status_message);
     if (s->net.status != NOT_CONNECTED || s->net.status_message_countdown > 0) {
         set_text_color(game, 255, 50, 50);
         draw_text(game, 10, game->window_height - 50, s->net.status_message);
         if (s->net.status_message_countdown > 0)
             s->net.status_message_countdown -= 1;
     }
-    BENCH_END(status_message);
+    BENCH_END(draw_status_message);
 
 #ifdef _DEBUG
-    BENCH_START(ping);
+    BENCH_START(draw_ping);
     for (int i = 0; i < s->net.number_of_players; i++) {
         RemotePlayer* player = s->net.players[i];
         if (player == NULL) continue;
@@ -2734,7 +2755,7 @@ done_with_inventory:;
             draw_text_ex_f(game, game->window_width - 200, game->window_height - 60 - i * 20, -1, 0.7f, "P%i Ping: %.1fms", player->id, ping_in_ms);
         }
     }
-    BENCH_END(ping);
+    BENCH_END(draw_ping);
 #endif
 
     if (s->transition.progress_percent < 100) {
@@ -2787,7 +2808,8 @@ mrb_value mrb_world_current_map(mrb_state* mrb, mrb_value self) {
 
 mrb_value mrb_world_local_character(mrb_state* mrb, mrb_value self) {
     WorldScene* scene = DATA_PTR(self);
-    return scene->rguy;
+    // TODO
+    return mrb_nil_value();
 }
 
 mrb_value mrb_world_save(mrb_state* mrb, mrb_value self) {
@@ -2823,7 +2845,7 @@ mrb_value mrb_world_area_eq(mrb_state* mrb, mrb_value self) {
     door.dest_x = dest_position.x;
     door.dest_y = dest_position.y;
     door.flags = 0;
-    local_go_through_door(scene, (Game*)scene->game, &scene->guy, &door);
+    local_go_through_door(scene, (Game*)scene->game, scene->guy, &door);
 
     return mrb_fixnum_value(dest_area);
 }
