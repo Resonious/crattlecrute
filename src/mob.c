@@ -267,7 +267,7 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
                 // TODO actually set the name I guess, maybe pop it out of the egg
 
                 vec2 pos = { egg->body.position.x[X], egg->body.position.x[Y] + 100 };
-                game->net.spawn_mob(game->current_scene_data, map, game, MOB_GARDEN_CRATTLECRUTE, pos, NULL, NULL);
+                // game->net.spawn_mob(game->current_scene_data, map, game, MOB_GARDEN_CRATTLECRUTE, pos, NULL, NULL);
 
                 printf("k thanks\n");
             }
