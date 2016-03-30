@@ -587,19 +587,19 @@ void set_character_bounds(Character* target) {
 
     if (target->age < target->age_of_maturity) {
         vec4i top_offset;
-        top_offset.rect = (SDL_Rect) { +10, -10, -10, -10 };
+        top_offset.rect = (SDL_Rect) { +7, -7, -7, -7 };
         target->top_sensors.simd = _mm_add_epi32(target->top_sensors.simd, top_offset.simd);
 
         vec4i bottom_offset;
-        bottom_offset.rect = (SDL_Rect) {+10, +10, -10, +10};
+        bottom_offset.rect = (SDL_Rect) {+7, +7, -7, +7};
         target->bottom_sensors.simd = _mm_add_epi32(target->bottom_sensors.simd, bottom_offset.simd);
 
         vec4i left_offset;
-        left_offset.rect = (SDL_Rect) {+10, -10, +10, +10};
+        left_offset.rect = (SDL_Rect) {+7, -7, +7, +7};
         target->left_sensors.simd = _mm_add_epi32(target->left_sensors.simd, left_offset.simd);
 
         vec4i right_offset;
-        right_offset.rect = (SDL_Rect) {-10, -10, -10, +10};
+        right_offset.rect = (SDL_Rect) {-7, -7, -7, +7};
         target->right_sensors.simd = _mm_add_epi32(target->right_sensors.simd, right_offset.simd);
     }
 

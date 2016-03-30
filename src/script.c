@@ -15,6 +15,19 @@ mrb_value mrb_instance_alloc(mrb_state* mrb, struct RClass* c) {
   return mrb_obj_value(o);
 }
 
+float mrb_to_f(mrb_state* mrb, mrb_value v) {
+    switch (v.tt) {
+    case MRB_TT_FLOAT:
+        return v.value.f;
+    case MRB_TT_FIXNUM:
+        return (float)v.value.i;
+    default: {
+        mrb_value r = mrb_funcall(mrb, v, "to_f", 0);
+        return r.value.f;
+    }
+    }
+}
+
 vec2 mrb_vec2(mrb_state* mrb, mrb_value value) {
     Game* game = (Game*)mrb->ud;
 
@@ -22,9 +35,9 @@ vec2 mrb_vec2(mrb_state* mrb, mrb_value value) {
         mrb_value* array = RARRAY_PTR(value);
         int len = RARRAY_LEN(value);
         if (len < 2)
-            return (vec2) { mrb_float(array[0]), mrb_float(array[0]) };
+            return (vec2) { mrb_to_f(mrb, array[0]), mrb_to_f(mrb, array[0]) };
         else
-            return (vec2) { mrb_float(array[0]), mrb_float(array[1]) };
+            return (vec2) { mrb_to_f(mrb, array[0]), mrb_to_f(mrb, array[1]) };
     }
     else if (mrb_obj_class(mrb, value) == game->ruby.vec2_class) {
         return *(vec2*)DATA_PTR(value);
