@@ -344,7 +344,8 @@ void mob_mgc_initialize(void* vmgc, struct Game* game, struct Map* map, vec2 pos
     default_character_animations(game, &mob->guy);
     mob->guy.position.x[X] = pos.x;
     mob->guy.position.x[Y] = pos.y;
-    mob->guy.dy = 100;
+    mob->guy.old_position.x[X] = pos.x;
+    mob->guy.old_position.x[Y] = pos.y;
 }
 void mob_mgc_update(void* vmgc, struct Game* game, struct Map* map) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
@@ -367,7 +368,6 @@ void mob_mgc_save(void* vmgc, struct Map* map, byte* buffer, int* pos) {
 void mob_mgc_load(void* vmgc, struct Map* map, byte* buffer, int* pos) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
     printf("DON'T KNOW WHAT 2 DO!!!!!");
-    // default_character(&mob->guy);
     // ...
 }
 bool mob_mgc_sync_send(void* vmgc, struct Map* map, byte* buffer, int* pos) {

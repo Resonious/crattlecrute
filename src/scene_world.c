@@ -2098,7 +2098,7 @@ void scene_world_initialize(void* vdata, Game* game) {
         egg->hatching_age = 5 SECONDS;
 
         // TODO dont... instead just the egg
-        data->guy.age = data->guy.age_of_maturity + 1;
+        //data->guy.age = data->guy.age_of_maturity + 1;
         set_character_bounds(&data->guy);
         randomize_character(&data->guy);
         data->guy.position.x[X] = 3918.0f;
