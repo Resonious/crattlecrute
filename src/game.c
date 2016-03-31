@@ -200,7 +200,7 @@ int write_game_data_thread(void* vgame) {
         while (!SDL_AtomicGet(&game->data.write_wanted))
             SDL_Delay(1000);
 
-        if (game->data.should_even_save_yet) {
+        if (game->data.character >= 0) {
             FILE* game_data = fopen(game->gamedata_file_path, "w");
             write_game_data(&game->data, game_data);
             fclose(game_data);

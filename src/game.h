@@ -54,8 +54,6 @@ typedef struct DataChunk {
 } DataChunk;
 
 typedef struct GameData {
-    // If the player opens the game and does not even hatch the egg then wtf.
-    bool should_even_save_yet;
     int area;
     int character;
     int character_count;

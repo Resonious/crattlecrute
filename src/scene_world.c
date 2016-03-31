@@ -191,6 +191,8 @@ typedef struct ServerLoop {
 bool save(WorldScene* scene) {
     Game* game = scene->game;
     wait_for_then_use_lock(game->data.locked);
+    if (game->data.character < 0)
+        return false;
 
     bool should_write_positions = scene->net.status != JOINING && scene->current_area != AREA_NET_ZONE;
     write_character_to_data(scene->guy, &game->data.characters[game->data.character], !should_write_positions);
@@ -2157,9 +2159,7 @@ void scene_world_initialize(void* vdata, Game* game) {
     mrb_iv_check(game->mrb, game->ruby.sym_atgame);
     mrb_iv_set(game->mrb, data->script_obj, game->ruby.sym_atgame, game->ruby.game);
 
-    data->rguy = mrb_obj_new(game->mrb, game->ruby.character_class, 0, NULL);
-    // TODO shit
-    // mrb_data_init(data->rguy, &data->guy, &mrb_character_type);
+    data->rguy = mrb_nil_value();
 
     mrb_define_singleton_method(game->mrb, game->mrb->top_self, "world", rb_world, MRB_ARGS_NONE());
 }
@@ -2815,8 +2815,11 @@ mrb_value mrb_world_current_map(mrb_state* mrb, mrb_value self) {
 
 mrb_value mrb_world_local_character(mrb_state* mrb, mrb_value self) {
     WorldScene* scene = DATA_PTR(self);
-    // TODO
-    return mrb_nil_value();
+    if (mrb_nil_p(scene->rguy) && scene->guy != NULL) {
+        scene->rguy = mrb_instance_alloc(mrb, scene->game->ruby.character_class);
+        mrb_data_init(scene->rguy, scene->guy, &mrb_character_type);
+    }
+    return scene->rguy;
 }
 
 mrb_value mrb_world_save(mrb_state* mrb, mrb_value self) {
