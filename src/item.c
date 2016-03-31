@@ -1,6 +1,7 @@
 #include "item.h"
 #include "game.h"
 #include "assets.h"
+#include "egg.h"
 
 void initialize_inventory(Inventory* inv, int cap) {
     inv->locked = SDL_CreateMutex();
@@ -85,22 +86,18 @@ void item_egg_initialize(void* vitem, struct Game* game) {
     SDL_assert(sizeof(Inventory) <= sizeof(ItemCommon));
     ItemEgg* egg = (ItemEgg*)vitem;
     egg->layer_count = 2;
-    egg->age = 0;
-    egg->hatching_age = 15 MINUTES;
+    egg->e.age = 0;
+    egg->e.hatching_age = 15 MINUTES;
 }
 void egg_dropped(void* vdata, void* vegg) {
     MobEgg* egg_drop = (MobEgg*)vegg;
-    struct { int a, b; }* data = vdata;
-    egg_drop->age = data->a;
-    egg_drop->hatching_age = data->b;
+    struct EggData* data = vdata;
+    egg_drop->e = *data;
 }
 bool item_egg_drop(void* vitem, struct Game* game, struct Map* map, vec2 position) {
     ItemEgg* egg = (ItemEgg*)vitem;
 
-    struct { int a, b; } data;
-    data.a = egg->age;
-    data.b = egg->hatching_age;
-    game->net.spawn_mob(game->current_scene_data, map, game, MOB_EGG, position, &data, egg_dropped);
+    game->net.spawn_mob(game->current_scene_data, map, game, MOB_EGG, position, &egg->e, egg_dropped);
 
     return true;
 }

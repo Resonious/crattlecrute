@@ -19,6 +19,7 @@
 #include "character.h"
 #include "assets.h"
 #include "coords.h"
+#include "egg.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -345,18 +346,23 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
     SDL_UnlockMutex(player->mob_event_buffer_locked);
 }
 
-void unconnected_set_item(void* vs, struct Character* guy, struct Game* game, int slot, int item) {
+void unconnected_set_item(void* vs, struct Character* guy, struct Game* game, int slot, int item, void* data, DataCallback callback) {
     WorldScene* s = (WorldScene*)vs;
-    if (s->net.status != JOINING)
-        set_item(&guy->inventory, game, slot, item);
+    if (s->net.status != JOINING) {
+        ItemCommon* item = set_item(&guy->inventory, game, slot, item);
+        if (item && callback)
+            callback(data, item);
+    }
 }
 
-void connected_set_item(void* vs, struct Character* guy, struct Game* game, int slot, int item) {
+void connected_set_item(void* vs, struct Character* guy, struct Game* game, int slot, int item, void* data, DataCallback callback) {
     WorldScene* s = (WorldScene*)vs;
     SDL_assert(s->net.status == HOSTING);
 
-    printf("Charcter with ID %i picking up an item.\n", guy->player_id);
-    set_item(&guy->inventory, game, slot, item);
+    printf("Charcter with ID %i getting an item.\n", guy->player_id);
+    ItemCommon* itemcmn = set_item(&guy->inventory, game, slot, item);
+    if (itemcmn && callback)
+        callback(data, itemcmn);
 
     // Don't bother with non-player characters or the local character.
     if (guy->player_id == -1 || guy->player_id == 0)
@@ -2099,7 +2105,7 @@ void scene_world_initialize(void* vdata, Game* game) {
     else {
         data->guy = NULL;
         MobEgg* egg = spawn_mob(data->map, game, MOB_EGG, (vec2) { 3862.0f, 985.0f });
-        egg->hatching_age = 5 SECONDS;
+        egg->e.hatching_age = 5 SECONDS;
         data->pending_egg = egg;
         set_camera_target(game, data->map, &egg->body);
 
@@ -2117,6 +2123,7 @@ void scene_world_initialize(void* vdata, Game* game) {
         set_camera_target(game, data->map, data->guy);
         */
     }
+    game->camera.simd = game->camera_target.simd;
 
     data->inv_fade = INV_FADE_MAX;
     data->inv_fade_countdown = 0;

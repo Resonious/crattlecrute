@@ -2,6 +2,7 @@
 #include "game.h"
 #include "character.h"
 #include "tilemap.h"
+#include "egg.h"
 #include <math.h>
 #include <stdlib.h>
 

@@ -4,6 +4,9 @@
 #include "game.h"
 #include "script.h"
 #include "character.h"
+#include "egg.h"
+
+// === Generic functions ===
 
 void write_body_to_buffer(byte* buffer, GenericBody* body, int* pos) {
     write_to_buffer(buffer, body->position.x, pos, sizeof(vec4));
@@ -15,7 +18,7 @@ void read_body_from_buffer(byte* buffer, GenericBody* body, int* pos) {
     read_from_buffer(buffer, body->old_position.x, pos, sizeof(vec4));
     read_from_buffer(buffer, &body->grounded, pos, 1);
 }
-void pick_up_item(PhysicsMob* mob, int item_type, struct Game* game, struct Map* map, struct Character* guy, struct Controls* controls) {
+void pick_up_item(PhysicsMob* mob, int item_type, struct Game* game, struct Map* map, struct Character* guy, struct Controls* controls, void* data, DataCallback callback) {
     if (
         just_pressed(controls, C_DOWN) &&
         guy->position.x[X] > mob->body.position.x[0] - 25 &&
@@ -25,10 +28,13 @@ void pick_up_item(PhysicsMob* mob, int item_type, struct Game* game, struct Map*
     ) {
         int slot = find_good_inventory_slot(&guy->inventory);
         if (slot > -1) {
-            if (guy->player_id == -1)
-                set_item(&guy->inventory, game, slot, item_type);
+            if (guy->player_id == -1) {
+                ItemCommon* item = set_item(&guy->inventory, game, slot, item_type);
+                if (item && callback)
+                    callback(data, item);
+            }
             else
-                game->net.set_item(game->current_scene_data, guy, game, slot, item_type);
+                game->net.set_item(game->current_scene_data, guy, game, slot, item_type, data, callback);
 
             game->net.despawn_mob(game->current_scene_data, map, game, mob);
         }
@@ -193,7 +199,7 @@ void mob_fruit_update(void* vfruit, struct Game* game, struct Map* map) {
 }
 void mob_fruit_interact(void* vfruit, struct Game* game, struct Map* map, struct Character* guy, struct Controls* controls) {
     MobFruit* fruit = (MobFruit*)vfruit;
-    pick_up_item((PhysicsMob*)fruit, ITEM_FRUIT, game, map, guy, controls);
+    pick_up_item((PhysicsMob*)fruit, ITEM_FRUIT, game, map, guy, controls, NULL, NULL);
 }
 void mob_fruit_render(void* vfruit, struct Game* game, struct Map* map) {
     MobFruit* fruit = (MobFruit*)vfruit;
@@ -237,8 +243,8 @@ void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos
     egg->body.old_position.simd = egg->body.position.simd;
     egg->body.grounded = false;
     egg->dy = 0;
-    egg->age = 0;
-    egg->hatching_age = 15 MINUTES;
+    egg->e.age = 0;
+    egg->e.hatching_age = 15 MINUTES;
 }
 void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
     MobEgg* egg = (MobEgg*)vegg;
@@ -255,8 +261,8 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
 
     if (area_is_garden(map->area_id)) {
         if (game->text_edit.text == NULL) {
-            egg->age += 1;
-            if (egg->age == egg->hatching_age) {
+            egg->e.age += 1;
+            if (egg->e.age == egg->e.hatching_age) {
                 printf("I HATCHED!!!!!!!!!!!!!!!!!!!!!!\n");
                 start_editing_text(game, game->new_character_name_buffer, CHARACTER_NAME_LENGTH, NULL);
             }
@@ -292,8 +298,14 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
         }
     }
 }
+
+void set_egg_item_data(void* vd, void* vegg) {
+    ItemEgg* egg = (ItemEgg*)vegg;
+    egg->e = *(struct EggData*)vd;
+}
 void mob_egg_interact(void* vegg, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls) {
-    pick_up_item((PhysicsMob*)vegg, ITEM_EGG, game, map, character, ctrls);
+    MobEgg* egg = (MobEgg*)vegg;
+    pick_up_item((PhysicsMob*)vegg, ITEM_EGG, game, map, character, ctrls, &egg->e, set_egg_item_data);
 }
 void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
     MobEgg* egg = (MobEgg*)vegg;
@@ -305,7 +317,7 @@ void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
     SDL_Texture* tex = cached_texture(game, ASSET_EGG_BASIC_PNG);
     SDL_QueryTexture(tex, NULL, NULL, &image_width, &image_height);
 
-    if (egg->age < egg->hatching_age) {
+    if (egg->e.age < egg->e.hatching_age) {
         SDL_Rect src = src_rect_frame(3, image_width, image_height, 64, 64);
 
         // Just render the egg bottom and top on frames 3 and 5.
@@ -340,16 +352,16 @@ void mob_egg_save(void* vegg, struct Map* map, byte* buffer, int* pos) {
     MobEgg* egg = (MobEgg*)vegg;
     write_body_to_buffer(buffer, &egg->body, pos);
     write_to_buffer(buffer, &egg->dy, pos, sizeof(float));
-    write_to_buffer(buffer, &egg->age, pos, sizeof(int));
-    write_to_buffer(buffer, &egg->hatching_age, pos, sizeof(int));
+    write_to_buffer(buffer, &egg->e.age, pos, sizeof(int));
+    write_to_buffer(buffer, &egg->e.hatching_age, pos, sizeof(int));
 }
 void mob_egg_load(void* vegg, struct Map* map, byte* buffer, int* pos) {
     MobEgg* egg = (MobEgg*)vegg;
     set_egg_sensors(egg);
     read_body_from_buffer(buffer, &egg->body, pos);
     read_from_buffer(buffer, &egg->dy, pos, sizeof(float));
-    read_from_buffer(buffer, &egg->age, pos, sizeof(int));
-    read_from_buffer(buffer, &egg->hatching_age, pos, sizeof(int));
+    read_from_buffer(buffer, &egg->e.age, pos, sizeof(int));
+    read_from_buffer(buffer, &egg->e.hatching_age, pos, sizeof(int));
 }
 
 // ============= GARDEN CRATTLECRUTE ================

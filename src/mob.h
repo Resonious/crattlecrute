@@ -104,12 +104,6 @@ void mob_fruit_load(void* vfruit, struct Map* map, byte* buffer, int* pos);
 bool mob_fruit_sync_send(void* vfruit, struct Map* map, byte* buffer, int* pos);
 void mob_fruit_sync_receive(void* vfruit, struct Map* map, byte* buffer, int* pos);
 
-typedef struct MobEgg {
-    PHYSICS_MOB_FIELDS;
-    float dy;
-    int age; // in frames.
-    int hatching_age;
-} MobEgg;
 void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos);
 void mob_egg_update(void* vegg, struct Game* game, struct Map* map);
 void mob_egg_interact(void* vegg, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls);

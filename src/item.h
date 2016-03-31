@@ -54,12 +54,6 @@ typedef struct ItemFruit {
 void item_fruit_initialize(void* vitem, struct Game* game);
 bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 position);
 
-typedef struct ItemEgg {
-    LAYERED_ICON_ITEM;
-    int age;
-    int hatching_age;
-} ItemEgg;
-
 void item_egg_initialize(void* vitem, struct Game* game);
 bool item_egg_drop(void* vitem, struct Game* game, struct Map* map, vec2 position);
 
