@@ -270,9 +270,8 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
         }
         else if (game->text_edit.text == game->new_character_name_buffer) {
             if (game->text_edit.enter_pressed) {
+                stop_editing_text(game);
                 if (game->data.character_count == 0) {
-                    stop_editing_text(game);
-
                     game->data.character = 0;
                     game->data.character_count += 1;
 

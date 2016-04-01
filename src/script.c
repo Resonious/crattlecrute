@@ -387,36 +387,40 @@ mrb_value mrb_character_feet_type_eq(mrb_state* mrb, mrb_value self) {
         return mrb_fixnum_value(egg->name); \
     }
 
-mrb_value mrb_egg_body_color(mrb_state* mrb, mrb_value self) {
-    Game* game = (Game*)mrb->ud;
-    struct EggData* egg = DATA_PTR(self);
-
-    mrb_value color = mrb_instance_alloc(mrb, game->ruby.color_class);
-    mrb_data_init(color, &egg->body_color, &mrb_dont_free_type);
-
-    mrb_gc_unregister(mrb, color);
-
-    return color;
-}
-mrb_value mrb_egg_body_color_eq(mrb_state* mrb, mrb_value self) {
-    Game* game = (Game*)mrb->ud;
-    struct EggData* egg = DATA_PTR(self);
-
-    mrb_value value;
-    mrb_get_args(mrb, "o", &value);
-
-    if (mrb_obj_class(mrb, value) == game->ruby.color_class) {
-        SDL_Color* color = DATA_PTR(value);
-        egg->body_color = *color;
+#define EGG_COLOR_ATTR(colortype) \
+    mrb_value mrb_egg_##colortype(mrb_state* mrb, mrb_value self) { \
+        Game* game = (Game*)mrb->ud; \
+        struct EggData* egg = DATA_PTR(self); \
+     \
+        mrb_value color = mrb_instance_alloc(mrb, game->ruby.color_class); \
+        mrb_data_init(color, &egg->colortype, &mrb_dont_free_type); \
+     \
+        mrb_gc_unregister(mrb, color); \
+     \
+        return color; \
+    } \
+    mrb_value mrb_egg_##colortype##_eq(mrb_state* mrb, mrb_value self) { \
+        Game* game = (Game*)mrb->ud; \
+        struct EggData* egg = DATA_PTR(self); \
+     \
+        mrb_value value; \
+        mrb_get_args(mrb, "o", &value); \
+     \
+        if (mrb_obj_class(mrb, value) == game->ruby.color_class) { \
+            SDL_Color* color = DATA_PTR(value); \
+            egg->colortype = *color; \
+        } \
+        else \
+            return mrb_nil_value(); \
+     \
+        return value; \
     }
-    else
-        return mrb_nil_value();
-
-    return value;
-}
 
 EGG_ATTR(age);
 EGG_ATTR(hatching_age);
+EGG_COLOR_ATTR(body_color);
+EGG_COLOR_ATTR(left_foot_color);
+EGG_COLOR_ATTR(right_foot_color);
 
 #define FLOAT_CHARACTER_ATTR(name)\
     mrb_value mrb_character_##name(mrb_state* mrb, mrb_value self) { \
@@ -472,15 +476,38 @@ mrb_value mrb_inventory_count(mrb_state* mrb, mrb_value self) {
     return mrb_fixnum_value(count);
 }
 
+// Defines a mrb_value called varname of a Item instance on the stack.
+// (Currently assumes inv is an Inventory*)
+#define MRB_TEMP_SLOT(varname, index)\
+    mrb_value varname = mrb_instance_alloc(mrb, game->ruby.item_class);\
+    struct MrbItem _item;\
+    _item.inventory = inv;\
+    _item.slot = index;\
+    mrb_data_init(varname, &_item, &mrb_dont_free_type);\
+    mrb_gc_unregister(mrb, varname);
+
 mrb_value mrb_inventory_add(mrb_state* mrb, mrb_value self) {
+    Game* game = (Game*)mrb->ud;
     Inventory* inv = DATA_PTR(self);
 
     mrb_value item_type;
-    mrb_get_args(mrb, "i", &item_type);
+    mrb_get_args(mrb, "o", &item_type);
 
     int slot = find_good_inventory_slot(inv);
     if (slot >= 0) {
-        set_item(inv, (Game*)mrb->ud, slot, mrb_fixnum(item_type));
+        if (mrb_fixnum_p(item_type))
+            set_item(inv, (Game*)mrb->ud, slot, mrb_fixnum(item_type));
+        else if (mrb_respond_to(mrb, item_type, game->ruby.sym_into_item)) {
+            MRB_TEMP_SLOT(item, slot);
+            mrb_funcall_argv(mrb, item_type, game->ruby.sym_into_item, 1, &item);
+        }
+        else {
+            mrb_raise(
+                mrb,
+                mrb_class_get(mrb, "StandardError"),
+                "Attempted to add unknown item to inventory"
+            );
+        }
     }
     else {
         mrb_raise(
@@ -500,8 +527,9 @@ mrb_value mrb_inventory_access(mrb_state* mrb, mrb_value self) {
     mrb_get_args(mrb, "i", &index);
 
     mrb_value args[2];
-    args[0] = self; args[1] = mrb_fixnum_value(index);
-    mrb_obj_new(mrb, game->ruby.item_class, 2, args);
+    args[0] = self;
+    args[1] = mrb_fixnum_value(index);
+    return mrb_obj_new(mrb, game->ruby.item_class, 2, args);
 }
 
 mrb_value mrb_inventory_access_eq(mrb_state* mrb, mrb_value self) {
@@ -513,15 +541,17 @@ mrb_value mrb_inventory_access_eq(mrb_state* mrb, mrb_value self) {
     mrb_get_args(mrb, "io", &index, &obj);
 
     if (mrb_respond_to(mrb, obj, game->ruby.sym_into_item)) {
-        // TODO ....................
+        MRB_TEMP_SLOT(slot, index);
+        mrb_funcall_argv(mrb, obj, game->ruby.sym_into_item, 1, &slot);
     }
     else {
         mrb_raise(
             mrb,
             mrb_class_get(mrb, "ArgumentError"),
-            ""
+            "Given argument doesn't respond to `into_item`"
         );
     }
+    return self;
 }
 
 mrb_value mrb_character_position(mrb_state* mrb, mrb_value self) {
@@ -561,7 +591,6 @@ mrb_value mrb_egg_into_item(mrb_state* mrb, mrb_value self) {
     }
     struct MrbItem* item = DATA_PTR(ritem);
 
-    // TODO uhhh networking??? how to handle this in netgame...?
     ItemEgg* egg_item = (ItemEgg*)set_item(item->inventory, game, item->slot, ITEM_EGG);
     if (egg_item == NULL) {
         mrb_raise(mrb, mrb_class_get(mrb, "StandardError"), "Unable to set item");
@@ -603,6 +632,32 @@ mrb_value mrb_item_init(mrb_state* mrb, mrb_value self) {
     }
 
     return self;
+}
+
+mrb_value mrb_item_type(mrb_state* mrb, mrb_value self) {
+    struct MrbItem* item = DATA_PTR(self);
+    return mrb_fixnum_value(item->inventory->items[item->slot].item_type_id);
+}
+
+mrb_value mrb_item_to_egg(mrb_state* mrb, mrb_value self) {
+    Game* game = (Game*)mrb->ud;
+    struct MrbItem* item = DATA_PTR(self);
+
+    int item_type = item->inventory->items[item->slot].item_type_id;
+    if (item_type == ITEM_EGG) {
+        mrb_value egg = mrb_obj_new(mrb, game->ruby.egg_class, 0, NULL);
+        struct EggData* egg_data = DATA_PTR(egg);
+        struct ItemEgg* inventory_egg = (ItemEgg*)&item->inventory->items[item->slot];
+
+        *egg_data = inventory_egg->e;
+
+        return egg;
+    }
+    else {
+        mrb_raise(mrb, mrb_class_get(mrb, "StandardError"), "Item is not an egg");
+
+        return mrb_nil_value();
+    }
 }
 
 // World functions are defined in scene_world.c
@@ -780,6 +835,8 @@ void script_init(struct Game* game) {
     MRB_SET_INSTANCE_TT(game->ruby.item_class, MRB_TT_DATA);
 
     mrb_define_method(game->mrb, game->ruby.item_class, "initialize", mrb_item_init, MRB_ARGS_REQ(2));
+    mrb_define_method(game->mrb, game->ruby.item_class, "type", mrb_item_type, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.item_class, "to_egg", mrb_item_to_egg, MRB_ARGS_NONE());
 
     // ================================== class Inventory ===============================
     game->ruby.inventory_class = mrb_define_class(game->mrb, "Inventory", game->mrb->object_class);
@@ -800,13 +857,13 @@ void script_init(struct Game* game) {
 
 #define DECL_EGG_FIELD(field)\
     mrb_define_method(game->mrb, game->ruby.egg_class, #field, mrb_egg_##field, MRB_ARGS_NONE());\
-    mrb_define_method(game->mrb, game->ruby.egg_class, #field"_eq", mrb_egg_##field##_eq, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.egg_class, #field"=", mrb_egg_##field##_eq, MRB_ARGS_REQ(1));
 
     DECL_EGG_FIELD(age);
     DECL_EGG_FIELD(hatching_age);
     DECL_EGG_FIELD(body_color);
-    // DECL_EGG_FIELD(left_foot_color);
-    // DECL_EGG_FIELD(right_foot_color);
+    DECL_EGG_FIELD(left_foot_color);
+    DECL_EGG_FIELD(right_foot_color);
 
     // =============================== STATICALLY GENERATED STUFF ============================
     define_mrb_enum_constants(game);
