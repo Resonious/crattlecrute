@@ -90,6 +90,7 @@ typedef struct Game {
         mrb_sym sym_atmap;
         mrb_sym sym_atlocal_character;
         mrb_sym sym_update;
+        mrb_sym sym_into_item;
         mrb_value game;
         struct RClass* color_class;
         struct RClass* controls_class;
@@ -101,6 +102,7 @@ typedef struct Game {
         struct RClass* item_class;
         struct RClass* inventory_class;
         struct RClass* vec2_class;
+        struct RClass* egg_class;
         mrb_value cc_type_to_sym;
         mrb_value cc_sym_to_type;
     } ruby;
