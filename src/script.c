@@ -396,6 +396,11 @@ FLOAT_CHARACTER_ATTR(jump_cancel_dy);
     mrb_hash_set(game->mrb, game->ruby.cc_type_to_sym, mrb_fixnum_value(val), mrb_symbol_value(mrb_intern_lit(game->mrb, #rval)));\
     mrb_hash_set(game->mrb, game->ruby.cc_sym_to_type, mrb_symbol_value(mrb_intern_lit(game->mrb, #rval)), mrb_fixnum_value(val));
 
+mrb_value mrb_character_name(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    return mrb_str_new_cstr(mrb, guy->name);
+}
+
 mrb_value mrb_character_inventory(mrb_state* mrb, mrb_value self) {
     Character* guy = DATA_PTR(self);
     return guy->rinventory;
@@ -581,6 +586,7 @@ void script_init(struct Game* game) {
 
     mrb_define_method(game->mrb, game->ruby.character_class, "inventory", mrb_character_inventory, MRB_ARGS_NONE());
 
+    mrb_define_method(game->mrb, game->ruby.character_class, "name", mrb_character_name, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "position", mrb_character_position, MRB_ARGS_NONE());
 
     mrb_define_method(game->mrb, game->ruby.character_class, "body_type", mrb_character_body_type, MRB_ARGS_NONE());

@@ -88,6 +88,7 @@ void item_egg_initialize(void* vitem, struct Game* game) {
     egg->layer_count = 2;
     egg->e.age = 0;
     egg->e.hatching_age = 15 MINUTES;
+    default_egg(&egg->e);
 }
 void egg_dropped(void* vdata, void* vegg) {
     MobEgg* egg_drop = (MobEgg*)vegg;

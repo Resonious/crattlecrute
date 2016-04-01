@@ -245,6 +245,7 @@ void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos
     egg->dy = 0;
     egg->e.age = 0;
     egg->e.hatching_age = 15 MINUTES;
+    default_egg(&egg->e);
 }
 void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
     MobEgg* egg = (MobEgg*)vegg;
@@ -280,13 +281,19 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
 
                     default_character(game, guy);
                     default_character_animations(game, guy);
-                    randomize_character(guy);
+                    // randomize_character(guy);
+                    guy->body_color = egg->e.body_color;
+                    guy->left_foot_color = egg->e.left_foot_color;
+                    guy->right_foot_color = egg->e.right_foot_color;
+                    guy->eye_color = egg->e.eye_color;
 
                     vec4 offset;
-                    offset.x[0] = 0;
-                    offset.x[1] = 50;
+                    offset.x[0] = 0; offset.x[1] = 50;
+                    offset.x[2] = 0; offset.x[3] = 0;
                     guy->position.simd = _mm_add_ps(egg->body.position.simd, offset.simd);
                     guy->old_position.simd = _mm_add_ps(egg->body.old_position.simd, offset.simd);
+
+                    SDL_strlcpy(guy->name, game->new_character_name_buffer, CHARACTER_NAME_LENGTH);
 
                     printf("k thanks\n");
                 }
@@ -305,7 +312,8 @@ void set_egg_item_data(void* vd, void* vegg) {
 }
 void mob_egg_interact(void* vegg, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls) {
     MobEgg* egg = (MobEgg*)vegg;
-    pick_up_item((PhysicsMob*)vegg, ITEM_EGG, game, map, character, ctrls, &egg->e, set_egg_item_data);
+    if (egg->e.age < egg->e.hatching_age)
+        pick_up_item((PhysicsMob*)vegg, ITEM_EGG, game, map, character, ctrls, &egg->e, set_egg_item_data);
 }
 void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
     MobEgg* egg = (MobEgg*)vegg;
@@ -330,7 +338,14 @@ void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
 
         world_render_copy(game, tex, &src, &p, 64, 64, &c);
         increment_src_rect(&src, 1, image_width, image_height);
-        world_render_copy(game, tex, &src, &p, 64, 64, &c);
+        if (egg->e.age == egg->e.hatching_age) {
+            Uint8 r, g, b;
+            SDL_GetTextureColorMod(tex, &r, &g, &b);
+            SDL_SetTextureColorMod(tex, egg->e.body_color.r, egg->e.body_color.g, egg->e.body_color.b);
+            world_render_copy(game, tex, &src, &p, 64, 64, &c);
+            SDL_SetTextureColorMod(tex, r, g, b);
+            // TODO draw eyes FUCK
+        }
         increment_src_rect(&src, 2, image_width, image_height);
         world_render_copy(game, tex, &src, &p, 64, 64, &c);
     }

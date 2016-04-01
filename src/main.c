@@ -98,10 +98,10 @@ mrb_value rb_reload(mrb_state* mrb, mrb_value self) {
 }
 
 // WOOO PLEASE DON'T ACCESS THIS ANYWHERE. THANKS.
-Game* game_to_save_on_exit;
+Game* _game_to_save_on_exit;
 
 void cleanup() {
-    Game* game = game_to_save_on_exit;
+    Game* game = _game_to_save_on_exit;
     if (game->current_scene->save)
         game->current_scene->save(game->current_scene_data, game);
 
@@ -351,7 +351,7 @@ no_renderer:
     game->current_scene->initialize(game->current_scene_data, game);
     SDL_assert(!game->mrb->exc);
 
-    game_to_save_on_exit = game;
+    _game_to_save_on_exit = game;
     atexit(cleanup);
 
     BENCH_END(total_initialization);

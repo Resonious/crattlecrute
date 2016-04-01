@@ -158,6 +158,9 @@
     <ClCompile Include="..\..\..\src\item.c">
       <Filter>game\items</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\egg.c">
+      <Filter>game</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\dxsdkver.h" />
