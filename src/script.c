@@ -421,6 +421,7 @@ EGG_ATTR(hatching_age);
 EGG_COLOR_ATTR(body_color);
 EGG_COLOR_ATTR(left_foot_color);
 EGG_COLOR_ATTR(right_foot_color);
+EGG_COLOR_ATTR(eye_color);
 
 #define FLOAT_CHARACTER_ATTR(name)\
     mrb_value mrb_character_##name(mrb_state* mrb, mrb_value self) { \
@@ -864,6 +865,7 @@ void script_init(struct Game* game) {
     DECL_EGG_FIELD(body_color);
     DECL_EGG_FIELD(left_foot_color);
     DECL_EGG_FIELD(right_foot_color);
+    DECL_EGG_FIELD(eye_color);
 
     // =============================== STATICALLY GENERATED STUFF ============================
     define_mrb_enum_constants(game);

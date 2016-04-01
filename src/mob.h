@@ -19,10 +19,10 @@ typedef struct MobType {
     void(*update)(void* mob, struct Game* game, struct Map* map);
     void(*interact)(void* mob, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls);
     void(*render)(void* mob, struct Game* game, struct Map* map);
-    void(*save)(void* mob, struct Map* map, byte* buffer, int* pos);
-    void(*load)(void* mob, struct Map* map, byte* buffer, int* pos);
-    bool(*sync_send)(void* mob, struct Map* map, byte* buffer, int* pos);
-    void(*sync_receive)(void* mob, struct Map* map, byte* buffer, int* pos);
+    void(*save)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
+    void(*load)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
+    bool(*sync_send)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
+    void(*sync_receive)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
 } MobType;
 
 #define MOB_FIELDS\
@@ -86,10 +86,10 @@ typedef struct MobPon {
 void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos);
 void mob_pon_update(void* vpon, struct Game* game, struct Map* map);
 void mob_pon_render(void* vpon, struct Game* game, struct Map* map);
-void mob_pon_save(void* vpon, struct Map* map, byte* buffer, int* pos);
-void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos);
-bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos);
-void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos);
+void mob_pon_save(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
+void mob_pon_load(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
+bool mob_pon_sync_send(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
+void mob_pon_sync_receive(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
 
 typedef struct MobFruit {
     PHYSICS_MOB_FIELDS;
@@ -99,29 +99,33 @@ void mob_fruit_initialize(void* vfruit, struct Game* game, struct Map* map, vec2
 void mob_fruit_update(void* vfruit, struct Game* game, struct Map* map);
 void mob_fruit_interact(void* vfruit, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls);
 void mob_fruit_render(void* vfruit, struct Game* game, struct Map* map);
-void mob_fruit_save(void* vfruit, struct Map* map, byte* buffer, int* pos);
-void mob_fruit_load(void* vfruit, struct Map* map, byte* buffer, int* pos);
-bool mob_fruit_sync_send(void* vfruit, struct Map* map, byte* buffer, int* pos);
-void mob_fruit_sync_receive(void* vfruit, struct Map* map, byte* buffer, int* pos);
+void mob_fruit_save(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
+void mob_fruit_load(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
+bool mob_fruit_sync_send(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
+void mob_fruit_sync_receive(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
 
 void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos);
 void mob_egg_update(void* vegg, struct Game* game, struct Map* map);
 void mob_egg_interact(void* vegg, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls);
 void mob_egg_render(void* vegg, struct Game* game, struct Map* map);
-void mob_egg_save(void* vegg, struct Map* map, byte* buffer, int* pos);
-void mob_egg_load(void* vegg, struct Map* map, byte* buffer, int* pos);
-bool mob_egg_sync_send(void* vegg, struct Map* map, byte* buffer, int* pos);
-void mob_egg_sync_receive(void* vegg, struct Map* map, byte* buffer, int* pos);
+void mob_egg_save(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
+void mob_egg_load(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
+bool mob_egg_sync_send(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
+void mob_egg_sync_receive(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
 
-struct MobGardenCrattle;
+typedef struct MobGardenCrattle {
+    MOB_FIELDS;
+    vec2 pending_pos;
+    int character_index;
+} MobGardenCrattle;
 void mob_mgc_initialize(void* vmgc, struct Game* game, struct Map* map, vec2 pos);
 void mob_mgc_update(void* vmgc, struct Game* game, struct Map* map);
 void mob_mgc_interact(void* vmgc, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls);
 void mob_mgc_render(void* vmgc, struct Game* game, struct Map* map);
-void mob_mgc_save(void* vmgc, struct Map* map, byte* buffer, int* pos);
-void mob_mgc_load(void* vmgc, struct Map* map, byte* buffer, int* pos);
-bool mob_mgc_sync_send(void* vmgc, struct Map* map, byte* buffer, int* pos);
-void mob_mgc_sync_receive(void* vmgc, struct Map* map, byte* buffer, int* pos);
+void mob_mgc_save(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
+void mob_mgc_load(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
+bool mob_mgc_sync_send(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
+void mob_mgc_sync_receive(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
 
 static MobType mob_registry[] = {
     {

@@ -444,10 +444,10 @@ void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id,
             wait_for_then_use_lock(player->mob_event_buffer_locked);
 
             player->mob_event_buffer[player->mob_event_buffer_pos++] = NETF_MOBEVENT_SPAWN;
-            write_to_buffer(player->mob_event_buffer, &mob_type_id, &player->mob_event_buffer_pos, sizeof(int));
-            write_to_buffer(player->mob_event_buffer, &pos,         &player->mob_event_buffer_pos, sizeof(vec2));
-            write_to_buffer(player->mob_event_buffer, &m_id,        &player->mob_event_buffer_pos, sizeof(int));
-            mob_type->save(mob, map, player->mob_event_buffer,      &player->mob_event_buffer_pos);
+            write_to_buffer(player->mob_event_buffer, &mob_type_id,  &player->mob_event_buffer_pos, sizeof(int));
+            write_to_buffer(player->mob_event_buffer, &pos,          &player->mob_event_buffer_pos, sizeof(vec2));
+            write_to_buffer(player->mob_event_buffer, &m_id,         &player->mob_event_buffer_pos, sizeof(int));
+            mob_type->save(mob, game, map, player->mob_event_buffer, &player->mob_event_buffer_pos);
 
             player->mob_event_count += 1;
             SDL_UnlockMutex(player->mob_event_buffer_locked);
@@ -1016,7 +1016,7 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
                         mob->mob_type_id = mob_type;
                         mob->index = index_from_mob_id(m_id);
                         reg->initialize(mob, scene->game, scene->map, position);
-                        reg->load(mob, scene->map, buffer, &pos);
+                        reg->load(mob, scene->game, scene->map, buffer, &pos);
                     } break;
 
                     case NETF_MOBEVENT_UPDATE: {
@@ -1028,7 +1028,7 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
                             printf("WARNING: Got a bad mob update event (mob not registered.) mobid=%i\n", m_id);
                         }
                         MobType* reg = &mob_registry[mob->mob_type_id];
-                        reg->sync_receive(mob, scene->map, buffer, &pos);
+                        reg->sync_receive(mob, scene->game, scene->map, buffer, &pos);
                     } break;
 
                     case NETF_MOBEVENT_DESPAWN: {
@@ -2171,7 +2171,7 @@ void write_mob_events(void* vs, Map* map, struct Game* game, MobCommon* mob) {
     int size = 0;
 
     MobType* reg = &mob_registry[mob->mob_type_id];
-    if (reg->sync_send != NULL && reg->sync_send(mob, map, sync_buffer, &size)) {
+    if (reg->sync_send != NULL && reg->sync_send(mob, game, map, sync_buffer, &size)) {
         SDL_assert(size <= MOB_EVENT_BUFFER_SIZE);
         if (size == 0) {
             printf("WARNING: About to write mob sync of size 0 for some reason.\n");

@@ -130,14 +130,14 @@ void mob_pon_render(void* vpon, struct Game* game, struct Map* map) {
     SDL_SetTextureAlphaMod(pon_tex, pon->color.a);
     world_render_copy_ex(game, pon_tex, &src, pon->body.position.x, 90, 90, pon->body.ground_angle, &center, pon->flip);
 }
-void mob_pon_save(void* vpon, struct Map* map, byte* buffer, int* pos) {
+void mob_pon_save(void* vpon, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
     write_to_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
     write_to_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
     write_to_buffer(buffer, pon->body.old_position.x, pos, sizeof(vec4));
     write_to_buffer(buffer, &pon->color, pos, sizeof(SDL_Color));
 }
-void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos) {
+void mob_pon_load(void* vpon, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
     memset(&pon->body, 0, sizeof(GenericBody));
 
@@ -151,7 +151,7 @@ void mob_pon_load(void* vpon, struct Map* map, byte* buffer, int* pos) {
     pon->frame_counter = 0;
     pon->frame_inc = 1;
 }
-bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos) {
+bool mob_pon_sync_send(void* vpon, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
 
     if (pon->hop) {
@@ -165,7 +165,7 @@ bool mob_pon_sync_send(void* vpon, struct Map* map, byte* buffer, int* pos) {
     }
     else return false;
 }
-void mob_pon_sync_receive(void* vpon, struct Map* map, byte* buffer, int* pos) {
+void mob_pon_sync_receive(void* vpon, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobPon* pon = (MobPon*)vpon;
     read_from_buffer(buffer, pon->velocity.x, pos, sizeof(vec4));
     read_from_buffer(buffer, pon->body.position.x, pos, sizeof(vec4));
@@ -208,12 +208,12 @@ void mob_fruit_render(void* vfruit, struct Game* game, struct Map* map) {
     vec2 c = { 32, 32 };
     world_render_copy(game, cached_texture(game, ASSET_FOOD_FRUIT_PNG), NULL, &p, 64, 64, &c);
 }
-void mob_fruit_save(void* vfruit, struct Map* map, byte* buffer, int* pos) {
+void mob_fruit_save(void* vfruit, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobFruit* fruit = (MobFruit*)vfruit;
     write_body_to_buffer(buffer, &fruit->body, pos);
     write_to_buffer(buffer, &fruit->dy, pos, sizeof(float));
 }
-void mob_fruit_load(void* vfruit, struct Map* map, byte* buffer, int* pos) {
+void mob_fruit_load(void* vfruit, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobFruit* fruit = (MobFruit*)vfruit;
     set_fruit_sensors(fruit);
     read_body_from_buffer(buffer, &fruit->body, pos);
@@ -221,12 +221,12 @@ void mob_fruit_load(void* vfruit, struct Map* map, byte* buffer, int* pos) {
 }
 
 // NOTE these functions are not actually in the registry right now
-bool mob_fruit_sync_send(void* vfruit, struct Map* map, byte* buffer, int* pos) {
+bool mob_fruit_sync_send(void* vfruit, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobFruit* fruit = (MobFruit*)vfruit;
     // TODO
     return false;
 }
-void mob_fruit_sync_receive(void* vfruit, struct Map* map, byte* buffer, int* pos) {
+void mob_fruit_sync_receive(void* vfruit, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobFruit* fruit = (MobFruit*)vfruit;
     // TODO
 }
@@ -246,6 +246,9 @@ void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos
     egg->e.age = 0;
     egg->e.hatching_age = 15 MINUTES;
     default_egg(&egg->e);
+}
+void spawned_new_baby(void* data, void* mob) {
+    // TODO
 }
 void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
     MobEgg* egg = (MobEgg*)vegg;
@@ -269,37 +272,44 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
             }
         }
         else if (game->text_edit.text == game->new_character_name_buffer) {
-            if (game->text_edit.enter_pressed) {
+            if (game->text_edit.enter_pressed || game->text_edit.canceled) {
                 stop_editing_text(game);
-                if (game->data.character_count == 0) {
+
+                int character_index = game->data.character_count;
+
+                if (character_index == 0)
                     game->data.character = 0;
-                    game->data.character_count += 1;
+                game->data.character_count += 1;
 
-                    Character* guy = &game->characters[0].guy;
-                    SDL_memset(guy, 0, sizeof(Character));
+                Character* guy = &game->characters[0].guy;
+                SDL_memset(guy, 0, sizeof(Character));
 
-                    default_character(game, guy);
-                    default_character_animations(game, guy);
-                    // randomize_character(guy);
-                    guy->body_color = egg->e.body_color;
-                    guy->left_foot_color = egg->e.left_foot_color;
-                    guy->right_foot_color = egg->e.right_foot_color;
-                    guy->eye_color = egg->e.eye_color;
+                default_character(game, guy);
+                default_character_animations(game, guy);
 
-                    vec4 offset;
-                    offset.x[0] = 0; offset.x[1] = 50;
-                    offset.x[2] = 0; offset.x[3] = 0;
-                    guy->position.simd = _mm_add_ps(egg->body.position.simd, offset.simd);
-                    guy->old_position.simd = _mm_add_ps(egg->body.old_position.simd, offset.simd);
+                guy->body_color = egg->e.body_color;
+                guy->left_foot_color = egg->e.left_foot_color;
+                guy->right_foot_color = egg->e.right_foot_color;
+                guy->eye_color = egg->e.eye_color;
 
-                    SDL_strlcpy(guy->name, game->new_character_name_buffer, CHARACTER_NAME_LENGTH);
+                vec4 offset;
+                offset.x[0] = 0; offset.x[1] = 50;
+                offset.x[2] = 0; offset.x[3] = 0;
+                guy->position.simd = _mm_add_ps(egg->body.position.simd, offset.simd);
+                guy->old_position.simd = _mm_add_ps(egg->body.old_position.simd, offset.simd);
 
-                    printf("k thanks\n");
+                SDL_strlcpy(guy->name, game->new_character_name_buffer, CHARACTER_NAME_LENGTH);
+
+                vec2 pos;
+                pos.x = guy->position.x[0];
+                pos.y = guy->position.x[1];
+
+                if (character_index > 0) {
+                    // TODO ...                                       ......................................v
+                    game->net.spawn_mob(game->current_scene_data, map, game, MOB_GARDEN_CRATTLECRUTE, pos, NULL, spawned_new_baby);
                 }
-                else {
-                    // game->net.spawn_mob(game->current_scene_data, map, game, MOB_GARDEN_CRATTLECRUTE, pos, NULL, NULL);
-                    printf("NO IDEA HOW TO HANDLE ADDITIONAL CRUTES YET\n");
-                }
+
+                printf("k thanks\n");
             }
         }
     }
@@ -362,14 +372,14 @@ void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
         draw_text_box(game, &name_rect, game->text_edit.text);
     }
 }
-void mob_egg_save(void* vegg, struct Map* map, byte* buffer, int* pos) {
+void mob_egg_save(void* vegg, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobEgg* egg = (MobEgg*)vegg;
     write_body_to_buffer(buffer, &egg->body, pos);
     write_to_buffer(buffer, &egg->dy, pos, sizeof(float));
     write_to_buffer(buffer, &egg->e.age, pos, sizeof(int));
     write_to_buffer(buffer, &egg->e.hatching_age, pos, sizeof(int));
 }
-void mob_egg_load(void* vegg, struct Map* map, byte* buffer, int* pos) {
+void mob_egg_load(void* vegg, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobEgg* egg = (MobEgg*)vegg;
     set_egg_sensors(egg);
     read_body_from_buffer(buffer, &egg->body, pos);
@@ -381,42 +391,63 @@ void mob_egg_load(void* vegg, struct Map* map, byte* buffer, int* pos) {
 // ============= GARDEN CRATTLECRUTE ================
 
 void mob_mgc_initialize(void* vmgc, struct Game* game, struct Map* map, vec2 pos) {
-    SDL_assert(sizeof(MobGardenCrattle) <= sizeof(LargeMob));
+    SDL_assert(sizeof(MobGardenCrattle) <= sizeof(SmallMob));
 
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
-    default_character(game, &mob->guy);
-    default_character_animations(game, &mob->guy);
-    mob->guy.position.x[X] = pos.x;
-    mob->guy.position.x[Y] = pos.y;
-    mob->guy.old_position.x[X] = pos.x;
-    mob->guy.old_position.x[Y] = pos.y;
+    mob->character_index = -1;
+    mob->pending_pos = pos;
 }
 void mob_mgc_update(void* vmgc, struct Game* game, struct Map* map) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
+    if (mob->character_index < 0)
+        return;
 
-    apply_character_physics(game, &mob->guy, &game->controls, 1.15f, 0.025f);
-    collide_character(&mob->guy, &map->tile_collision);
-    slide_character(1.15f, &mob->guy);
-    update_character_animation(&mob->guy);
+    Character* guy = &game->characters[mob->character_index];
+    apply_character_physics(game, guy, &game->controls, 1.15f, 0.025f);
+    collide_character(guy, &map->tile_collision);
+    slide_character(1.15f, guy);
+    update_character_animation(guy);
 }
 void mob_mgc_interact(void* vmgc, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls) {
     // ...
 }
 void mob_mgc_render(void* vmgc, struct Game* game, struct Map* map) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
-    draw_character(game, &mob->guy, mob->guy.view);
+    if (mob->character_index < 0)
+        return;
+    // draw_character(game, &mob->guy, mob->guy.view);
 }
-void mob_mgc_save(void* vmgc, struct Map* map, byte* buffer, int* pos) {
-    // ...
-}
-void mob_mgc_load(void* vmgc, struct Map* map, byte* buffer, int* pos) {
+void mob_mgc_save(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
-    printf("DON'T KNOW WHAT 2 DO!!!!!");
-    // ...
+    write_to_buffer(buffer, &mob->character_index, pos, sizeof(int));
+    if (mob->character_index >= 0) {
+        Character* guy = &game->characters[mob->character_index];
+        DataChunk chunk;
+        chunk.bytes = NULL;
+        chunk.size  = 0;
+        write_character_to_data(guy, &chunk, false);
+        memcpy(buffer, chunk.bytes, chunk.size);
+        *pos += chunk.size;
+        free(chunk.bytes);
+    }
 }
-bool mob_mgc_sync_send(void* vmgc, struct Map* map, byte* buffer, int* pos) {
+void mob_mgc_load(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
+    MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
+    read_from_buffer(buffer, &mob->character_index, pos, sizeof(int));
+    if (mob->character_index >= 0) {
+        Character* guy = &game->characters[mob->character_index];
+        default_character(game, guy);
+        default_character_animations(game, guy);
+        DataChunk chunk;
+        chunk.bytes = buffer + *pos;
+        // Pretty sure this ignores the size of the chunk
+        read_character_from_data(guy, &chunk);
+        load_character_atlases(game, guy);
+    }
+}
+bool mob_mgc_sync_send(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     return false;
 }
-void mob_mgc_sync_receive(void* vmgc, struct Map* map, byte* buffer, int* pos) {
+void mob_mgc_sync_receive(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     // ...
 }

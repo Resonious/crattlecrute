@@ -7,7 +7,6 @@
 #include "cache.h"
 #include "script.h"
 #include "item.h"
-#include "mob.h"
 
 struct Game;
 struct Controls;
@@ -127,11 +126,6 @@ typedef struct GameCharacter {
     // TODO I'm hoping adding to this will make sense in the future :(
     Character guy;
 } GameCharacter;
-
-typedef struct MobGardenCrattle {
-    MOB_FIELDS;
-    Character guy;
-} MobGardenCrattle;
 
 #define CHARACTER_SPRITE_WIDTH 90
 #define CHARACTER_SPRITE_HEIGHT 90
