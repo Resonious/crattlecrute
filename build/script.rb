@@ -181,6 +181,14 @@ def peak_bench_over(time)
   end
 end
 
+def test_egg
+  e = Egg.new
+  e.body_color = Color.new(30, 60, 30)
+  e.age = 0
+  e.hatching_age = 2.seconds
+  e
+end
+
 def update(game)
   @control_presses.delete_if do |c|
     begin

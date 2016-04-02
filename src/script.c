@@ -624,7 +624,13 @@ mrb_value mrb_item_init(mrb_state* mrb, mrb_value self) {
     item->slot = slot;
 
     if (item->slot > item->inventory->capacity) {
-        mrb_raise(mrb, mrb_class_get(mrb, "ArgumentError"), "Item slot %i is greater than inventory capacity %i", item->slot, item->inventory->capacity);
+        mrb_raisef(
+            mrb,
+            E_ARGUMENT_ERROR,
+            "Item slot %S is greater than inventory capacity %S",
+            mrb_fixnum_value(item->slot),
+            mrb_fixnum_value(item->inventory->capacity)
+        );
         return mrb_nil_value();
     }
     else if (item->slot < 0) {

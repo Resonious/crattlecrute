@@ -19,7 +19,9 @@ mrb_value mrb_instance_alloc(mrb_state *mrb, struct RClass* c);
 
 vec2 mrb_vec2(mrb_state* mrb, mrb_value value);
 
-static void mrb_dont_free(mrb_state* mrb, void* p) { }
+static void mrb_dont_free(mrb_state* mrb, void* p) {
+    printf("oooooooooo boi");
+}
 
 static const struct mrb_data_type mrb_free_type = { "MrbFree", mrb_free };
 static const struct mrb_data_type mrb_dont_free_type = { "DontFree", mrb_dont_free };

@@ -314,7 +314,7 @@ void write_character_to_data(Character* guy, struct DataChunk* chunk, bool attri
     WRITE_UNLESS_ATTRS_ONLY(&guy->flip, sizeof(SDL_RendererFlip));
 }
 
-void read_character_from_data(Character* guy, struct DataChunk* chunk) {
+int read_character_from_data(Character* guy, struct DataChunk* chunk) {
     int pos = 0;
 
     read_from_buffer(chunk->bytes, &guy->ground_speed_max, &pos, sizeof(float));
@@ -347,6 +347,8 @@ void read_character_from_data(Character* guy, struct DataChunk* chunk) {
 
     read_from_buffer(chunk->bytes, &guy->animation_state, &pos, sizeof(enum CharacterAnimation));
     read_from_buffer(chunk->bytes, &guy->flip, &pos, sizeof(SDL_RendererFlip));
+
+    return pos;
 }
 
 // ======= RENDERING =========
@@ -683,8 +685,11 @@ void default_character(struct Game* game, Character* target) {
     // Script stuff:
 
 #define RUBY_MEMBER(attr, type) \
+    if (!mrb_nil_p(target->r##attr)) \
+        mrb_gc_unregister(game->mrb, target->r##attr); \
     target->r##attr = mrb_instance_alloc(game->mrb, game->ruby.type##_class); \
-    mrb_data_init(target->r##attr, &target->attr, &mrb_dont_free_type);
+    mrb_data_init(target->r##attr, &target->attr, &mrb_dont_free_type); \
+    mrb_gc_register(game->mrb, target->r##attr); \
 
     RUBY_MEMBER(body_color,       color);
     RUBY_MEMBER(eye_color,        color);

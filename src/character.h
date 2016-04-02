@@ -184,7 +184,7 @@ void update_character_animation(Character* guy);
 void randomize_character(Character* guy);
 
 void write_character_to_data(Character* guy, struct DataChunk* chunk, bool attributes_only);
-void read_character_from_data(Character* guy, struct DataChunk* chunk);
+int read_character_from_data(Character* guy, struct DataChunk* chunk);
 
 // data will be passed to any of the provided callbacks when called.
 void interact_character_with_world(

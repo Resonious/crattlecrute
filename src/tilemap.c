@@ -1311,7 +1311,7 @@ void clear_map_state(Map* map) {
 \
         if (mob->mob_type_id != -1) {\
             mob->index = i;\
-            mob_registry[mob->mob_type_id].mob_op(mob, map, map->game, buffer, pos);\
+            mob_registry[mob->mob_type_id].mob_op(mob, map->game, map, buffer, pos);\
         }\
     }
 

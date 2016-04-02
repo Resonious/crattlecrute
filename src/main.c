@@ -457,7 +457,7 @@ no_renderer:
             else {
                 struct RProc *proc = mrb_generate_code(game->mrb, parser);
                 if (proc == NULL)
-                    printf("ruby parser fucked up.\n");
+                    printf("mruby parser fucked up.\n");
                 else {
                     mrb_value result = mrb_toplevel_run_keep(game->mrb, proc, game->ruby.io_locals);
                     game->ruby.io_locals = proc->body.irep->nlocals;
@@ -469,6 +469,7 @@ no_renderer:
                     else {
                         ruby_p(game->mrb, result, 0);
                     }
+                    mrb_gc_unregister(game->mrb, result);
                 }
             }
             mrb_parser_free(parser);

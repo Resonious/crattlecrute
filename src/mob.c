@@ -247,8 +247,38 @@ void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos
     egg->e.hatching_age = 15 MINUTES;
     default_egg(&egg->e);
 }
+struct SpawnBabyData {
+    Game* game;
+    int index;
+    MobEgg* egg;
+};
 void spawned_new_baby(void* data, void* mob) {
-    // TODO
+    MobGardenCrattle* crattle = (MobGardenCrattle*)mob;
+    struct SpawnBabyData* spawn = (struct SpawnBabyData*)data;
+
+    if (crattle)
+        crattle->character_index = spawn->index;
+
+    Character* guy = &spawn->game->characters[spawn->index];
+
+    default_character(spawn->game, guy);
+    default_character_animations(spawn->game, guy);
+    randomize_character(guy);
+
+    guy->body_color = spawn->egg->e.body_color;
+    guy->left_foot_color = spawn->egg->e.left_foot_color;
+    guy->right_foot_color = spawn->egg->e.right_foot_color;
+    guy->eye_color = spawn->egg->e.eye_color;
+
+    load_character_atlases(spawn->game, guy);
+
+    vec4 offset;
+    offset.x[0] = 0; offset.x[1] = 50;
+    offset.x[2] = 0; offset.x[3] = 0;
+    guy->position.simd = _mm_add_ps(spawn->egg->body.position.simd, offset.simd);
+    guy->old_position.simd = _mm_add_ps(spawn->egg->body.old_position.simd, offset.simd);
+
+    SDL_strlcpy(guy->name, spawn->game->new_character_name_buffer, CHARACTER_NAME_LENGTH);
 }
 void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
     MobEgg* egg = (MobEgg*)vegg;
@@ -271,7 +301,7 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
                 start_editing_text(game, game->new_character_name_buffer, CHARACTER_NAME_LENGTH, NULL);
             }
         }
-        else if (game->text_edit.text == game->new_character_name_buffer) {
+        else if (egg->e.age == egg->e.hatching_age && game->text_edit.text == game->new_character_name_buffer) {
             if (game->text_edit.enter_pressed || game->text_edit.canceled) {
                 stop_editing_text(game);
 
@@ -281,35 +311,24 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
                     game->data.character = 0;
                 game->data.character_count += 1;
 
-                Character* guy = &game->characters[0].guy;
+                Character* guy = &game->characters[character_index].guy;
                 SDL_memset(guy, 0, sizeof(Character));
 
-                default_character(game, guy);
-                default_character_animations(game, guy);
-
-                guy->body_color = egg->e.body_color;
-                guy->left_foot_color = egg->e.left_foot_color;
-                guy->right_foot_color = egg->e.right_foot_color;
-                guy->eye_color = egg->e.eye_color;
-
-                vec4 offset;
-                offset.x[0] = 0; offset.x[1] = 50;
-                offset.x[2] = 0; offset.x[3] = 0;
-                guy->position.simd = _mm_add_ps(egg->body.position.simd, offset.simd);
-                guy->old_position.simd = _mm_add_ps(egg->body.old_position.simd, offset.simd);
-
-                SDL_strlcpy(guy->name, game->new_character_name_buffer, CHARACTER_NAME_LENGTH);
-
                 vec2 pos;
-                pos.x = guy->position.x[0];
-                pos.y = guy->position.x[1];
+                pos.x = egg->body.position.x[0];
+                pos.y = egg->body.position.x[1];
 
-                if (character_index > 0) {
-                    // TODO ...                                       ......................................v
-                    game->net.spawn_mob(game->current_scene_data, map, game, MOB_GARDEN_CRATTLECRUTE, pos, NULL, spawned_new_baby);
-                }
+                struct SpawnBabyData spawn;
+                spawn.game = game;
+                spawn.index = character_index;
+                spawn.egg = egg;
 
-                printf("k thanks\n");
+                if (character_index > 0)
+                    game->net.spawn_mob(game->current_scene_data, map, game, MOB_GARDEN_CRATTLECRUTE, pos, &spawn, spawned_new_baby);
+                else
+                    spawned_new_baby(&spawn, NULL);
+
+                egg->e.age += 1;
             }
         }
     }
@@ -395,7 +414,6 @@ void mob_mgc_initialize(void* vmgc, struct Game* game, struct Map* map, vec2 pos
 
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
     mob->character_index = -1;
-    mob->pending_pos = pos;
 }
 void mob_mgc_update(void* vmgc, struct Game* game, struct Map* map) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
@@ -403,10 +421,12 @@ void mob_mgc_update(void* vmgc, struct Game* game, struct Map* map) {
         return;
 
     Character* guy = &game->characters[mob->character_index];
-    apply_character_physics(game, guy, &game->controls, 1.15f, 0.025f);
+    apply_character_physics(game, guy, NULL, 1.15f, 0.025f);
     collide_character(guy, &map->tile_collision);
     slide_character(1.15f, guy);
     update_character_animation(guy);
+
+    character_post_update(guy);
 }
 void mob_mgc_interact(void* vmgc, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls) {
     // ...
@@ -415,17 +435,23 @@ void mob_mgc_render(void* vmgc, struct Game* game, struct Map* map) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
     if (mob->character_index < 0)
         return;
-    // draw_character(game, &mob->guy, mob->guy.view);
+
+    Character* guy = &game->characters[mob->character_index];
+    draw_character(game, guy, guy->view);
 }
 void mob_mgc_save(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
     write_to_buffer(buffer, &mob->character_index, pos, sizeof(int));
+
     if (mob->character_index >= 0) {
         Character* guy = &game->characters[mob->character_index];
         DataChunk chunk;
         chunk.bytes = NULL;
         chunk.size  = 0;
+        chunk.capacity = 0;
+
         write_character_to_data(guy, &chunk, false);
+
         memcpy(buffer, chunk.bytes, chunk.size);
         *pos += chunk.size;
         free(chunk.bytes);
@@ -434,15 +460,27 @@ void mob_mgc_save(void* vmgc, struct Game* game, struct Map* map, byte* buffer, 
 void mob_mgc_load(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
     read_from_buffer(buffer, &mob->character_index, pos, sizeof(int));
+
     if (mob->character_index >= 0) {
         Character* guy = &game->characters[mob->character_index];
         default_character(game, guy);
         default_character_animations(game, guy);
         DataChunk chunk;
-        chunk.bytes = buffer + *pos;
+        chunk.bytes = malloc(2048);
         // Pretty sure this ignores the size of the chunk
-        read_character_from_data(guy, &chunk);
+        int bytes_read = read_character_from_data(guy, &chunk);
+
+        if (game->net_joining) {
+            memcpy(chunk.bytes, buffer, bytes_read);
+            load_character_atlases(game, guy);
+        }
+        else {
+            read_character_from_data(guy, &game->data.characters[mob->character_index]);
+            *pos += bytes_read;
+        }
         load_character_atlases(game, guy);
+
+        free(chunk.bytes);
     }
 }
 bool mob_mgc_sync_send(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {

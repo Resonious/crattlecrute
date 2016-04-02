@@ -2154,6 +2154,7 @@ void scene_world_initialize(void* vdata, Game* game) {
     SDL_assert(!game->mrb->exc);
     data->script_obj = mrb_obj_new(game->mrb, game->ruby.world_class, 0, NULL);
     mrb_data_init(data->script_obj, data, &mrb_world_type);
+    mrb_gc_register(game->mrb, data->script_obj);
     mrb_iv_set(game->mrb, game->ruby.game, game->ruby.sym_atworld, data->script_obj);
 
     mrb_iv_check(game->mrb, game->ruby.sym_atgame);
@@ -2784,6 +2785,10 @@ void scene_world_cleanup(void* vdata, Game* game) {
     WorldScene* data = (WorldScene*)vdata;
     game->audio.oneshot_waves[0] = NULL;
     game->audio.looped_waves[0] = NULL;
+    if (!mrb_nil_p(data->script_obj))
+        mrb_gc_unregister(game->mrb, data->script_obj);
+    if (!mrb_nil_p(data->rguy))
+        mrb_gc_unregister(game->mrb, data->rguy);
 
     closesocket(data->net.local_socket);
 }
@@ -2818,6 +2823,7 @@ mrb_value mrb_world_local_character(mrb_state* mrb, mrb_value self) {
     if (mrb_nil_p(scene->rguy) && scene->guy != NULL) {
         scene->rguy = mrb_instance_alloc(mrb, scene->game->ruby.character_class);
         mrb_data_init(scene->rguy, scene->guy, &mrb_character_type);
+        mrb_gc_register(mrb, scene->rguy);
     }
     return scene->rguy;
 }
