@@ -160,8 +160,8 @@ static MobType mob_registry[] = {
         mob_egg_render,
         mob_egg_save,
         mob_egg_load,
-        NULL, // mob_egg_sync_send,
-        NULL, // mob_egg_sync_receive,
+        mob_egg_sync_send,
+        mob_egg_sync_receive,
     },
     {
         MOB_GARDEN_CRATTLECRUTE,

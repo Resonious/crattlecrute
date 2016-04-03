@@ -2549,22 +2549,24 @@ done_with_physics:;
         }
     }
     else {
-        if (game->text_edit.canceled) {
-            s->net.status = NOT_CONNECTED;
-            game->net_joining = false;
-        }
-        if (game->text_edit.enter_pressed) {
-            stop_editing_text(game);
-            switch (s->net.status) {
-            case HOSTING:
-                net_host(s);
-                break;
-            case JOINING: case WANT_TO_JOIN:
-                net_join(s);
-                break;
-            default:
-                SDL_assert(false);
-                break;
+        if (game->text_edit.text == s->net.textinput_ip_address || game->text_edit.text == s->net.textinput_port) {
+            if (game->text_edit.canceled) {
+                s->net.status = NOT_CONNECTED;
+                game->net_joining = false;
+            }
+            if (game->text_edit.enter_pressed) {
+                stop_editing_text(game);
+                switch (s->net.status) {
+                case HOSTING:
+                    net_host(s);
+                    break;
+                case JOINING: case WANT_TO_JOIN:
+                    net_join(s);
+                    break;
+                default:
+                    SDL_assert(false);
+                    break;
+                }
             }
         }
     }

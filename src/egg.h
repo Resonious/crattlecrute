@@ -44,6 +44,7 @@ typedef struct MobEgg {
     SDL_Color decided_color;
     SDL_Color decided_eye_color;
     int decided_eye_type;
+    int net_flags;
 } MobEgg;
 
 typedef struct ItemEgg {

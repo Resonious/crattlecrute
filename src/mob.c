@@ -245,6 +245,8 @@ void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos
     egg->body.grounded = false;
     egg->dy = 0;
     default_egg(&egg->e);
+    egg->decided_color.a = 0;
+    egg->net_flags = 0;
 }
 struct SpawnBabyData {
     Game* game;
@@ -277,6 +279,10 @@ void spawned_new_baby(void* data, void* mob) {
 
     SDL_strlcpy(guy->name, spawn->game->new_character_name_buffer, CHARACTER_NAME_LENGTH);
 }
+
+#define EGGNET_POKING_OUT (1 << 0)
+#define EGGNET_HATCHED (1 << 1)
+
 void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
     MobEgg* egg = (MobEgg*)vegg;
 
@@ -301,6 +307,8 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
 
                 start_editing_text(game, game->new_character_name_buffer, CHARACTER_NAME_LENGTH, NULL);
                 game->pending_egg = egg;
+
+                egg->net_flags |= EGGNET_POKING_OUT;
             }
         }
         else if (egg->e.age == egg->e.hatching_age && game->text_edit.text == game->new_character_name_buffer) {
@@ -332,6 +340,7 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
 
                 game->pending_egg = NULL;
 
+                egg->net_flags |= EGGNET_HATCHED;
                 egg->e.age += 1;
             }
         }
@@ -420,6 +429,38 @@ void mob_egg_load(void* vegg, struct Game* game, struct Map* map, byte* buffer, 
     read_from_buffer(buffer, &egg->decided_color, pos, sizeof(SDL_Color));
     read_from_buffer(buffer, &egg->decided_eye_color, pos, sizeof(SDL_Color));
     read_from_buffer(buffer, &egg->decided_eye_type, pos, sizeof(int));
+}
+
+bool mob_egg_sync_send(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos) {
+    MobEgg* egg = (MobEgg*)mob;
+    if (egg->net_flags == 0)
+        return false;
+
+    write_to_buffer(buffer, &egg->net_flags, pos, sizeof(int));
+
+    if (egg->net_flags & (EGGNET_POKING_OUT | EGGNET_HATCHED)) {
+        write_to_buffer(buffer, &egg->e.age, pos, sizeof(int));
+        write_to_buffer(buffer, &egg->e.hatching_age, pos, sizeof(int));
+        write_to_buffer(buffer, &egg->decided_color, pos, sizeof(SDL_Color));
+        write_to_buffer(buffer, &egg->decided_eye_color, pos, sizeof(SDL_Color));
+        write_to_buffer(buffer, &egg->decided_eye_type, pos, sizeof(int));
+    }
+    egg->net_flags = 0;
+    return true;
+}
+void mob_egg_sync_receive(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos) {
+    MobEgg* egg = (MobEgg*)mob;
+
+    read_from_buffer(buffer, &egg->net_flags, pos, sizeof(int));
+
+    if (egg->net_flags & (EGGNET_POKING_OUT | EGGNET_HATCHED)) {
+        read_from_buffer(buffer, &egg->e.age, pos, sizeof(int));
+        read_from_buffer(buffer, &egg->e.hatching_age, pos, sizeof(int));
+        read_from_buffer(buffer, &egg->decided_color, pos, sizeof(SDL_Color));
+        read_from_buffer(buffer, &egg->decided_eye_color, pos, sizeof(SDL_Color));
+        read_from_buffer(buffer, &egg->decided_eye_type, pos, sizeof(int));
+    }
+    egg->net_flags = 0;
 }
 
 // ============= GARDEN CRATTLECRUTE ================
