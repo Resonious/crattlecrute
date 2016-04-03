@@ -53,7 +53,7 @@ typedef struct LargeMob {
 // Utility that mobs often need:
 void write_body_to_buffer(byte* buffer, GenericBody* body, int* pos);
 void read_body_from_buffer(byte* buffer, GenericBody* body, int* pos);
-void pick_up_item(PhysicsMob* mob, int item_type, struct Game* game, struct Map* map, struct Character* guy, struct Controls* controls);
+void pick_up_item(PhysicsMob* mob, int item_type, struct Game* game, struct Map* map, struct Character* guy, struct Controls* controls, void* data, DataCallback callback);
 
 // ============== ACTUAL MOBS ===============
 // ==========
