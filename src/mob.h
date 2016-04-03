@@ -165,7 +165,7 @@ static MobType mob_registry[] = {
     },
     {
         MOB_GARDEN_CRATTLECRUTE,
-        LARGE,
+        SMALL,
         mob_mgc_initialize,
         mob_mgc_update,
         mob_mgc_interact,

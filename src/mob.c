@@ -264,7 +264,7 @@ void spawned_new_baby(void* data, void* mob) {
     default_character_animations(spawn->game, guy);
     randomize_character(guy);
 
-    initialize_genes(spawn->game, guy, &spawn->egg->decided_color);
+    initialize_genes_with_colors(spawn->game, guy, &spawn->egg->decided_color, &spawn->egg->decided_eye_color, spawn->egg->decided_eye_type);
     /*
     guy->body_color = spawn->egg->e.body_color;
     guy->left_foot_color = spawn->egg->e.left_foot_color;
@@ -298,8 +298,12 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
     if (area_is_garden(map->area_id)) {
         if (game->text_edit.text == NULL) {
             egg->e.age += 1;
+
             if (egg->e.age == egg->e.hatching_age) {
                 genes_decide_body_color(&egg->e.genes, &egg->decided_color);
+                genes_decide_eye_color(&egg->e.genes, &egg->decided_eye_color);
+                genes_decide_eye_type(&egg->e.genes, &egg->decided_eye_type);
+
                 start_editing_text(game, game->new_character_name_buffer, CHARACTER_NAME_LENGTH, NULL);
                 game->pending_egg = egg;
             }
@@ -380,8 +384,7 @@ void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
             world_render_copy(game, atlas->texture, &src, &p, 64, 64, &c);
             SDL_SetTextureColorMod(atlas->texture, r, g, b);
 
-            SDL_Color decided_eye_color = {255, 255, 255, 255};
-            draw_eye(game, atlas, &egg->body, 0, 0, 0, &decided_eye_color);
+            draw_eye(game, atlas, &egg->body, egg->decided_eye_type, 0, 0, &egg->decided_eye_color);
         }
         increment_src_rect(&src, 2, image_width, image_height);
         world_render_copy(game, atlas->texture, &src, &p, 64, 64, &c);
@@ -408,6 +411,8 @@ void mob_egg_save(void* vegg, struct Game* game, struct Map* map, byte* buffer, 
     write_to_buffer(buffer, &egg->e.hatching_age, pos, sizeof(int));
     write_to_buffer(buffer, &egg->e.genes, pos, sizeof(Genes));
     write_to_buffer(buffer, &egg->decided_color, pos, sizeof(SDL_Color));
+    write_to_buffer(buffer, &egg->decided_eye_color, pos, sizeof(SDL_Color));
+    write_to_buffer(buffer, &egg->decided_eye_type, pos, sizeof(int));
 }
 void mob_egg_load(void* vegg, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobEgg* egg = (MobEgg*)vegg;
@@ -418,6 +423,8 @@ void mob_egg_load(void* vegg, struct Game* game, struct Map* map, byte* buffer, 
     read_from_buffer(buffer, &egg->e.hatching_age, pos, sizeof(int));
     read_from_buffer(buffer, &egg->e.genes, pos, sizeof(Genes));
     read_from_buffer(buffer, &egg->decided_color, pos, sizeof(SDL_Color));
+    read_from_buffer(buffer, &egg->decided_eye_color, pos, sizeof(SDL_Color));
+    read_from_buffer(buffer, &egg->decided_eye_type, pos, sizeof(int));
 }
 
 // ============= GARDEN CRATTLECRUTE ================
