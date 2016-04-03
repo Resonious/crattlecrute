@@ -65,6 +65,7 @@ typedef struct GameData {
 
 struct Scene;
 struct GameCharacter;
+struct MobEgg;
 
 #ifdef _DEBUG
 struct mrbc_context;
@@ -120,6 +121,7 @@ typedef struct Game {
         SpawnMobFunc spawn_mob;
         DespawnMobFunc despawn_mob;
     } net;
+    struct MobEgg* pending_egg;
     char new_character_name_buffer[CHARACTER_NAME_LENGTH];
     struct GameCharacter* characters;
     struct GameData data;

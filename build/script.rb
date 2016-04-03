@@ -182,6 +182,7 @@ def peak_bench_over(time)
 end
 
 def test_egg
+  raise "THIS IS NONSENSE"
   e = Egg.new
   e.body_color = Color.new(30, 60, 30)
   e.age = 0

@@ -244,8 +244,6 @@ void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos
     egg->body.old_position.simd = egg->body.position.simd;
     egg->body.grounded = false;
     egg->dy = 0;
-    egg->e.age = 0;
-    egg->e.hatching_age = 15 MINUTES;
     default_egg(&egg->e);
 }
 struct SpawnBabyData {
@@ -266,10 +264,13 @@ void spawned_new_baby(void* data, void* mob) {
     default_character_animations(spawn->game, guy);
     randomize_character(guy);
 
+    initialize_genes(spawn->game, guy, &spawn->egg->decided_color);
+    /*
     guy->body_color = spawn->egg->e.body_color;
     guy->left_foot_color = spawn->egg->e.left_foot_color;
     guy->right_foot_color = spawn->egg->e.right_foot_color;
     guy->eye_color = spawn->egg->e.eye_color;
+    */
 
     load_character_atlases(spawn->game, guy);
 
@@ -298,8 +299,9 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
         if (game->text_edit.text == NULL) {
             egg->e.age += 1;
             if (egg->e.age == egg->e.hatching_age) {
-                printf("I HATCHED!!!!!!!!!!!!!!!!!!!!!!\n");
+                genes_decide_body_color(&egg->e.genes, &egg->decided_color);
                 start_editing_text(game, game->new_character_name_buffer, CHARACTER_NAME_LENGTH, NULL);
+                game->pending_egg = egg;
             }
         }
         else if (egg->e.age == egg->e.hatching_age && game->text_edit.text == game->new_character_name_buffer) {
@@ -328,6 +330,8 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
                     game->net.spawn_mob(game->current_scene_data, map, game, MOB_GARDEN_CRATTLECRUTE, pos, &spawn, spawned_new_baby);
                 else
                     spawned_new_baby(&spawn, NULL);
+
+                game->pending_egg = NULL;
 
                 egg->e.age += 1;
             }
@@ -370,7 +374,7 @@ void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
         if (egg->e.age == egg->e.hatching_age) {
             Uint8 r, g, b;
             SDL_GetTextureColorMod(tex, &r, &g, &b);
-            SDL_SetTextureColorMod(tex, egg->e.body_color.r, egg->e.body_color.g, egg->e.body_color.b);
+            SDL_SetTextureColorMod(tex, egg->decided_color.r, egg->decided_color.g, egg->decided_color.b);
             world_render_copy(game, tex, &src, &p, 64, 64, &c);
             SDL_SetTextureColorMod(tex, r, g, b);
             // TODO draw eyes FUCK
@@ -398,6 +402,8 @@ void mob_egg_save(void* vegg, struct Game* game, struct Map* map, byte* buffer, 
     write_to_buffer(buffer, &egg->dy, pos, sizeof(float));
     write_to_buffer(buffer, &egg->e.age, pos, sizeof(int));
     write_to_buffer(buffer, &egg->e.hatching_age, pos, sizeof(int));
+    write_to_buffer(buffer, &egg->e.genes, pos, sizeof(Genes));
+    write_to_buffer(buffer, &egg->decided_color, pos, sizeof(SDL_Color));
 }
 void mob_egg_load(void* vegg, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobEgg* egg = (MobEgg*)vegg;
@@ -406,6 +412,8 @@ void mob_egg_load(void* vegg, struct Game* game, struct Map* map, byte* buffer, 
     read_from_buffer(buffer, &egg->dy, pos, sizeof(float));
     read_from_buffer(buffer, &egg->e.age, pos, sizeof(int));
     read_from_buffer(buffer, &egg->e.hatching_age, pos, sizeof(int));
+    read_from_buffer(buffer, &egg->e.genes, pos, sizeof(Genes));
+    read_from_buffer(buffer, &egg->decided_color, pos, sizeof(SDL_Color));
 }
 
 // ============= GARDEN CRATTLECRUTE ================
@@ -422,6 +430,7 @@ void mob_mgc_update(void* vmgc, struct Game* game, struct Map* map) {
         return;
 
     Character* guy = &game->characters[mob->character_index];
+    update_genes(game, guy);
     apply_character_physics(game, guy, NULL, 1.15f, 0.025f);
     collide_character(guy, &map->tile_collision);
     slide_character(1.15f, guy);

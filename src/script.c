@@ -418,10 +418,12 @@ mrb_value mrb_character_feet_type_eq(mrb_state* mrb, mrb_value self) {
 
 EGG_ATTR(age);
 EGG_ATTR(hatching_age);
+/*
 EGG_COLOR_ATTR(body_color);
 EGG_COLOR_ATTR(left_foot_color);
 EGG_COLOR_ATTR(right_foot_color);
 EGG_COLOR_ATTR(eye_color);
+*/
 
 #define FLOAT_CHARACTER_ATTR(name)\
     mrb_value mrb_character_##name(mrb_state* mrb, mrb_value self) { \
@@ -553,6 +555,19 @@ mrb_value mrb_inventory_access_eq(mrb_state* mrb, mrb_value self) {
         );
     }
     return self;
+}
+
+mrb_value mrb_character_print_stats(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    printf("==== %s's stats: ====\n", guy->name);
+    printf("Frames walked       :: %i\n", guy->stats.frames_walked);
+    printf("Frames ran          :: %i\n", guy->stats.frames_ran);
+    printf("Times jumped        :: %i\n", guy->stats.times_jumped);
+    printf("Times jump-canceled :: %i\n", guy->stats.times_jump_canceled);
+    printf("Frames on ground    :: %i\n", guy->stats.frames_on_ground);
+    printf("Frames in air       :: %i\n", guy->stats.frames_in_air);
+    printf("=====================\n");
+    return mrb_nil_value();
 }
 
 mrb_value mrb_character_position(mrb_state* mrb, mrb_value self) {
@@ -803,6 +818,7 @@ void script_init(struct Game* game) {
 
     mrb_define_method(game->mrb, game->ruby.character_class, "name", mrb_character_name, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "position", mrb_character_position, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "print_stats", mrb_character_print_stats, MRB_ARGS_NONE());
 
     mrb_define_method(game->mrb, game->ruby.character_class, "body_type", mrb_character_body_type, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.character_class, "feet_type", mrb_character_feet_type, MRB_ARGS_NONE());
@@ -868,10 +884,12 @@ void script_init(struct Game* game) {
 
     DECL_EGG_FIELD(age);
     DECL_EGG_FIELD(hatching_age);
+    /*
     DECL_EGG_FIELD(body_color);
     DECL_EGG_FIELD(left_foot_color);
     DECL_EGG_FIELD(right_foot_color);
     DECL_EGG_FIELD(eye_color);
+    */
 
     // =============================== STATICALLY GENERATED STUFF ============================
     define_mrb_enum_constants(game);

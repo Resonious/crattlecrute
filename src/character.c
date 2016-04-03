@@ -151,9 +151,12 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
             if (running && guy->grounded)
                 guy->run_speed += CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
         }
+
         // JUMP
-        if (guy->just_jumped)
+        if (guy->just_jumped) {
             guy->just_jumped = false;
+            guy->stats.times_jumped += 1;
+        }
         if (guy->grounded) {
             if (guy->jumped)
                 guy->jumped = false;
@@ -166,11 +169,12 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
         }
         else if (just_released(controls, C_JUMP) && guy->jumped) {
             float cancel_point = guy->jump_cancel_dy * CHARA_JUMP_CANCEL_DY;
-            if (guy->dy > cancel_point)
+            if (guy->dy > cancel_point) {
                 guy->dy = cancel_point;
+                guy->stats.times_jump_canceled += 1;
+            }
             guy->jumped = false;
         }
-
 
         // TODO having ground_deceleration > ground_acceleration will have a weird effect here.
         if (!controls->this_frame[C_LEFT] && !controls->this_frame[C_RIGHT]) {
@@ -188,6 +192,20 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
                 guy->animation_state = GUY_WALKING;
         else
             guy->animation_state = GUY_IDLE;
+
+        // Stats for running/walking/in-air
+        if (guy->grounded) {
+            guy->stats.frames_on_ground += 1;
+            if (controls->this_frame[C_LEFT] || controls->this_frame[C_RIGHT]) {
+                if (running)
+                    guy->stats.frames_ran += 1;
+                else
+                    guy->stats.frames_walked += 1;
+            }
+        }
+        else {
+            guy->stats.frames_in_air += 1;
+        }
     }
 
     // Cap speeds
@@ -281,6 +299,10 @@ void write_character_to_data(Character* guy, struct DataChunk* chunk, bool attri
 
 #define WRITE_UNLESS_ATTRS_ONLY(field, bsize) (attributes_only ? chunk->size += (bsize) : write_to_buffer(chunk->bytes, (field), &chunk->size, (bsize)))
 
+    const int name_length = CHARACTER_NAME_LENGTH;
+    write_to_buffer(chunk->bytes, &name_length, &chunk->size, sizeof(int));
+    write_to_buffer(chunk->bytes, guy->name, &chunk->size, name_length);
+
     write_to_buffer(chunk->bytes, &guy->ground_speed_max, &chunk->size, sizeof(float));
     write_to_buffer(chunk->bytes, &guy->run_speed_max, &chunk->size, sizeof(float));
     write_to_buffer(chunk->bytes, &guy->ground_acceleration, &chunk->size, sizeof(float));
@@ -316,6 +338,18 @@ void write_character_to_data(Character* guy, struct DataChunk* chunk, bool attri
 
 int read_character_from_data(Character* guy, struct DataChunk* chunk) {
     int pos = 0;
+
+    int name_length;
+    read_from_buffer(chunk->bytes, &name_length, &pos, sizeof(int));
+    if (name_length > CHARACTER_NAME_LENGTH) {
+        read_from_buffer(chunk->bytes, guy->name, &pos, CHARACTER_NAME_LENGTH);
+        guy->name[CHARACTER_NAME_LENGTH - 1] = '\0';
+        pos += name_length - CHARACTER_NAME_LENGTH;
+        printf("TRUNCATED CHARACTER NAME! Sorry, %s\n", guy->name);
+    }
+    else {
+        read_from_buffer(chunk->bytes, guy->name, &pos, name_length);
+    }
 
     read_from_buffer(chunk->bytes, &guy->ground_speed_max, &pos, sizeof(float));
     read_from_buffer(chunk->bytes, &guy->run_speed_max, &pos, sizeof(float));
@@ -633,6 +667,9 @@ void default_character(struct Game* game, Character* target) {
     target->ground_deceleration = 1.0f;
     target->jump_acceleration = 1.0f;
     target->jump_cancel_dy = 1.0f;
+
+    // "Stats" (not bar-stats or whatever)
+    SDL_memset(&target->stats, 0, sizeof(target->stats));
 
     target->ground_angle = 0.0f;
     target->slide_speed = 0.0f;

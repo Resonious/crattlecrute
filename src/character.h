@@ -7,6 +7,7 @@
 #include "cache.h"
 #include "script.h"
 #include "item.h"
+#include "egg.h"
 
 struct Game;
 struct Controls;
@@ -72,6 +73,7 @@ typedef struct Character {
     // This is additional speed, ontop of ground speed, from running
     float run_speed;
 
+    Genes genes;
     // === attributes ===
     char name[CHARACTER_NAME_LENGTH];
     float ground_speed_max;
@@ -80,6 +82,16 @@ typedef struct Character {
     float ground_deceleration;
     float jump_acceleration;
     float jump_cancel_dy;
+
+    // === statistics ===
+    struct {
+        unsigned int frames_walked;
+        unsigned int frames_ran;
+        unsigned int times_jumped;
+        unsigned int times_jump_canceled;
+        unsigned int frames_on_ground;
+        unsigned int frames_in_air;
+    } stats;
 
     float slide_speed;
     bool jumped;

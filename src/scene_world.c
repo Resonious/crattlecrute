@@ -138,7 +138,6 @@ typedef struct WorldScene {
     // TODO TODO MOVE GRAVITY AND DRAG TO MAPS
     float gravity;
     float drag;
-    MobEgg* pending_egg;
     Character* guy;
 
     // inventory interface stuff
@@ -657,6 +656,7 @@ RemotePlayer* player_of_id(WorldScene* scene, int id, struct sockaddr_in* addr) 
 }
 
 void read_guy_info_from_buffer(byte* buffer, Character* guy, int* area_id, int* pos) {
+    read_from_buffer(buffer, guy->name, pos, CHARACTER_NAME_LENGTH);
     read_from_buffer(buffer, guy->position.x, pos,  sizeof(guy->position.x));
     read_from_buffer(buffer, guy->old_position.x,  pos, sizeof(guy->old_position.x));
     read_from_buffer(buffer, &guy->flip,       pos, sizeof(guy->flip));
@@ -665,6 +665,7 @@ void read_guy_info_from_buffer(byte* buffer, Character* guy, int* area_id, int* 
     read_from_buffer(buffer, &guy->eye_color,  pos, sizeof(SDL_Color));
     read_from_buffer(buffer, &guy->body_type,  pos, sizeof(guy->body_type));
     read_from_buffer(buffer, &guy->feet_type,  pos, sizeof(guy->feet_type));
+    read_from_buffer(buffer, &guy->genes,      pos, sizeof(guy->genes));
     read_from_buffer(buffer, &guy->ground_speed_max,    pos, sizeof(guy->ground_speed_max));
     read_from_buffer(buffer, &guy->run_speed_max,       pos, sizeof(guy->run_speed_max));
     read_from_buffer(buffer, &guy->ground_acceleration, pos, sizeof(guy->ground_acceleration));
@@ -677,6 +678,7 @@ void read_guy_info_from_buffer(byte* buffer, Character* guy, int* area_id, int* 
 }
 
 void write_guy_info_to_buffer(byte* buffer, Character* guy, int area_id, int* pos) {
+    write_to_buffer(buffer, guy->name, pos, CHARACTER_NAME_LENGTH);
     write_to_buffer(buffer, guy->position.x,  pos, sizeof(guy->position.x));
     write_to_buffer(buffer, guy->old_position.x,  pos, sizeof(guy->old_position.x));
     write_to_buffer(buffer, &guy->flip,       pos, sizeof(guy->flip));
@@ -685,6 +687,7 @@ void write_guy_info_to_buffer(byte* buffer, Character* guy, int area_id, int* po
     write_to_buffer(buffer, &guy->eye_color,  pos, sizeof(guy->eye_color));
     write_to_buffer(buffer, &guy->body_type,  pos, sizeof(guy->body_type));
     write_to_buffer(buffer, &guy->feet_type,  pos, sizeof(guy->feet_type));
+    write_to_buffer(buffer, &guy->genes,      pos, sizeof(guy->genes));
     write_to_buffer(buffer, &guy->ground_speed_max,    pos, sizeof(guy->ground_speed_max));
     write_to_buffer(buffer, &guy->run_speed_max,       pos, sizeof(guy->run_speed_max));
     write_to_buffer(buffer, &guy->ground_acceleration, pos, sizeof(guy->ground_acceleration));
@@ -2107,8 +2110,10 @@ void scene_world_initialize(void* vdata, Game* game) {
     else {
         data->guy = NULL;
         MobEgg* egg = spawn_mob(data->map, game, MOB_EGG, (vec2) { 3862.0f, 985.0f });
-        egg->e.hatching_age = 5 SECONDS;
-        data->pending_egg = egg;
+        egg->e.hatching_age = 2 SECONDS;
+        // egg->e.genes.specifiers |= GSPEC_DARKER_COLOR;
+        // egg->e.genes.flags |= GFLAG_INTENSE;
+        game->pending_egg = egg;
         set_camera_target(game, data->map, &egg->body);
 
         /*
@@ -2291,6 +2296,7 @@ void scene_world_update(void* vs, Game* game) {
                 int area_id = SDL_AtomicGet(&plr->area_id);
                 Map* map = cached_area(game, area_id);
 
+                update_genes(game, &plr->guy);
                 apply_character_inventory(&plr->guy, &plr->controls, game, map);
                 apply_character_physics(game, &plr->guy, &plr->controls, s->gravity, s->drag);
                 collide_character(&plr->guy, &map->tile_collision);
@@ -2412,6 +2418,7 @@ void scene_world_update(void* vs, Game* game) {
                 s->inv_fade = 0;
         }
 
+        update_genes(game, s->guy);
         apply_character_physics(game, s->guy, &game->controls, s->gravity, s->drag);
         collide_character(s->guy, &s->map->tile_collision);
         slide_character(s->gravity, s->guy);
@@ -2447,10 +2454,10 @@ done_with_physics:;
     }
 
     // Follow local player with camera
-    if (s->guy)
+    if (game->pending_egg)
+      set_camera_target(game, s->map, &game->pending_egg->body);
+    else if (s->guy)
       set_camera_target(game, s->map, (GenericBody*)s->guy);
-    else
-      set_camera_target(game, s->map, &s->pending_egg->body);
     // move cam position towards cam target
     game->camera.simd = _mm_add_ps(game->camera.simd, _mm_mul_ps(_mm_sub_ps(game->camera_target.simd, game->camera.simd), _mm_set_ps(0, 0, 0.1f, 0.1f)));
 
