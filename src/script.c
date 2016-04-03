@@ -591,7 +591,7 @@ mrb_value mrb_egg_into_item(mrb_state* mrb, mrb_value self) {
     mrb_get_args(mrb, "o", &ritem);
 
     if (mrb_obj_class(mrb, ritem) != game->ruby.item_class) {
-        mrb_raise(mrb, mrb_class_get(mrb, "ArgumentError"), "Expected Item, got %s", mrb_obj_classname(mrb, ritem));
+        mrb_raisef(mrb, mrb_class_get(mrb, "ArgumentError"), "Expected Item, got %S", mrb_str_new_cstr(mrb, mrb_obj_classname(mrb, ritem)));
         return mrb_nil_value();
     }
     struct MrbItem* item = DATA_PTR(ritem);
@@ -620,7 +620,7 @@ mrb_value mrb_item_init(mrb_state* mrb, mrb_value self) {
     mrb_get_args(mrb, "oi", &inv, &slot);
 
     if (mrb_obj_class(mrb, inv) != game->ruby.inventory_class) {
-        mrb_raise(mrb, mrb_class_get(mrb, "ArgumentError"), "Expected Inventory, got %s", mrb_obj_classname(mrb, inv));
+        mrb_raisef(mrb, mrb_class_get(mrb, "ArgumentError"), "Expected Inventory, got %S", mrb_str_new_cstr(mrb, mrb_obj_classname(mrb, inv)));
         return mrb_nil_value();
     }
 
