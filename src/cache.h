@@ -50,7 +50,7 @@ SDL_Texture* cached_texture(struct Game* game, int asset);
 AudioWave* cached_sound(struct Game* game, int asset);
 // struct Map* cached_map(struct Game* game, int asset);
 struct Map* cached_area(struct Game* game, int area_id);
-AnimationAtlas* cached_atlas(struct Game* game, int asset, int sprite_width, int sprite_height, int eye_offset_layer);
+AnimationAtlas* cached_atlas(struct Game* game, int asset, int sprite_width, int sprite_height, int layer_count, int eye_offset_layer);
 
 void cached_texture_dimensions(struct Game* game, int asset, /*out*/TextureDimensions* dims);
 

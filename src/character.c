@@ -387,6 +387,44 @@ int read_character_from_data(Character* guy, struct DataChunk* chunk) {
 
 // ======= RENDERING =========
 
+void draw_eye(struct Game* game, AnimationAtlas* atlas, struct GenericBody* body, int eye_type, int animation_frame, SDL_RendererFlip flip, SDL_Color* color) {
+    SDL_Texture* eye_texture = cached_texture(game, EYE_TYPE_ASSETS[eye_type]);
+    SDL_Rect src = { 0, 0, EYE_SPRITE_WIDTH, EYE_SPRITE_HEIGHT };
+
+    PeripheralOffset* offset = &atlas->eye_offsets[animation_frame];
+
+    float eye_angle = (flip == SDL_FLIP_HORIZONTAL ? 180.0f - offset->angle : offset->angle) - 90.0f;
+
+    vec2 eye_offset = {
+        (flip == SDL_FLIP_HORIZONTAL ? -offset->x : offset->x),
+        offset->y
+    };
+    vec2 eye_pivot = { 1, 1 };
+
+    // THIS is in RADIANS
+    float eye_pos_angle = (body->ground_angle * (float)M_PI / 180.0f) + atan2f(eye_offset.y, eye_offset.x);
+    float eye_pos_magnitude = v2_magnitude(&eye_offset);
+    vec2 actual_eye_offset = {
+        eye_pos_magnitude * cosf(eye_pos_angle),
+        eye_pos_magnitude * sinf(eye_pos_angle)
+    };
+
+    // mat22 offset_rotation = rotation_mat22(guy->ground_angle);
+    // eye_offset = mat_mul_22(&offset_rotation, &eye_offset);
+    actual_eye_offset.x += body->position.x[X];
+    actual_eye_offset.y += body->position.x[Y];
+
+    SDL_SetTextureColorMod(eye_texture, color->r, color->g, color->b);
+    world_render_copy_ex(
+        game,
+        eye_texture, &src,
+        &actual_eye_offset, EYE_SPRITE_WIDTH, EYE_SPRITE_HEIGHT,
+        body->ground_angle + eye_angle,
+        &eye_pivot,
+        flip
+    );
+}
+
 void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) {
     // Play sound effects!
     if (guy->just_jumped) {
@@ -472,45 +510,7 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
     }
 
     // And now the eye.
-    atlas = guy_view->body_animation_textures[guy->animation_state];
-    SDL_Texture* eye_texture = cached_texture(game, EYE_TYPE_ASSETS[guy->eye_type]);
-    src.x = 0; src.y = 0;
-    src.w = EYE_SPRITE_WIDTH;
-    src.h = EYE_SPRITE_HEIGHT;
-
-    PeripheralOffset* offset = &atlas->eye_offsets[guy->animation_frame];
-
-    float eye_angle = (guy->flip == SDL_FLIP_HORIZONTAL ? 180.0f - offset->angle : offset->angle) - 90.0f;
-
-    vec2 eye_offset = {
-        (guy->flip == SDL_FLIP_HORIZONTAL ? -offset->x : offset->x),
-        offset->y
-    };
-    vec2 eye_pivot = { 1, 1 };
-
-    // THIS is in RADIANS
-    float eye_pos_angle = (guy->ground_angle * (float)M_PI / 180.0f) + atan2f(eye_offset.y, eye_offset.x);
-    float eye_pos_magnitude = v2_magnitude(&eye_offset);
-    vec2 actual_eye_offset = {
-        eye_pos_magnitude * cosf(eye_pos_angle),
-        eye_pos_magnitude * sinf(eye_pos_angle)
-    };
-
-    // mat22 offset_rotation = rotation_mat22(guy->ground_angle);
-    // eye_offset = mat_mul_22(&offset_rotation, &eye_offset);
-    actual_eye_offset.x += guy->position.x[X];
-    actual_eye_offset.y += guy->position.x[Y];
-
-    SDL_SetTextureColorMod(eye_texture, guy->eye_color.r, guy->eye_color.g, guy->eye_color.b);
-    world_render_copy_ex(
-        game,
-        eye_texture, &src,
-        &actual_eye_offset, EYE_SPRITE_WIDTH, EYE_SPRITE_HEIGHT,
-        guy->ground_angle + eye_angle,
-        &eye_pivot,
-        guy->flip
-    );
-
+    draw_eye(game, guy_view->body_animation_textures[guy->animation_state], (GenericBody*)guy, guy->eye_type, guy->animation_frame, guy->flip, &guy->eye_color);
 
     // Draw sensors for debug
 #ifdef _DEBUG
@@ -739,8 +739,8 @@ void load_character_atlases(struct Game* game, Character* guy) {
     if (!game->renderer) return;
 
     for (int i = 0; i < GUY_ANIMATION_COUNT; i++) {
-        guy->view->body_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->body_type][i], CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, CHARACTER_EYE_LAYER);
-        guy->view->feet_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->feet_type][i], CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, CHARACTER_EYE_LAYER);
+        guy->view->body_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->body_type][i], CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, CHARACTER_LAYERS, CHARACTER_EYE_LAYER);
+        guy->view->feet_animation_textures[i] = cached_atlas(game, ASSETS_FOR_ANIMATIONS[guy->feet_type][i], CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, CHARACTER_LAYERS, CHARACTER_EYE_LAYER);
     }
 }
 

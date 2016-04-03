@@ -338,7 +338,7 @@ void free_cached_atlas(void* ptr) {
 
 #include "character.h"
 
-AnimationAtlas* cached_atlas(struct Game* game, int asset, int sprite_width, int sprite_height, int eye_offset_layer) {
+AnimationAtlas* cached_atlas(struct Game* game, int asset, int sprite_width, int sprite_height, int layer_count, int eye_offset_layer) {
     CachedAsset* cached_asset = &game->asset_cache.assets[asset];
     if (cached_asset->id != ASSET_NOT_LOADED) {
         SDL_assert(cached_asset->id == asset);
@@ -350,9 +350,9 @@ AnimationAtlas* cached_atlas(struct Game* game, int asset, int sprite_width, int
 
     AnimationAtlas* animation = aligned_malloc(sizeof(AnimationAtlas));
 
-    int number_of_frames = (image->w / sprite_width * image->h / sprite_height) / CHARACTER_LAYERS;
+    int number_of_frames = (image->w / sprite_width * image->h / sprite_height) / layer_count;
 
-    SDL_Rect* rect = aligned_malloc(number_of_frames * CHARACTER_LAYERS * sizeof(SDL_Rect));
+    SDL_Rect* rect = aligned_malloc(number_of_frames * layer_count * sizeof(SDL_Rect));
     PeripheralOffset* eye_offset = aligned_malloc(number_of_frames * sizeof(PeripheralOffset));
 
     animation->width       = image->w;
@@ -362,7 +362,7 @@ AnimationAtlas* cached_atlas(struct Game* game, int asset, int sprite_width, int
     animation->eye_offsets = eye_offset;
 
     for (int frame = 0; frame < number_of_frames; frame++, rect++, eye_offset++) {
-        rect->x = sprite_width * frame * CHARACTER_LAYERS;
+        rect->x = sprite_width * frame * layer_count;
         rect->y = animation->height - sprite_height;
         rect->w = sprite_width;
         rect->h = sprite_height;

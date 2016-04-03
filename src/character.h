@@ -39,6 +39,7 @@ typedef struct CharacterView {
     AudioWave* jump_sound;
 } CharacterView;
 
+struct GenericBody;
 // NOTE the beginning of this struct should match up with GenericBody
 typedef struct Character {
     // (x[0] left to right, x[1] down to up)
@@ -212,5 +213,6 @@ void character_post_update(Character* guy);
 
 // === Rendering character functions === //
 void draw_character(struct Game* game, struct Character* guy, struct CharacterView* guy_view);
+void draw_eye(struct Game* game, AnimationAtlas* atlas, struct GenericBody* body, int eye_type, int animation_frame, SDL_RendererFlip flip, SDL_Color* color);
 
 #endif // CHARACTER_H

@@ -357,32 +357,34 @@ void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
     vec2 c = { 32, 32 };
 
     int image_width, image_height;
-    SDL_Texture* tex = cached_texture(game, ASSET_EGG_BASIC_PNG);
-    SDL_QueryTexture(tex, NULL, NULL, &image_width, &image_height);
+    AnimationAtlas* atlas = cached_atlas(game, ASSET_EGG_BASIC_PNG, 64, 64, 6, 3);
+    SDL_QueryTexture(atlas->texture, NULL, NULL, &image_width, &image_height);
 
     if (egg->e.age < egg->e.hatching_age) {
         SDL_Rect src = src_rect_frame(3, image_width, image_height, 64, 64);
 
         // Just render the egg bottom and top on frames 3 and 5.
-        world_render_copy(game, tex, &src, &p, 64, 64, &c);
+        world_render_copy(game, atlas->texture, &src, &p, 64, 64, &c);
         increment_src_rect(&src, 2, image_width, image_height);
-        world_render_copy(game, tex, &src, &p, 64, 64, &c);
+        world_render_copy(game, atlas->texture, &src, &p, 64, 64, &c);
     }
     else {
         SDL_Rect src = src_rect_frame(0, image_width, image_height, 64, 64);
 
-        world_render_copy(game, tex, &src, &p, 64, 64, &c);
+        world_render_copy(game, atlas->texture, &src, &p, 64, 64, &c);
         increment_src_rect(&src, 1, image_width, image_height);
         if (egg->e.age == egg->e.hatching_age) {
             Uint8 r, g, b;
-            SDL_GetTextureColorMod(tex, &r, &g, &b);
-            SDL_SetTextureColorMod(tex, egg->decided_color.r, egg->decided_color.g, egg->decided_color.b);
-            world_render_copy(game, tex, &src, &p, 64, 64, &c);
-            SDL_SetTextureColorMod(tex, r, g, b);
-            // TODO draw eyes FUCK
+            SDL_GetTextureColorMod(atlas->texture, &r, &g, &b);
+            SDL_SetTextureColorMod(atlas->texture, egg->decided_color.r, egg->decided_color.g, egg->decided_color.b);
+            world_render_copy(game, atlas->texture, &src, &p, 64, 64, &c);
+            SDL_SetTextureColorMod(atlas->texture, r, g, b);
+
+            SDL_Color decided_eye_color = {255, 255, 255, 255};
+            draw_eye(game, atlas, &egg->body, 0, 0, 0, &decided_eye_color);
         }
         increment_src_rect(&src, 2, image_width, image_height);
-        world_render_copy(game, tex, &src, &p, 64, 64, &c);
+        world_render_copy(game, atlas->texture, &src, &p, 64, 64, &c);
     }
 
     if (game->text_edit.text == game->new_character_name_buffer) {
