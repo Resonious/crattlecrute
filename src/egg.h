@@ -5,24 +5,24 @@
 #include "mob.h"
 
 // TODO actually use these flags -- or get rid of them I was just brainstorming
-#define GSPEC_HUE (0 << 0)
-#define GSPEC_ADJUST_ATTR (0 << 1)
-#define GSPEC_DARKER_COLOR (0 << 2)
+#define GSPEC_HUE (1 << 0)
+#define GSPEC_ADJUST_ATTR (1 << 1)
+#define GSPEC_DARKER_COLOR (1 << 2)
 
-#define GFLAG_GSPD (0 << 0)
-#define GFLAG_RNPD (0 << 1)
-#define GFLAG_GACC (0 << 2)
-#define GFLAG_GDEC (0 << 3)
-#define GFLAG_JACC (0 << 4)
-#define GFLAG_JCDY (0 << 5)
+#define GFLAG_GSPD (1 << 0)
+#define GFLAG_RNPD (1 << 1)
+#define GFLAG_GACC (1 << 2)
+#define GFLAG_GDEC (1 << 3)
+#define GFLAG_JACC (1 << 4)
+#define GFLAG_JCDY (1 << 5)
 
-#define GFLAG_BODY (0 << 6)
-#define GFLAG_FEET (0 << 0)
-#define GFLAG_ASYM (0 << 5)
+#define GFLAG_BODY (1 << 6)
+#define GFLAG_FEET (1 << 0)
+#define GFLAG_ASYM (1 << 5)
 
-#define GFLAG_INVERT (0 << 7)
-#define GFLAG_SHIFT (0 << 8)
-#define GFLAG_INTENSE (0 << 9)
+#define GFLAG_INVERT (1 << 7)
+#define GFLAG_SHIFT (1 << 8)
+#define GFLAG_INTENSE (1 << 9)
 
 typedef union Genes {
     struct {
