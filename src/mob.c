@@ -339,13 +339,15 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
     }
 }
 
-void set_egg_item_data(void* vd, void* vegg) {
+static void set_egg_item_data(void* vd, void* vegg) {
     ItemEgg* egg = (ItemEgg*)vegg;
     egg->e = *(struct EggData*)vd;
+    if (egg->e.age > egg->e.hatching_age)
+        egg->layer_mask = (1 << 0) | (1 << 2);
 }
 void mob_egg_interact(void* vegg, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls) {
     MobEgg* egg = (MobEgg*)vegg;
-    if (egg->e.age < egg->e.hatching_age)
+    if (egg->e.age != egg->e.hatching_age)
         pick_up_item((PhysicsMob*)vegg, ITEM_EGG, game, map, character, ctrls, &egg->e, set_egg_item_data);
 }
 void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {

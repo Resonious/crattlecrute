@@ -16,17 +16,17 @@ void initialize_inventory(Inventory* inv, int cap) {
 
 void render_layered_icon_item(void* vitem, struct Game* game, SDL_Rect* dest) {
     LayeredIconItem* item = (LayeredIconItem*)vitem;
-    int layer_count;
+    int layer_mask;
     SDL_Texture* tex;
 
     if (item->item_type_id < 0 || item->item_type_id >= NUMBER_OF_ITEM_TYPES) {
         // Show question mark for messed up items.
-        layer_count = 2;
+        layer_mask = LAYER_MASK_2_FRAMES;
         tex = cached_texture(game, ASSET_MISC_Q_INV_PNG);
     }
     else {
         ItemType* reg = &item_registry[item->item_type_id];
-        layer_count = item->layer_count;
+        layer_mask = item->layer_mask;
         tex = cached_texture(game, reg->icon_asset);
     }
 
@@ -35,13 +35,12 @@ void render_layered_icon_item(void* vitem, struct Game* game, SDL_Rect* dest) {
           + SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
 
     SDL_assert(r == 0);
-    SDL_assert(item->layer_count > 0);
 
-    SDL_Rect src = { 0, tex_height - 32, 32, 32 };
-
-    for (int i = 0; i < item->layer_count; i++) {
-        SDL_RenderCopy(game->renderer, tex, &src, dest);
-        increment_src_rect(&src, 1, tex_width, tex_height);
+    for (int i = 0; i < 8; i++) {
+        if (item->layer_mask & (1 << i)) {
+            SDL_Rect src = src_rect_frame(i, tex_width, tex_height, 32, 32);
+            SDL_RenderCopy(game->renderer, tex, &src, dest);
+        }
     }
 }
 
@@ -69,7 +68,7 @@ ItemCommon* set_item(Inventory* inv, struct Game* game, int slot, int type) {
 void item_fruit_initialize(void* vitem, struct Game* game) {
     SDL_assert(sizeof(Inventory) <= sizeof(ItemCommon));
     ItemFruit* fruit = (ItemFruit*)vitem;
-    fruit->layer_count = 2;
+    fruit->layer_mask = LAYER_MASK_2_FRAMES;
 }
 
 bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 position) {
@@ -85,7 +84,7 @@ bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 posit
 void item_egg_initialize(void* vitem, struct Game* game) {
     SDL_assert(sizeof(ItemEgg) <= sizeof(ItemCommon));
     ItemEgg* egg = (ItemEgg*)vitem;
-    egg->layer_count = 2;
+    egg->layer_mask = LAYER_MASK_2_FRAMES;
     egg->e.age = 0;
     egg->e.hatching_age = 15 MINUTES;
     default_egg(&egg->e);

@@ -15,12 +15,14 @@ typedef struct ItemType {
 } ItemType;
 
 #define COMMON_ITEM       int item_type_id
-#define LAYERED_ICON_ITEM int item_type_id, layer_count
+#define LAYERED_ICON_ITEM int item_type_id; byte layer_mask
 
 typedef struct ItemCommon {
     COMMON_ITEM;
     byte data[32 - sizeof(int)];
 } ItemCommon;
+
+#define LAYER_MASK_2_FRAMES ((1 << 0) | (1 << 1))
 
 typedef struct LayeredIconItem {
     LAYERED_ICON_ITEM;
