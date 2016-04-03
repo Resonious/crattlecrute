@@ -2835,6 +2835,24 @@ mrb_value mrb_world_local_character(mrb_state* mrb, mrb_value self) {
     return scene->rguy;
 }
 
+mrb_value mrb_world_remote_characters(mrb_state* mrb, mrb_value self) {
+    WorldScene* scene = DATA_PTR(self);
+    Game* game = (Game*)mrb->ud;
+
+    mrb_value a = mrb_ary_new_capa(mrb, scene->net.number_of_players);
+    for (int i = 0; i < scene->net.number_of_players; i++) {
+        RemotePlayer* player = scene->net.players[i];
+        if (player == NULL)
+            continue;
+
+        mrb_value rguy = mrb_instance_alloc(mrb, game->ruby.character_class);
+        mrb_data_init(rguy, &player->guy, &mrb_dont_free_type);
+        mrb_ary_push(mrb, a, rguy);
+    }
+
+    return a;
+}
+
 mrb_value mrb_world_save(mrb_state* mrb, mrb_value self) {
     WorldScene* scene = DATA_PTR(self);
     return mrb_bool_value(save(scene));

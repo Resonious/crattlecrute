@@ -203,6 +203,18 @@ def inc_hue(plr, amount)
   plr.body_color.b = hue_color.b
 end
 
+def monitor_local
+  every 1.second do
+    puts world.local_character.position.inspect
+  end
+end
+
+def monitor_remote(index = 0)
+  every 1.second do
+    puts world.remote_characters[index].position.inspect if world.remote_characters[index]
+  end
+end
+
 def update(game)
   @control_presses.delete_if do |c|
     begin

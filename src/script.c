@@ -308,6 +308,20 @@ mrb_value mrb_game_is_headless(mrb_state* mrb, mrb_value self) {
     return game->renderer == NULL ? mrb_true_value() : mrb_false_value();
 }
 
+mrb_value mrb_game_crattlecrutes(mrb_state* mrb, mrb_value self) {
+    Game* game = DATA_PTR(self);
+
+    mrb_value a = mrb_ary_new_capa(mrb, game->data.character_count);
+    for (int i = 0; i < game->data.character_count; i++) {
+        Character* guy = &game->characters[i];
+        mrb_value rguy = mrb_instance_alloc(mrb, game->ruby.character_class);
+        mrb_data_init(rguy, guy, &mrb_dont_free_type);
+        mrb_ary_push(mrb, a, rguy);
+    }
+
+    return a;
+}
+
 mrb_value mrb_map_init(mrb_state* mrb, mrb_value self) {
     mrb_data_init(self, NULL, &mrb_map_type);
     return self;
@@ -806,6 +820,7 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.game_class, "submit_text", mrb_game_submit_text, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.game_class, "cancel_text", mrb_game_cancel_text, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.game_class, "headless?", mrb_game_is_headless, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.game_class, "crattlecrutes", mrb_game_crattlecrutes, MRB_ARGS_NONE());
 
     // ==================================== class World ===============================
     game->ruby.world_class = mrb_define_class(game->mrb, "World", game->mrb->object_class);
@@ -822,6 +837,7 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.world_class, "save", mrb_world_save, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.world_class, "area", mrb_world_area, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.world_class, "move_to", mrb_world_area_eq, MRB_ARGS_REQ(2));
+    mrb_define_method(game->mrb, game->ruby.world_class, "remote_characters", mrb_world_remote_characters, MRB_ARGS_NONE());
 
     // ==================================== class Map =================================
     game->ruby.map_class = mrb_define_class(game->mrb, "Map", game->mrb->object_class);

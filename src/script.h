@@ -53,6 +53,7 @@ MRB_CFUNC(mrb_world_is_joining);
 MRB_CFUNC(mrb_world_save);
 MRB_CFUNC(mrb_world_area);
 MRB_CFUNC(mrb_world_area_eq);
+MRB_CFUNC(mrb_world_remote_characters);
 
 MRB_CFUNC(mrb_world_current_map);
 MRB_CFUNC(mrb_world_local_character);
