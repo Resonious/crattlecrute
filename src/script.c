@@ -274,6 +274,40 @@ mrb_value mrb_game_ai_controls(mrb_state* mrb, mrb_value self) {
     return ((Game*)DATA_PTR(self))->ruby.controls;
 }
 
+mrb_value mrb_game_text_input(mrb_state* mrb, mrb_value self) {
+    Game* game = DATA_PTR(self);
+    return game->text_edit.text ? mrb_true_value() : mrb_false_value();
+}
+
+mrb_value mrb_game_submit_text(mrb_state* mrb, mrb_value self) {
+    Game* game = DATA_PTR(self);
+
+    if (game->text_edit.text == NULL)
+        return mrb_false_value();
+
+    char* text;
+    mrb_get_args(mrb, "z!", &text);
+    strcpy(game->text_edit.text, text);
+    game->text_edit.enter_pressed = true;
+
+    return mrb_true_value();
+}
+
+mrb_value mrb_game_cancel_text(mrb_state* mrb, mrb_value self) {
+    Game* game = DATA_PTR(self);
+
+    if (game->text_edit.text == NULL)
+        return mrb_false_value();
+
+    stop_editing_text(game);
+    return mrb_true_value();
+}
+
+mrb_value mrb_game_is_headless(mrb_state* mrb, mrb_value self) {
+    Game* game = DATA_PTR(self);
+    return game->renderer == NULL ? mrb_true_value() : mrb_false_value();
+}
+
 mrb_value mrb_map_init(mrb_state* mrb, mrb_value self) {
     mrb_data_init(self, NULL, &mrb_map_type);
     return self;
@@ -768,6 +802,10 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.game_class, "world", mrb_game_world, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.game_class, "save", mrb_game_save, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.game_class, "ai_controls", mrb_game_ai_controls, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.game_class, "text_input?", mrb_game_text_input, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.game_class, "submit_text", mrb_game_submit_text, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.game_class, "cancel_text", mrb_game_cancel_text, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.game_class, "headless?", mrb_game_is_headless, MRB_ARGS_NONE());
 
     // ==================================== class World ===============================
     game->ruby.world_class = mrb_define_class(game->mrb, "World", game->mrb->object_class);
