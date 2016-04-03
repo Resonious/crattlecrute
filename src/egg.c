@@ -77,6 +77,7 @@ void initialize_genes_with_colors(struct Game* game, struct Character* guy, SDL_
     // COLOR
     guy->body_color = *body_color;
     guy->eye_color  = *eye_color;
+    guy->eye_type = eye_type;
 
     guy->left_foot_color.r = 255;
     guy->left_foot_color.g = 0;
