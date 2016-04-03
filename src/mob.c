@@ -264,13 +264,8 @@ void spawned_new_baby(void* data, void* mob) {
     default_character_animations(spawn->game, guy);
     randomize_character(guy);
 
+    guy->genes = spawn->egg->e.genes;
     initialize_genes_with_colors(spawn->game, guy, &spawn->egg->decided_color, &spawn->egg->decided_eye_color, spawn->egg->decided_eye_type);
-    /*
-    guy->body_color = spawn->egg->e.body_color;
-    guy->left_foot_color = spawn->egg->e.left_foot_color;
-    guy->right_foot_color = spawn->egg->e.right_foot_color;
-    guy->eye_color = spawn->egg->e.eye_color;
-    */
 
     load_character_atlases(spawn->game, guy);
 
@@ -441,13 +436,21 @@ void mob_mgc_update(void* vmgc, struct Game* game, struct Map* map) {
         return;
 
     Character* guy = &game->characters[mob->character_index];
+    Controls* controls = NULL;
+    int rstack = mrb_gc_arena_save(game->mrb);
+
+    mrb_value rcontrols = mrb_ary_entry(game->ruby.controls, mob->character_index);
+    if (mrb_obj_class(game->mrb, rcontrols) == game->ruby.controls_class)
+        controls = DATA_PTR(rcontrols);
+
     update_genes(game, guy);
-    apply_character_physics(game, guy, NULL, 1.15f, 0.025f);
+    apply_character_physics(game, guy, controls, 1.15f, 0.025f);
     collide_character(guy, &map->tile_collision);
     slide_character(1.15f, guy);
     update_character_animation(guy);
 
     character_post_update(guy);
+    mrb_gc_arena_restore(game->mrb, rstack);
 }
 void mob_mgc_interact(void* vmgc, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls) {
     // ...
@@ -466,16 +469,12 @@ void mob_mgc_save(void* vmgc, struct Game* game, struct Map* map, byte* buffer, 
 
     if (mob->character_index >= 0) {
         Character* guy = &game->characters[mob->character_index];
-        DataChunk chunk;
-        chunk.bytes = NULL;
-        chunk.size  = 0;
-        chunk.capacity = 0;
 
-        write_character_to_data(guy, &chunk, false);
+        DataChunk* chunk = &game->data.characters[mob->character_index];
+        write_character_to_data(guy, chunk, false);
 
-        memcpy(buffer, chunk.bytes, chunk.size);
-        *pos += chunk.size;
-        free(chunk.bytes);
+        write_to_buffer(buffer, &chunk->size, pos, sizeof(int));
+        write_to_buffer(buffer, chunk->bytes, pos, chunk->size);
     }
 }
 void mob_mgc_load(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
@@ -486,19 +485,22 @@ void mob_mgc_load(void* vmgc, struct Game* game, struct Map* map, byte* buffer, 
         Character* guy = &game->characters[mob->character_index];
         default_character(game, guy);
         default_character_animations(game, guy);
+
+        int chunk_size;
+        read_from_buffer(buffer, &chunk_size, pos, sizeof(int));
+        SDL_assert(chunk_size < 2048 && chunk_size > 0);
+
         DataChunk chunk;
         chunk.bytes = malloc(2048);
-        // Pretty sure this ignores the size of the chunk
-        int bytes_read = read_character_from_data(guy, &chunk);
 
         if (game->net_joining) {
-            memcpy(chunk.bytes, buffer, bytes_read);
-            load_character_atlases(game, guy);
+            memcpy(chunk.bytes, buffer, chunk_size);
+            read_character_from_data(guy, &chunk);
         }
         else {
             read_character_from_data(guy, &game->data.characters[mob->character_index]);
-            *pos += bytes_read;
         }
+        *pos += chunk_size;
         load_character_atlases(game, guy);
 
         free(chunk.bytes);

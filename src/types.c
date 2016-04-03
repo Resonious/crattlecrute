@@ -68,3 +68,62 @@ vec2 v2_mul(float s, vec2 u) {
         u.y * s
     };
 }
+
+SDL_Color hue_to_color(float hue) {
+    const float th = tanf(hue);
+    const float r3 = sqrtf(3.0f);
+
+    vec4 fcolor; fcolor.simd = _mm_set1_ps(0);
+
+    if (hue >= 0 && hue <= 60.0f) {
+        fcolor.x[0] = 1.0f;
+        fcolor.x[1] = (hue - 0.0f) / 60.0f;
+        fcolor.x[2] = 0.0f;
+    }
+    else if (hue >= 60.0f && hue <= 120.0f) {
+        fcolor.x[0] = (60.0f - (hue - 60.0f)) / 60.0f;
+        fcolor.x[1] = 1.0f;
+        fcolor.x[2] = 0.0f;
+    }
+    else if (hue >= 120.0f && hue <= 180.0f) {
+        fcolor.x[0] = 0.0f;
+        fcolor.x[1] = 1.0f;
+        fcolor.x[2] = (hue - 120.0f) / 60.0f;
+    }
+    else if (hue >= 180.0f && hue <= 240.0f) {
+        fcolor.x[0] = 0.0f;
+        fcolor.x[1] = (60.0f - (hue - 180.0f)) / 60.0f;
+        fcolor.x[2] = 1.0f;
+    }
+    else if (hue >= 240.0f && hue <= 300.0f) {
+        fcolor.x[0] = (hue - 240.0f) / 60.0f;
+        fcolor.x[1] = 0.0f;
+        fcolor.x[2] = 1.0f;
+    }
+    else if (hue >= 300.0f && hue < 360.0f) {
+        fcolor.x[0] = 1.0f;
+        fcolor.x[1] = 0.0f;
+        fcolor.x[2] = (60.0f - (hue - 300.0f)) / 60.0f;
+    }
+    fcolor.x[3] = 1.0f;
+    
+    SDL_assert(fcolor.x[0] <= 1.0f);
+    SDL_assert(fcolor.x[1] <= 1.0f);
+    SDL_assert(fcolor.x[2] <= 1.0f);
+    SDL_assert(fcolor.x[3] <= 1.0f);
+
+    vec4i icolor;
+    icolor.simd = _mm_cvtps_epi32(_mm_mul_ps(fcolor.simd, _mm_set1_ps(255.0f)));
+    return (SDL_Color) { icolor.x[0], icolor.x[1], icolor.x[2], icolor.x[3] };
+}
+float color_to_hue(SDL_Color color) {
+    return wrap_degrees((atan2f(sqrtf(3) * (color.g - color.b), 2 * color.r - color.g - color.b)) * 180.0f / M_PI);
+}
+
+float wrap_degrees(float deg) {
+    while (deg < 0)
+        deg += 360.0f;
+    while (deg >= 360.0f)
+        deg -= 360.0f;
+    return deg;
+}

@@ -106,6 +106,7 @@ typedef struct Game {
         struct RClass* egg_class;
         mrb_value cc_type_to_sym;
         mrb_value cc_sym_to_type;
+        mrb_value controls;
     } ruby;
     struct {
         int text_buf_size;

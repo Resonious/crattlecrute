@@ -207,6 +207,8 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
             guy->stats.frames_in_air += 1;
         }
     }
+    else
+        guy->animation_state = GUY_IDLE;
 
     // Cap speeds
     float max_speed = CHARA_GROUND_SPEED_MAX * guy->ground_speed_max;

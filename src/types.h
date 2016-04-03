@@ -142,6 +142,13 @@ vec2 v2_mul(float s, vec2 u);
 void v2_addeq(vec2* u, vec2 v);
 #define v2_add_to v2_addeq
 
+float wrap_degrees(float deg);
+
+// hues are in degrees
+SDL_Color hue_to_color(float hue);
+// hues are in degrees
+float color_to_hue(SDL_Color color);
+
 typedef struct GenericBody {
     // (x[0] left to right, x[1] down to up)
     vec4 position;

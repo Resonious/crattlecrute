@@ -232,6 +232,9 @@ item_h = File.open(File.join(File.dirname(__FILE__), 'src/item.h'), &:read)
 item_ids = parse_enum('ItemId', item_h)
 game_h = File.open(File.join(File.dirname(__FILE__), 'src/game.h'), &:read)
 area_ids = parse_enum('AreaId', game_h)
+egg_h = File.open(File.join(File.dirname(__FILE__), 'src/egg.h'), &:read)
+gene_specs = parse_define('GSPEC', egg_h)
+gene_flags = parse_define('GFLAG', egg_h)
 
 header.write("#define define_mrb_enum_constants(game) \\\n")
 
@@ -242,6 +245,13 @@ end
 
 area_ids.each do |name, value|
   header.write(%{    mrb_define_global_const(game->mrb, "#{name}", mrb_fixnum_value(#{value}));\\\n})
+end
+
+gene_specs.each do |name, value|
+  header.write(%{    mrb_define_global_const(game->mrb, "GSPEC_#{name}", mrb_fixnum_value(#{value} << (sizeof(Uint16) * 8)));\\\n})
+end
+gene_flags.each do |name, value|
+  header.write(%{    mrb_define_global_const(game->mrb, "GFLAG_#{name}", mrb_fixnum_value(#{value}));\\\n})
 end
 
 header.write("\n")

@@ -10,25 +10,21 @@ void default_egg(struct EggData* egg) {
 
 static void mod_color(Genes* genes, SDL_Color* color, Uint16 flags) {
     if (genes->specifiers & GSPEC_DARKER_COLOR) {
-        __m128i vicolor = _mm_loadu_si128(&color);
-        __m128 vcolor = _mm_cvtepi32_ps(vicolor);
         float factor;
 
         if (genes->flags & GFLAG_INVERT)
             factor = 1.4f;
         else
-            factor = 0.6f;
+            factor = 0.7f;
         if (genes->flags & GFLAG_INTENSE)
             if (genes->flags & GFLAG_INVERT)
                 factor *= 1.5f;
             else
                 factor /= 2.0f;
 
-        vec4 vfactor;
-        vfactor.simd = _mm_load1_ps(&factor);
-        vfactor.x[3] = 0.0f;
-        vcolor = _mm_mul_ps(vcolor, vfactor.simd);
-        _mm_storeu_si128(color, _mm_cvtps_epi32(vcolor));
+        color->r *= factor;
+        color->g *= factor;
+        color->b *= factor;
     }
 }
 

@@ -4,6 +4,10 @@ def guy
   world.local_character
 end
 
+def inv
+  world.local_character.inventory
+end
+
 CTRL_SYMS = {
   jump:  Controls::JUMP,
   run:   Controls::RUN,
@@ -100,8 +104,9 @@ end
 @on_updates = []
 
 def press(control_sym, options = {})
+  @controls ||= game.controls
   frames = options[:for] || 1
-  @control_presses << ControlPress.new(game.controls, control_sym, frames)
+  @control_presses << ControlPress.new(@controls, control_sym, frames)
 end
 
 def after(frames, *args, &action)
@@ -182,12 +187,20 @@ def peak_bench_over(time)
 end
 
 def test_egg
-  raise "THIS IS NONSENSE"
   e = Egg.new
-  e.body_color = Color.new(30, 60, 30)
   e.age = 0
   e.hatching_age = 2.seconds
+  e.genes = GSPEC_DARKER_COLOR
   e
+end
+
+def inc_hue(plr, amount)
+  h = plr.body_color.hue
+  h += amount
+  hue_color = h.as_hue
+  plr.body_color.r = hue_color.r
+  plr.body_color.g = hue_color.g
+  plr.body_color.b = hue_color.b
 end
 
 def update(game)

@@ -150,24 +150,42 @@ DEF_RUBY_COLOR_ATTR(g);
 DEF_RUBY_COLOR_ATTR(b);
 DEF_RUBY_COLOR_ATTR(a);
 
+mrb_value mrb_color_hue(mrb_state* mrb, mrb_value self) {
+    SDL_Color* color = DATA_PTR(self);
+    return mrb_float_value(mrb, color_to_hue(*color));
+}
+
+mrb_value mrb_color_set_hue(mrb_state* mrb, mrb_value self) {
+    SDL_Color* color = DATA_PTR(self);
+
+    mrb_value hue;
+    mrb_get_args(mrb, "o", &hue);
+
+    SDL_Color new_rgb = hue_to_color(mrb_to_f(mrb, hue));
+    color->r = new_rgb.r;
+    color->g = new_rgb.g;
+    color->b = new_rgb.b;
+
+    return mrb_float_value(mrb, color_to_hue(*color));
+}
+
+mrb_value mrb_num_as_hue(mrb_state* mrb, mrb_value self) {
+    Game* game = (Game*)mrb->ud;
+    SDL_Color rgb = hue_to_color(wrap_degrees(mrb_to_f(mrb, self)));
+
+    mrb_value args[3];
+    args[0] = mrb_fixnum_value(rgb.r);
+    args[1] = mrb_fixnum_value(rgb.g);
+    args[2] = mrb_fixnum_value(rgb.b);
+
+    return mrb_obj_new(mrb, game->ruby.color_class, 3, args);
+}
+
 mrb_value mrb_controls_init(mrb_state* mrb, mrb_value self) {
-    mrb_bool dont_allocate;
-    mrb_get_args(mrb, "|b", &dont_allocate);
+    Controls* new_controls = mrb_malloc(mrb, sizeof(Controls));
 
-    if (!dont_allocate) {
-        Controls* new_controls;
-
-        if (DATA_PTR(self) != NULL)
-            new_controls = DATA_PTR(self);
-        else
-            mrb_malloc(mrb, sizeof(Controls));
-
-        memset(new_controls, 0, sizeof(Controls));
-        mrb_data_init(self, new_controls, &mrb_controls_type);
-    }
-    else {
-        mrb_data_init(self, NULL, &mrb_controls_type);
-    }
+    memset(new_controls, 0, sizeof(Controls));
+    mrb_data_init(self, new_controls, &mrb_controls_type);
 
     return self;
 }
@@ -232,8 +250,7 @@ mrb_value mrb_game_controls(mrb_state* mrb, mrb_value self) {
 
     mrb_iv_check(mrb, game->ruby.sym_atcontrols);
     if (!mrb_iv_defined(mrb, self, game->ruby.sym_atcontrols)) {
-        mrb_value rtrue = mrb_true_value();
-        rcontrols = mrb_class_new_instance(mrb, 1, &rtrue, game->ruby.controls_class);
+        rcontrols = mrb_instance_alloc(mrb, game->ruby.controls_class);
         mrb_data_init(rcontrols, &game->controls, &mrb_controls_type);
         mrb_iv_set(game->mrb, self, game->ruby.sym_atcontrols, rcontrols);
     }
@@ -251,6 +268,10 @@ mrb_value mrb_game_world(mrb_state* mrb, mrb_value self) {
 
 mrb_value mrb_game_save(mrb_state* mrb, mrb_value self) {
     return mrb_bool_value(save_game((Game*)DATA_PTR(self)));
+}
+
+mrb_value mrb_game_ai_controls(mrb_state* mrb, mrb_value self) {
+    return ((Game*)DATA_PTR(self))->ruby.controls;
 }
 
 mrb_value mrb_map_init(mrb_state* mrb, mrb_value self) {
@@ -377,53 +398,21 @@ mrb_value mrb_character_feet_type_eq(mrb_state* mrb, mrb_value self) {
 #define EGG_ATTR(name) \
     mrb_value mrb_egg_##name(mrb_state* mrb, mrb_value self) { \
         struct EggData* egg = DATA_PTR(self); \
-        return mrb_fixnum_value(egg->name); \
+        int value = *((int*)&egg->name); \
+        return mrb_fixnum_value(value); \
     } \
     mrb_value mrb_egg_##name##_eq(mrb_state* mrb, mrb_value self) { \
         struct EggData* egg = DATA_PTR(self); \
         mrb_int value; \
         mrb_get_args(mrb, "i", &value); \
-        egg->name = value; \
-        return mrb_fixnum_value(egg->name); \
-    }
-
-#define EGG_COLOR_ATTR(colortype) \
-    mrb_value mrb_egg_##colortype(mrb_state* mrb, mrb_value self) { \
-        Game* game = (Game*)mrb->ud; \
-        struct EggData* egg = DATA_PTR(self); \
-     \
-        mrb_value color = mrb_instance_alloc(mrb, game->ruby.color_class); \
-        mrb_data_init(color, &egg->colortype, &mrb_dont_free_type); \
-     \
-        mrb_gc_unregister(mrb, color); \
-     \
-        return color; \
-    } \
-    mrb_value mrb_egg_##colortype##_eq(mrb_state* mrb, mrb_value self) { \
-        Game* game = (Game*)mrb->ud; \
-        struct EggData* egg = DATA_PTR(self); \
-     \
-        mrb_value value; \
-        mrb_get_args(mrb, "o", &value); \
-     \
-        if (mrb_obj_class(mrb, value) == game->ruby.color_class) { \
-            SDL_Color* color = DATA_PTR(value); \
-            egg->colortype = *color; \
-        } \
-        else \
-            return mrb_nil_value(); \
-     \
-        return value; \
+        int* field = (int*)&egg->name; \
+        *field = value; \
+        return mrb_fixnum_value(*field); \
     }
 
 EGG_ATTR(age);
 EGG_ATTR(hatching_age);
-/*
-EGG_COLOR_ATTR(body_color);
-EGG_COLOR_ATTR(left_foot_color);
-EGG_COLOR_ATTR(right_foot_color);
-EGG_COLOR_ATTR(eye_color);
-*/
+EGG_ATTR(genes);
 
 #define FLOAT_CHARACTER_ATTR(name)\
     mrb_value mrb_character_##name(mrb_state* mrb, mrb_value self) { \
@@ -694,9 +683,14 @@ void script_init(struct Game* game) {
     game->ruby.sym_into_item         = mrb_intern_lit(game->mrb, "into_item");
     game->mrb->ud = game;
 
+    game->ruby.controls = mrb_ary_new_capa(game->mrb, 8);
+
     // ==== core ext ====
     mrb_define_method(game->mrb, game->mrb->symbol_class, "to_i", mrb_sym_to_i, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->mrb->fixnum_class, "to_sym", mrb_int_to_sym, MRB_ARGS_NONE());
+
+    mrb_define_method(game->mrb, game->mrb->fixnum_class, "as_hue", mrb_num_as_hue, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->mrb->float_class,  "as_hue", mrb_num_as_hue, MRB_ARGS_NONE());
 
     // ==================================== class Controls =============================
     game->ruby.controls_class = mrb_define_class(game->mrb, "Controls", game->mrb->object_class);
@@ -718,7 +712,7 @@ void script_init(struct Game* game) {
     RUBY_CONST_CTRL(C_SPACE, SPACE);
     RUBY_CONST_CTRL(C_DEBUG_ADV, ADV);
 
-    mrb_define_method(game->mrb, game->ruby.controls_class, "initialize", mrb_controls_init, MRB_ARGS_OPT(1));
+    mrb_define_method(game->mrb, game->ruby.controls_class, "initialize", mrb_controls_init, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.controls_class, "just_pressed", mrb_controls_just_pressed, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.controls_class, "just_released", mrb_controls_just_released, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.controls_class, "[]", mrb_controls_access, MRB_ARGS_REQ(1));
@@ -730,6 +724,8 @@ void script_init(struct Game* game) {
 
     mrb_define_method(game->mrb, game->ruby.color_class, "initialize", mrb_color_init, MRB_ARGS_OPT(4));
     mrb_define_method(game->mrb, game->ruby.color_class, "inspect", mrb_color_inspect, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.color_class, "hue", mrb_color_hue, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.color_class, "set_hue", mrb_color_set_hue, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.color_class, "r", mrb_color_r, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.color_class, "g", mrb_color_g, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.color_class, "b", mrb_color_b, MRB_ARGS_NONE());
@@ -771,6 +767,7 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.game_class, "controls", mrb_game_controls, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.game_class, "world", mrb_game_world, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.game_class, "save", mrb_game_save, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.game_class, "ai_controls", mrb_game_ai_controls, MRB_ARGS_NONE());
 
     // ==================================== class World ===============================
     game->ruby.world_class = mrb_define_class(game->mrb, "World", game->mrb->object_class);
@@ -884,12 +881,7 @@ void script_init(struct Game* game) {
 
     DECL_EGG_FIELD(age);
     DECL_EGG_FIELD(hatching_age);
-    /*
-    DECL_EGG_FIELD(body_color);
-    DECL_EGG_FIELD(left_foot_color);
-    DECL_EGG_FIELD(right_foot_color);
-    DECL_EGG_FIELD(eye_color);
-    */
+    DECL_EGG_FIELD(genes);
 
     // =============================== STATICALLY GENERATED STUFF ============================
     define_mrb_enum_constants(game);

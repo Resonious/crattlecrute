@@ -58,6 +58,18 @@ def parse_enum(enum, file_content)
   result
 end
 
+def parse_define(prefix, file_content)
+  result = Hash.new(-1)
+  file_content.scan(/^\s*#define\s+#{prefix}_(\w+) ([^\n]+)\n/m) do |name, value|
+    begin
+      result[name] = eval(value)
+    rescue StandardError => e
+      raise "Couldn't eval \"#{value}\" for #{name}: #{e.class}: #{e.message}"
+    end
+  end
+  result
+end
+
 def compress_tilemap_data(tilemap_data)
   current_tile_index    = nil
   last_tile_index       = tilemap_data[0]

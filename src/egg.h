@@ -6,8 +6,7 @@
 
 // TODO actually use these flags -- or get rid of them I was just brainstorming
 #define GSPEC_HUE (1 << 0)
-#define GSPEC_ADJUST_ATTR (1 << 1)
-#define GSPEC_DARKER_COLOR (1 << 2)
+#define GSPEC_DARKER_COLOR (1 << 1)
 
 #define GFLAG_GSPD (1 << 0)
 #define GFLAG_RNPD (1 << 1)
@@ -26,8 +25,8 @@
 
 typedef union Genes {
     struct {
-        Uint16 specifiers;
         Uint16 flags;
+        Uint16 specifiers;
     };
     Uint32 word;
 } Genes;
