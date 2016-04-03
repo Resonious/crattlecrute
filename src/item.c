@@ -83,7 +83,7 @@ bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 posit
 // ================== EGG ===================
 
 void item_egg_initialize(void* vitem, struct Game* game) {
-    SDL_assert(sizeof(Inventory) <= sizeof(ItemCommon));
+    SDL_assert(sizeof(ItemEgg) <= sizeof(ItemCommon));
     ItemEgg* egg = (ItemEgg*)vitem;
     egg->layer_count = 2;
     egg->e.age = 0;

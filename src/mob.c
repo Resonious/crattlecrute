@@ -236,6 +236,7 @@ void mob_fruit_sync_receive(void* vfruit, struct Game* game, struct Map* map, by
 #define set_egg_sensors(egg) set_collision_sensors(&egg->body, 26, 40, 0);
 
 void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos) {
+    SDL_assert(sizeof(MobEgg) <= sizeof(MediumMob));
     MobEgg* egg = (MobEgg*)vegg;
     set_egg_sensors(egg);
     egg->body.position.x[X] = pos.x;
