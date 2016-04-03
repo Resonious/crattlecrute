@@ -2261,7 +2261,7 @@ void scene_world_update(void* vs, Game* game) {
             const int frames_behind_threshold = (s->net.status == HOSTING ? plr->ping : s->net.players[0]->ping) * 2 + 1;
 
             if (frames_behind > frames_behind_threshold) {
-                printf("Network control sync behind by %i frames\n", frames_behind);
+                // printf("Network control sync behind by %i frames\n", frames_behind);
                 plr->number_of_physics_updates_this_frame = 2;
             }
             else
