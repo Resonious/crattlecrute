@@ -174,7 +174,7 @@ TileCollision process_bottom_sensor(GenericBody* guy, CollisionMap* tilemap, Sen
 
         int height = heights[tile_x_flipped ? 31 - x_within_tile : x_within_tile];
 
-        // This would also mean we're in the air ("we" being the sensor; not the character)
+        // This would also mean we're in the air ("we" being the sensor; not neccesarily the character)
         if (height == -1 && guy->grounded)
             return process_bottom_sensor_one_tile_down(guy, tilemap, t, sensor);
 
@@ -233,13 +233,13 @@ TileCollision dont_call_me(CollisionMap* tilemap, SensedTile* t, GenericBody* gu
 TileCollision left_sensor_placement(CollisionMap* tilemap, SensedTile* t, GenericBody* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + height + 1 - guy->left_sensors.x[sensor+X]);
-    result.hit = result.new_position > guy->position.x[X] && (result.new_position <= guy->old_position.x[X]);
+    result.hit = result.new_position >= guy->position.x[X] && (result.new_position <= guy->old_position.x[X]);
     return result;
 }
 TileCollision right_sensor_placement(CollisionMap* tilemap, SensedTile* t, GenericBody* guy, int height, const int sensor) {
     TileCollision result;
     result.new_position = (float)(t->tilepos.x[sensor+X] + 31 - height - guy->right_sensors.x[sensor+X]);
-    result.hit = result.new_position < guy->position.x[X] && (result.new_position >= guy->old_position.x[X]);
+    result.hit = result.new_position <= guy->position.x[X] && (result.new_position >= guy->old_position.x[X]);
     return result;
 }
 TileCollision top_sensor_placement(CollisionMap* tilemap, SensedTile* t, GenericBody* guy, int height, const int sensor) {
