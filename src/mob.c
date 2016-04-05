@@ -465,18 +465,32 @@ void mob_egg_sync_receive(void* mob, struct Game* game, struct Map* map, byte* b
 
 // ============= GARDEN CRATTLECRUTE ================
 
+static Character* mgc_character(Game* game, MobGardenCrattle* mob) {
+    if (game->net_joining) {
+        Character* guy = game->misc_characters[mob->character_index];
+        if (guy == NULL) {
+            guy = game->misc_characters[mob->character_index] = aligned_malloc(sizeof(Character));
+            SDL_memset(guy, 0, sizeof(Character));
+        }
+        return guy;
+    }
+    else
+        return &game->characters[mob->character_index];
+}
+
 void mob_mgc_initialize(void* vmgc, struct Game* game, struct Map* map, vec2 pos) {
     SDL_assert(sizeof(MobGardenCrattle) <= sizeof(SmallMob));
 
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
     mob->character_index = -1;
+    mob->just_switched_guys = false;
 }
 void mob_mgc_update(void* vmgc, struct Game* game, struct Map* map) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
     if (mob->character_index < 0)
         return;
 
-    Character* guy = &game->characters[mob->character_index];
+    Character* guy = mgc_character(game, mob);
     Controls* controls = NULL;
     int rstack = mrb_gc_arena_save(game->mrb);
 
@@ -494,14 +508,31 @@ void mob_mgc_update(void* vmgc, struct Game* game, struct Map* map) {
     mrb_gc_arena_restore(game->mrb, rstack);
 }
 void mob_mgc_interact(void* vmgc, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls) {
-    // ...
+    MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
+    if (mob->character_index < 0)
+        return;
+    Character* guy = mgc_character(game, mob);
+
+    if (!game->net_joining && just_pressed(ctrls, C_DOWN)) {
+        // TODO NETGAME ?????
+        vec4 vdiff;
+        vdiff.simd = _mm_sub_ps(character->position.simd, guy->position.simd);
+        float diff = sqrtf(powf(vdiff.x[0], 2) + powf(vdiff.x[1], 2));
+
+        if (diff <= 40.0f) {
+            int become = game->data.character;
+            game->data.character = mob->character_index;
+            mob->character_index = become;
+            SDL_memset(ctrls->this_frame, 0, sizeof(ctrls->this_frame));
+        }
+    }
 }
 void mob_mgc_render(void* vmgc, struct Game* game, struct Map* map) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
     if (mob->character_index < 0)
         return;
 
-    Character* guy = &game->characters[mob->character_index];
+    Character* guy = mgc_character(game, mob);
     draw_character(game, guy, guy->view);
 }
 void mob_mgc_save(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
@@ -509,7 +540,7 @@ void mob_mgc_save(void* vmgc, struct Game* game, struct Map* map, byte* buffer, 
     write_to_buffer(buffer, &mob->character_index, pos, sizeof(int));
 
     if (mob->character_index >= 0) {
-        Character* guy = &game->characters[mob->character_index];
+        Character* guy = mgc_character(game, mob);
 
         DataChunk* chunk = &game->data.characters[mob->character_index];
         write_character_to_data(guy, chunk, false);
@@ -521,9 +552,10 @@ void mob_mgc_save(void* vmgc, struct Game* game, struct Map* map, byte* buffer, 
 void mob_mgc_load(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
     read_from_buffer(buffer, &mob->character_index, pos, sizeof(int));
+    mob->just_switched_guys = false;
 
     if (mob->character_index >= 0) {
-        Character* guy = &game->characters[mob->character_index];
+        Character* guy = mgc_character(game, mob);
         default_character(game, guy);
         default_character_animations(game, guy);
 
@@ -548,6 +580,15 @@ void mob_mgc_load(void* vmgc, struct Game* game, struct Map* map, byte* buffer, 
     }
 }
 bool mob_mgc_sync_send(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
+    MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
+    if (mob->character_index >= 0 && mob->just_switched_guys) {
+        SDL_assert(!game->net_joining);
+        mob->just_switched_guys = false;
+
+        mob_mgc_save(vmgc, game, map, buffer, pos);
+        return true;
+    }
+
     return false;
 }
 void mob_mgc_sync_receive(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {

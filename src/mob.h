@@ -116,6 +116,7 @@ void mob_egg_sync_receive(void* mob, struct Game*, struct Map* map, byte* buffer
 typedef struct MobGardenCrattle {
     MOB_FIELDS;
     int character_index;
+    bool just_switched_guys;
 } MobGardenCrattle;
 void mob_mgc_initialize(void* vmgc, struct Game* game, struct Map* map, vec2 pos);
 void mob_mgc_update(void* vmgc, struct Game* game, struct Map* map);

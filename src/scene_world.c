@@ -147,6 +147,7 @@ typedef struct WorldScene {
     AudioWave* music;
     AudioWave* test_sound;
     int current_area;
+    int current_character;
     Map* map;
     char editable_text[EDITABLE_TEXT_BUFFER_SIZE];
 
@@ -2091,6 +2092,7 @@ void scene_world_initialize(void* vdata, Game* game) {
 
     BENCH_START(loading_tiles);
     data->current_area = game->data.area;
+    data->current_character = game->data.character;
     data->map = cached_area(game, data->current_area);
     game->camera.simd = game->camera_target.simd;
     BENCH_END(loading_tiles);
@@ -2351,12 +2353,18 @@ void scene_world_update(void* vs, Game* game) {
 
     // Update local player and map transition
     bool updated_guy_physics = false;
-    if (s->guy == NULL) {
-        if (game->data.character >= 0)
-            s->guy = &game->characters[game->data.character].guy;
-        else
-            goto done_with_physics;
+    if (game->data.character != s->current_character) {
+        // Character change should only happen in the garden as of writing this comment.
+        SDL_assert(s->current_area == AREA_GARDEN);
+        s->current_character = game->data.character;
+        if (s->current_character >= 0) {
+            s->guy = &game->characters[s->current_character];
+            SDL_AtomicSet(&s->guy->dirty, true);
+        }
     }
+    if (s->guy == NULL)
+        goto done_with_physics;
+
     if (s->transition.progress_percent <= 100) {
         int map_data_status = SDL_AtomicGet(&s->transition.map_data_status);
         if (map_data_status == MAP_DATA_NOT_NEEDED)

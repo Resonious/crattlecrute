@@ -125,6 +125,8 @@ typedef struct Game {
     struct MobEgg* pending_egg;
     char new_character_name_buffer[CHARACTER_NAME_LENGTH];
     struct GameCharacter* characters;
+    // These may be aligned_malloced as needed.
+    struct GameCharacter* misc_characters[32];
     struct GameData data;
     int argc;
     char** argv;
