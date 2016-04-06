@@ -130,85 +130,88 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
 }
 
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag) {
+    Controls zero_controls;
+    memset(zero_controls.this_frame, 0, sizeof(zero_controls.this_frame));
+    memset(zero_controls.last_frame, 0, sizeof(zero_controls.last_frame));
+    if (controls == NULL)
+        controls = &zero_controls;
+
     guy->dy -= gravity; // times 1 frame
     if (!guy->grounded)
         MOVE_TOWARDS(guy->slide_speed, 0, drag);
 
     bool running = false;
-    if (controls) {
-        // Running?
-        running = controls->this_frame[C_RUN];
-        // Get accelerations from controls
-        if (controls->this_frame[C_LEFT]) {
-            guy->ground_speed -= CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
-            guy->flip = SDL_FLIP_HORIZONTAL;
-            if (running && guy->grounded)
-                guy->run_speed -= CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
-        }
-        if (controls->this_frame[C_RIGHT]) {
-            guy->ground_speed += CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
-            guy->flip = SDL_FLIP_NONE;
-            if (running && guy->grounded)
-                guy->run_speed += CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
-        }
 
-        // JUMP
-        if (guy->just_jumped) {
-            guy->just_jumped = false;
-            guy->stats.times_jumped += 1;
-        }
-        if (guy->grounded) {
-            if (guy->jumped)
-                guy->jumped = false;
-            if (just_pressed(controls, C_JUMP)) {
-                guy->grounded = false;
-                guy->jumped = true;
-                guy->just_jumped = true;
-                guy->dy = CHARA_JUMP_ACCELERATION * guy->jump_acceleration;
-            }
-        }
-        else if (just_released(controls, C_JUMP) && guy->jumped) {
-            float cancel_point = guy->jump_cancel_dy * CHARA_JUMP_CANCEL_DY;
-            if (guy->dy > cancel_point) {
-                guy->dy = cancel_point;
-                guy->stats.times_jump_canceled += 1;
-            }
+    // Running?
+    running = controls->this_frame[C_RUN];
+    // Get accelerations from controls
+    if (controls->this_frame[C_LEFT]) {
+        guy->ground_speed -= CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
+        guy->flip = SDL_FLIP_HORIZONTAL;
+        if (running && guy->grounded)
+            guy->run_speed -= CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
+    }
+    if (controls->this_frame[C_RIGHT]) {
+        guy->ground_speed += CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
+        guy->flip = SDL_FLIP_NONE;
+        if (running && guy->grounded)
+            guy->run_speed += CHARA_GROUND_ACCELERATION * guy->ground_acceleration;
+    }
+
+    // JUMP
+    if (guy->just_jumped) {
+        guy->just_jumped = false;
+        guy->stats.times_jumped += 1;
+    }
+    if (guy->grounded) {
+        if (guy->jumped)
             guy->jumped = false;
-        }
-
-        // TODO having ground_deceleration > ground_acceleration will have a weird effect here.
-        if (!controls->this_frame[C_LEFT] && !controls->this_frame[C_RIGHT]) {
-            MOVE_TOWARDS(guy->ground_speed, 0, (CHARA_GROUND_DECELERATION * guy->ground_deceleration));
-            MOVE_TOWARDS(guy->run_speed, 0, (CHARA_GROUND_DECELERATION * guy->ground_deceleration));
-        }
-        else if (!running) {
-            MOVE_TOWARDS(guy->run_speed, 0, (CHARA_GROUND_DECELERATION * guy->ground_deceleration));
-        }
-
-        if (controls->this_frame[C_LEFT] || controls->this_frame[C_RIGHT])
-            if (running)
-                guy->animation_state = GUY_RUNNING;
-            else
-                guy->animation_state = GUY_WALKING;
-        else
-            guy->animation_state = GUY_IDLE;
-
-        // Stats for running/walking/in-air
-        if (guy->grounded) {
-            guy->stats.frames_on_ground += 1;
-            if (controls->this_frame[C_LEFT] || controls->this_frame[C_RIGHT]) {
-                if (running)
-                    guy->stats.frames_ran += 1;
-                else
-                    guy->stats.frames_walked += 1;
-            }
-        }
-        else {
-            guy->stats.frames_in_air += 1;
+        if (just_pressed(controls, C_JUMP)) {
+            guy->grounded = false;
+            guy->jumped = true;
+            guy->just_jumped = true;
+            guy->dy = CHARA_JUMP_ACCELERATION * guy->jump_acceleration;
         }
     }
+    else if (just_released(controls, C_JUMP) && guy->jumped) {
+        float cancel_point = guy->jump_cancel_dy * CHARA_JUMP_CANCEL_DY;
+        if (guy->dy > cancel_point) {
+            guy->dy = cancel_point;
+            guy->stats.times_jump_canceled += 1;
+        }
+        guy->jumped = false;
+    }
+
+    // TODO having ground_deceleration > ground_acceleration will have a weird effect here.
+    if (!controls->this_frame[C_LEFT] && !controls->this_frame[C_RIGHT]) {
+        MOVE_TOWARDS(guy->ground_speed, 0, (CHARA_GROUND_DECELERATION * guy->ground_deceleration));
+        MOVE_TOWARDS(guy->run_speed, 0, (CHARA_GROUND_DECELERATION * guy->ground_deceleration));
+    }
+    else if (!running) {
+        MOVE_TOWARDS(guy->run_speed, 0, (CHARA_GROUND_DECELERATION * guy->ground_deceleration));
+    }
+
+    if (controls->this_frame[C_LEFT] || controls->this_frame[C_RIGHT])
+        if (running)
+            guy->animation_state = GUY_RUNNING;
+        else
+            guy->animation_state = GUY_WALKING;
     else
         guy->animation_state = GUY_IDLE;
+
+    // Stats for running/walking/in-air
+    if (guy->grounded) {
+        guy->stats.frames_on_ground += 1;
+        if (controls->this_frame[C_LEFT] || controls->this_frame[C_RIGHT]) {
+            if (running)
+                guy->stats.frames_ran += 1;
+            else
+                guy->stats.frames_walked += 1;
+        }
+    }
+    else {
+        guy->stats.frames_in_air += 1;
+    }
 
     // Cap speeds
     float max_speed = CHARA_GROUND_SPEED_MAX * guy->ground_speed_max;

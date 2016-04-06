@@ -469,8 +469,9 @@ static Character* mgc_character(Game* game, MobGardenCrattle* mob) {
     if (game->net_joining) {
         Character* guy = game->misc_characters[mob->character_index];
         if (guy == NULL) {
-            guy = game->misc_characters[mob->character_index] = aligned_malloc(sizeof(Character));
+            guy = aligned_malloc(sizeof(Character));
             SDL_memset(guy, 0, sizeof(Character));
+            game->misc_characters[mob->character_index] = guy;
         }
         return guy;
     }
@@ -513,7 +514,7 @@ void mob_mgc_interact(void* vmgc, struct Game* game, struct Map* map, struct Cha
         return;
     Character* guy = mgc_character(game, mob);
 
-    if (!game->net_joining && just_pressed(ctrls, C_DOWN)) {
+    if (!game->net_joining && just_pressed(ctrls, C_DOWN) && character->player_id <= 0) {
         // TODO NETGAME ?????
         vec4 vdiff;
         vdiff.simd = _mm_sub_ps(character->position.simd, guy->position.simd);
@@ -524,6 +525,8 @@ void mob_mgc_interact(void* vmgc, struct Game* game, struct Map* map, struct Cha
             game->data.character = mob->character_index;
             mob->character_index = become;
             SDL_memset(ctrls->this_frame, 0, sizeof(ctrls->this_frame));
+            SDL_memset(ctrls->last_frame, 0, sizeof(ctrls->last_frame));
+            mob->just_switched_guys = true;
         }
     }
 }
@@ -567,7 +570,7 @@ void mob_mgc_load(void* vmgc, struct Game* game, struct Map* map, byte* buffer, 
         chunk.bytes = malloc(2048);
 
         if (game->net_joining) {
-            memcpy(chunk.bytes, buffer, chunk_size);
+            memcpy(chunk.bytes, buffer + *pos, chunk_size);
             read_character_from_data(guy, &chunk);
         }
         else {
@@ -592,5 +595,5 @@ bool mob_mgc_sync_send(void* vmgc, struct Game* game, struct Map* map, byte* buf
     return false;
 }
 void mob_mgc_sync_receive(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
-    // ...
+    mob_mgc_load(vmgc, game, map, buffer, pos);
 }
