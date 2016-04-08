@@ -7,6 +7,7 @@
 // TODO actually use these flags -- or get rid of them I was just brainstorming
 #define GSPEC_HUE (1 << 0)
 #define GSPEC_DARKER_COLOR (1 << 1)
+#define GSPEC_ROBO (1 << 2)
 
 #define GFLAG_GSPD (1 << 0)
 #define GFLAG_RNPD (1 << 1)

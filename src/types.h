@@ -31,6 +31,8 @@
 #endif
 #define IS_WHITESPACE(c) (c == ' ' || c == '\n' || c == '\t')
 
+#define PERCENT_CHANCE(percent) (pcg32_random() < INT_MAX / (100 / percent))
+
 #define SECONDS * 60
 #define SECOND * 60
 #define MINUTES * 3600

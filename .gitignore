@@ -2,6 +2,7 @@
 SDL
 STB
 MRuby
+PCG
 
 src/assets.h
 build/

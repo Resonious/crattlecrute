@@ -2219,8 +2219,6 @@ void record_controls(Controls* from, ControlsBuffer* to) {
     to->bytes[0] = to->current_frame;
 }
 
-#define PERCENT_CHANCE(percent) (rand() < RAND_MAX / (100 / percent))
-
 void scene_world_update(void* vs, Game* game) {
     WorldScene* s = (WorldScene*)vs;
 

@@ -33,6 +33,9 @@ WSADATA global_wsa;
 #endif
 #include "SDL_syswm.h"
 
+// PCG basic implementation (so that you don't have to chase it down for new build scripts) (kinda like stb_vorbis in sound.c)
+#include "pcg_basic.c"
+
 // Disgusting global window variable so that I can shit out message boxes
 // from wherever I want.
 SDL_Window* main_window;
@@ -135,7 +138,6 @@ void cleanup() {
 int main(int argc, char** argv) {
     BENCH_START(total_initialization);
     SDL_assert(sizeof(byte) == 1);
-    srand((unsigned int)time(0));
     ticks_per_second = SDL_GetPerformanceFrequency();
     _MM_SET_ROUNDING_MODE(_MM_ROUND_DOWN);
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
@@ -149,6 +151,7 @@ int main(int argc, char** argv) {
     for (int i = 0; i < NUMBER_OF_ASSETS; i++) {
         game->asset_cache.assets[i].id = ASSET_NOT_LOADED;
     }
+    pcg32_srandom(time(NULL), game);
 
     game->data.locked = SDL_CreateMutex();
     SDL_AtomicSet(&game->data.write_wanted, false);

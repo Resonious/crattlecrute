@@ -41,7 +41,7 @@ typedef struct {
 } CachedAsset;
 
 typedef struct {
-    CachedAsset assets[100];
+    CachedAsset assets[NUMBER_OF_ASSETS];
 } AssetCache;
 
 struct Game;

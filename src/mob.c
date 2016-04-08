@@ -61,7 +61,7 @@ void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos
     pon->frame_counter = 0;
     pon->frame_inc = 1;
     pon->hop = false;
-    if (rand() % 30 == 1) {
+    if (pcg32_boundedrand(30) == 1) {
         pon->color.r = 255;
         pon->color.g = 198;
         pon->color.b = 30;
@@ -105,8 +105,8 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
     if (game->net_joining) {
     }
     else {
-        if (pon->body.grounded && rand() % 100 == 1) {
-            if (rand() % 10 < 5)
+        if (pon->body.grounded && pcg32_boundedrand(100) == 1) {
+            if (pcg32_boundedrand(10) < 5)
                 pon->velocity.x[X] = -5.0f;
             else
                 pon->velocity.x[X] = 5.0f;

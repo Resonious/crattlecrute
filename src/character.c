@@ -577,23 +577,23 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
 }
 
 void randomize_character(Character* guy) {
-    guy->body_color.r = rand() % 255;
-    guy->body_color.g = rand() % 255;
-    guy->body_color.b = rand() % 255;
-    guy->left_foot_color.r = rand() % 255;
-    guy->left_foot_color.g = rand() % 255;
-    guy->left_foot_color.b = rand() % 255;
-    if (rand() > RAND_MAX / 5)
+    guy->body_color.r = pcg32_boundedrand(255);
+    guy->body_color.g = pcg32_boundedrand(255);
+    guy->body_color.b = pcg32_boundedrand(255);
+    guy->left_foot_color.r = pcg32_boundedrand(255);
+    guy->left_foot_color.g = pcg32_boundedrand(255);
+    guy->left_foot_color.b = pcg32_boundedrand(255);
+    if (PERCENT_CHANCE(75))
         guy->right_foot_color = guy->left_foot_color;
     else {
-        guy->right_foot_color.r = rand() % 255;
-        guy->right_foot_color.g = rand() % 255;
-        guy->right_foot_color.b = rand() % 255;
+        guy->right_foot_color.r = pcg32_boundedrand(255);
+        guy->right_foot_color.g = pcg32_boundedrand(255);
+        guy->right_foot_color.b = pcg32_boundedrand(255);
     }
-    if (rand() < RAND_MAX / 5) {
-        guy->eye_color.r = rand() % 255;
-        guy->eye_color.g = rand() % 255;
-        guy->eye_color.b = rand() % 255;
+    if (PERCENT_CHANCE(75)) {
+        guy->eye_color.r = pcg32_boundedrand(255);
+        guy->eye_color.g = pcg32_boundedrand(255);
+        guy->eye_color.b = pcg32_boundedrand(255);
     }
     SDL_AtomicSet(&guy->dirty, true);
 }

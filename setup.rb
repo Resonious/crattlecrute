@@ -36,12 +36,15 @@ def download(uri, dest, start_msg="Downloading")
   STDOUT.write start_msg
 
   http_req = Net::HTTP.new(uri.host, uri.port)
-  http_req.use_ssl = true
-  if OS.windows?
-    http_req.ca_file = File.join((File.dirname File.expand_path __FILE__), 'win-cacert.pem')
+
+  if uri.scheme == 'https'
+    http_req.use_ssl = true
+    if OS.windows?
+      http_req.ca_file = File.join((File.dirname File.expand_path __FILE__), 'win-cacert.pem')
+    end
+    http_req.verify_mode = OpenSSL::SSL::VERIFY_PEER
+    http_req.verify_depth = 5
   end
-  http_req.verify_mode = OpenSSL::SSL::VERIFY_PEER
-  http_req.verify_depth = 5
 
   http_req.start do |http|
     request = Net::HTTP::Get.new uri.request_uri
@@ -79,7 +82,21 @@ ensure
   FileUtils.rm zip_file unless options[:keep_temp]
 end
 
-unless ARGV.include?('--no-stb')
+@only_get = nil
+ARGV.each do |arg|
+  if /^--only-(?<only>\w+)/ =~ arg
+    @only_get = only
+    break
+  end
+end
+
+def download_for(name)
+  if @only_get == name || (!ARGV.include?("--no-#{name}") && @only_get.nil?)
+    yield
+  end
+end
+
+download_for 'stb' do
   # Grab STB libs
   FileUtils.mkdir_p File.join(destination_path, "STB")
   download(
@@ -94,7 +111,7 @@ unless ARGV.include?('--no-stb')
   )
 end
 
-unless ARGV.include?('--no-sdl')
+download_for 'sdl' do
   # Actually download SDL
   download(
     URI("https://www.libsdl.org/release/SDL2-2.0.3.zip"),
@@ -105,15 +122,7 @@ unless ARGV.include?('--no-sdl')
   unzip(destination_path, "SDL2temp.zip", "SDL2-2.0.3", "SDL")
 end
 
-if OS.windows?
-  Shortcut.new('VS.lnk') do |s|
-    s.target_path = File.join destination_path, 'SDL\VisualC\SDL_VS2013.sln'
-    s.description = 'Shortcut to Visual Studio solution'
-  end
-  puts "Added a shortcut to the Visual Studio solution. That's all for now!"
-end
-
-unless ARGV.include?('--no-mruby')
+download_for 'mruby' do
   # Download MRuby
   download(
     URI("https://codeload.github.com/mruby/mruby/zip/1.2.0"),
@@ -122,6 +131,25 @@ unless ARGV.include?('--no-mruby')
   )
   puts "Done! Now unzipping."
   unzip(destination_path, "MRubytemp.zip", "mruby-1.2.0", "MRuby")
+end
+
+download_for 'pcg' do
+  # Download the small PCG implementation
+  download(
+    URI("http://www.pcg-random.org/downloads/pcg-c-basic-0.9.zip"),
+    "PCGtemp.zip",
+    "Downloading PCG RNG"
+  )
+  puts "Done! Now unzipping."
+  unzip(destination_path, "PCGtemp.zip", "pcg-c-basic-0.9", "PCG")
+end
+
+if OS.windows?
+  Shortcut.new('VS.lnk') do |s|
+    s.target_path = File.join destination_path, 'SDL\VisualC\SDL_VS2013.sln'
+    s.description = 'Shortcut to Visual Studio solution'
+  end
+  puts "Added a shortcut to the Visual Studio solution. That's all for now!"
 end
 
 puts "Voila!"

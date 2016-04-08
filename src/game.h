@@ -9,6 +9,7 @@
 #include "sound.h"
 #include "cache.h"
 #include <mruby.h>
+#include "pcg_basic.h"
 
 enum Control {
     C_UP, C_DOWN, C_LEFT, C_RIGHT,

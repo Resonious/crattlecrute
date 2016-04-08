@@ -1043,7 +1043,7 @@ void update_map(
             zone->countdown_until_next_spawn_attempt -= 1;
         }
         else {
-            int random = rand() % 100;
+            int random = pcg32_boundedrand(100);
 
             for (int j = 0; j < zone->number_of_spawns; j++) {
                 MobSpawnRate* spawn = &zone->spawns[j];
