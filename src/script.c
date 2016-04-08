@@ -64,6 +64,44 @@ mrb_value mrb_int_to_sym(mrb_state* mrb, mrb_value self) {
     return mrb_symbol_value(self.value.sym);
 }
 
+mrb_value mrb_int_gene_specifiers(mrb_state* mrb, mrb_value self) {
+    Game* game = (Game*)mrb->ud;
+    Genes genes = { .word= mrb_fixnum(self) };
+
+    const int bits = (sizeof(genes.specifiers) * 8);
+    mrb_value rspecs = mrb_ary_new_capa(mrb, bits);
+
+    for (int i = 0; i < bits; i++) {
+        if (genes.specifiers & (1 << i)) {
+            const mrb_int spec = (1 << i) << (sizeof(Uint16) * 8);
+            mrb_value specs = mrb_hash_get(mrb, game->ruby.gene_to_sym, mrb_fixnum_value(spec));
+            if (!mrb_nil_p(specs))
+                mrb_ary_concat(mrb, rspecs, specs);
+        }
+    }
+
+    return rspecs;
+}
+
+mrb_value mrb_int_gene_flags(mrb_state* mrb, mrb_value self) {
+    Game* game = (Game*)mrb->ud;
+    Genes genes = { .word= mrb_fixnum(self) };
+
+    const int bits = (sizeof(genes.flags) * 8);
+    mrb_value rflags = mrb_ary_new_capa(mrb, bits);
+
+    for (int i = 0; i < bits; i++) {
+        const mrb_int flag = (1 << i);
+        if (genes.flags & flag) {
+            mrb_value flags = mrb_hash_get(mrb, game->ruby.gene_to_sym, mrb_fixnum_value(flag));
+            if (!mrb_nil_p(flags))
+                mrb_ary_concat(mrb, rflags, flags);
+        }
+    }
+
+    return rflags;
+}
+
 mrb_value mrb_vec2_init(mrb_state* mrb, mrb_value self) {
     mrb_float x = 0.0f, y = 0.0f;
     mrb_get_args(mrb, "|ff", &x, &y);
@@ -736,6 +774,8 @@ void script_init(struct Game* game) {
     // ==== core ext ====
     mrb_define_method(game->mrb, game->mrb->symbol_class, "to_i", mrb_sym_to_i, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->mrb->fixnum_class, "to_sym", mrb_int_to_sym, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->mrb->fixnum_class, "gene_specs", mrb_int_gene_specifiers, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->mrb->fixnum_class, "gene_flags", mrb_int_gene_flags, MRB_ARGS_NONE());
 
     mrb_define_method(game->mrb, game->mrb->fixnum_class, "as_hue", mrb_num_as_hue, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->mrb->float_class,  "as_hue", mrb_num_as_hue, MRB_ARGS_NONE());
@@ -856,6 +896,9 @@ void script_init(struct Game* game) {
     // ==================================== class Crattlecrute (Character) ===========================
     game->ruby.character_class = mrb_define_class(game->mrb, "Crattlecrute", game->mrb->object_class);
     MRB_SET_INSTANCE_TT(game->ruby.character_class, MRB_TT_DATA);
+
+    game->ruby.gene_to_sym = mrb_hash_new_capa(game->mrb, 32);
+    game->ruby.sym_to_gene = mrb_hash_new_capa(game->mrb, 32);
 
     game->ruby.cc_type_to_sym = mrb_hash_new_capa(game->mrb, CRATTLECRUTE_TYPE_COUNT);
     game->ruby.cc_sym_to_type = mrb_hash_new_capa(game->mrb, CRATTLECRUTE_TYPE_COUNT);

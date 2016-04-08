@@ -247,6 +247,7 @@ void apply_character_age(struct Game* game, Character* guy) {
         // TODO MATURE!
         guy->body_type = CRATTLECRUTE_STANDARD;
         guy->feet_type = CRATTLECRUTE_STANDARD;
+        mature_genes(game, guy);
         set_character_bounds(guy);
         load_character_atlases(game, guy);
     }

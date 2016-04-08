@@ -236,6 +236,26 @@ egg_h = File.open(File.join(File.dirname(__FILE__), 'src/egg.h'), &:read)
 gene_specs = parse_define('GSPEC', egg_h)
 gene_flags = parse_define('GFLAG', egg_h)
 
+def gene_sym(prefix, name)
+  "#{prefix}_#{name.downcase}"
+end
+
+def gs_offset(value)
+  "#{value} << (sizeof(Uint16) * 8)"
+end
+
+gene_specs_by_value = {}
+gene_specs.each do |name, value|
+  gene_specs_by_value[value] ||= []
+  gene_specs_by_value[value] << gene_sym('spec', name)
+end
+
+gene_flags_by_value = {}
+gene_flags.each do |name, value|
+  gene_flags_by_value[value] ||= []
+  gene_flags_by_value[value] << gene_sym('flag', name)
+end
+
 header.write("#define define_mrb_enum_constants(game) \\\n")
 
 item_ids.each do |name, value|
@@ -248,10 +268,30 @@ area_ids.each do |name, value|
 end
 
 gene_specs.each do |name, value|
-  header.write(%{    mrb_define_global_const(game->mrb, "GSPEC_#{name}", mrb_fixnum_value(#{value} << (sizeof(Uint16) * 8)));\\\n})
+  header.write(%{    mrb_define_global_const(game->mrb, "GSPEC_#{name}", mrb_fixnum_value(#{gs_offset(value)}));\\\n})
+  header.write(%{    mrb_hash_set(game->mrb, game->ruby.sym_to_gene, mrb_symbol_value(mrb_intern_lit(game->mrb, "#{gene_sym(:spec, name)}")), mrb_fixnum_value(#{gs_offset(value)}));\\\n})
 end
+gene_specs_by_value.each do |value, names|
+  ident = "_gspec_#{value}_names"
+  header.write(%{    mrb_value #{ident} = mrb_ary_new_capa(game->mrb, #{names.size});\\\n})
+  names.each do |name|
+    header.write(%{    mrb_ary_push(game->mrb, #{ident}, mrb_symbol_value(mrb_intern_lit(game->mrb, "#{name}")));\\\n})
+  end
+  header.write(%{    mrb_hash_set(game->mrb, game->ruby.gene_to_sym, mrb_fixnum_value(#{gs_offset(value)}), #{ident});\\\n})
+end
+
 gene_flags.each do |name, value|
   header.write(%{    mrb_define_global_const(game->mrb, "GFLAG_#{name}", mrb_fixnum_value(#{value}));\\\n})
+
+  header.write(%{    mrb_hash_set(game->mrb, game->ruby.sym_to_gene, mrb_symbol_value(mrb_intern_lit(game->mrb, "#{gene_sym(:flag, name)}")), mrb_fixnum_value(#{value}));\\\n})
+end
+gene_flags_by_value.each do |value, names|
+  ident = "_gflag_#{value}_names"
+  header.write(%{    mrb_value #{ident} = mrb_ary_new_capa(game->mrb, #{names.size});\\\n})
+  names.each do |name|
+    header.write(%{    mrb_ary_push(game->mrb, #{ident}, mrb_symbol_value(mrb_intern_lit(game->mrb, "#{name}")));\\\n})
+  end
+  header.write(%{    mrb_hash_set(game->mrb, game->ruby.gene_to_sym, mrb_fixnum_value(#{value}), #{ident});\\\n})
 end
 
 header.write("\n")

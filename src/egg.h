@@ -5,9 +5,8 @@
 #include "mob.h"
 
 // TODO actually use these flags -- or get rid of them I was just brainstorming
-#define GSPEC_HUE (1 << 0)
+#define GSPEC_SOLID_COLOR (1 << 0)
 #define GSPEC_DARKER_COLOR (1 << 1)
-#define GSPEC_ROBO (1 << 2)
 
 #define GFLAG_GSPD (1 << 0)
 #define GFLAG_RNPD (1 << 1)
@@ -15,10 +14,6 @@
 #define GFLAG_GDEC (1 << 3)
 #define GFLAG_JACC (1 << 4)
 #define GFLAG_JCDY (1 << 5)
-
-#define GFLAG_BODY (1 << 6)
-#define GFLAG_FEET (1 << 0)
-#define GFLAG_ASYM (1 << 5)
 
 #define GFLAG_INVERT (1 << 7)
 #define GFLAG_SHIFT (1 << 8)
@@ -57,6 +52,7 @@ void default_egg(struct EggData* egg);
 
 struct Game;
 struct Character;
+SDL_Color genes_solid_color(Genes* genes);
 void genes_decide_body_color(Genes* genes, SDL_Color* color);
 void genes_decide_eye_color(Genes* genes, SDL_Color* color);
 void genes_decide_eye_type(Genes* genes, int* eye_type);

@@ -186,6 +186,10 @@ def peak_bench_over(time)
   end
 end
 
+def random_genes
+  (Random.rand * 2000000000).to_i
+end
+
 def test_egg
   e = Egg.new
   e.age = 0

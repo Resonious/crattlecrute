@@ -28,12 +28,20 @@ static void mod_color(Genes* genes, SDL_Color* color, Uint16 flags) {
     }
 }
 
+SDL_Color genes_solid_color(Genes* genes) {
+    return hue_to_color(wrap_degrees((float)genes->word));
+}
+
 void genes_decide_body_color(Genes* genes, SDL_Color* color) {
-    // TODO actual variation
-    color->a = 255;
-    color->r = 0;
-    color->g = 210;
-    color->b = 255;
+    if (genes->specifiers & GSPEC_SOLID_COLOR) {
+        *color = genes_solid_color(genes);
+    }
+    else {
+        color->a = 255;
+        color->r = 0;
+        color->g = 210;
+        color->b = 255;
+    }
 
     mod_color(genes, color, genes->flags);
 }
@@ -94,5 +102,9 @@ void initialize_genes_with_colors(struct Game* game, struct Character* guy, SDL_
 }
 
 void update_genes(struct Game* game, struct Character* guy) {
+    // TODO ..
+}
+
+void mature_genes(struct Game* game, struct Character* guy) {
     // TODO ..
 }
