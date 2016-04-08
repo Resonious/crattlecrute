@@ -58,6 +58,8 @@ bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 posit
 
 void item_egg_initialize(void* vitem, struct Game* game);
 bool item_egg_drop(void* vitem, struct Game* game, struct Map* map, vec2 position);
+// copy/paste of layered icon thing
+void item_egg_render(void* item, struct Game* game, SDL_Rect* dest);
 
 static ItemType item_registry[] = {
     {
@@ -69,7 +71,7 @@ static ItemType item_registry[] = {
     {
         ITEM_EGG, ASSET_EGG_BASIC_INV_PNG,
         item_egg_initialize,
-        render_layered_icon_item,
+        item_egg_render,
         item_egg_drop
     }
 };

@@ -368,31 +368,15 @@ void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
     AnimationAtlas* atlas = cached_atlas(game, ASSET_EGG_BASIC_PNG, 64, 64, 6, 3);
     SDL_QueryTexture(atlas->texture, NULL, NULL, &image_width, &image_height);
 
-#define MOD_SOLID_COLOR \
-        Uint8 r, g, b; \
-        if (egg->e.genes.specifiers & GSPEC_SOLID_COLOR) { \
-            SDL_GetTextureColorMod(atlas->texture, &r, &g, &b); \
-            SDL_Color solid = genes_solid_color(&egg->e.genes); \
-            SDL_SetTextureColorMod(atlas->texture, solid.r, solid.g, solid.b); \
-        }
-
-#define UNMOD_SOLID_COLOR \
-        if (egg->e.genes.specifiers & GSPEC_SOLID_COLOR) { \
-            SDL_SetTextureColorMod(atlas->texture, r, g, b); \
-        }
+    MOD_SOLID_COLOR(egg->e, atlas->texture);
 
     if (egg->e.age < egg->e.hatching_age) {
         SDL_Rect src = src_rect_frame(3, image_width, image_height, 64, 64);
 
         // Just render the egg bottom and top on frames 3 and 5.
-
-        MOD_SOLID_COLOR;
-
         world_render_copy(game, atlas->texture, &src, &p, 64, 64, &c);
         increment_src_rect(&src, 2, image_width, image_height);
         world_render_copy(game, atlas->texture, &src, &p, 64, 64, &c);
-
-        UNMOD_SOLID_COLOR;
     }
     else {
         SDL_Rect src = src_rect_frame(0, image_width, image_height, 64, 64);
@@ -408,13 +392,12 @@ void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
 
             draw_eye(game, atlas, &egg->body, egg->decided_eye_type, 0, 0, &egg->decided_eye_color);
         }
-        MOD_SOLID_COLOR;
 
         increment_src_rect(&src, 2, image_width, image_height);
         world_render_copy(game, atlas->texture, &src, &p, 64, 64, &c);
-
-        UNMOD_SOLID_COLOR;
     }
+
+    UNMOD_SOLID_COLOR(egg->e, atlas->texture);
 
     if (game->text_edit.text == game->new_character_name_buffer) {
         SDL_Rect name_rect = {

@@ -48,6 +48,19 @@ typedef struct ItemEgg {
     struct EggData e;
 } ItemEgg;
 
+#define MOD_SOLID_COLOR(e, texture) \
+        Uint8 _r, _g, _b; \
+        if (e.genes.specifiers & GSPEC_SOLID_COLOR) { \
+            SDL_GetTextureColorMod(texture, &_r, &_g, &_b); \
+            SDL_Color solid = genes_solid_color(&e.genes); \
+            SDL_SetTextureColorMod(texture, solid.r, solid.g, solid.b); \
+        }
+
+#define UNMOD_SOLID_COLOR(e, texture) \
+        if (e.genes.specifiers & GSPEC_SOLID_COLOR) { \
+            SDL_SetTextureColorMod(texture, _r, _g, _b); \
+        }
+
 void default_egg(struct EggData* egg);
 
 struct Game;

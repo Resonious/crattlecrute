@@ -89,6 +89,39 @@ void item_egg_initialize(void* vitem, struct Game* game) {
     egg->e.hatching_age = 15 MINUTES;
     default_egg(&egg->e);
 }
+void item_egg_render(void* vitem, struct Game* game, SDL_Rect* dest) {
+    ItemEgg* egg = (ItemEgg*)vitem;
+    int layer_mask;
+    SDL_Texture* tex;
+
+    if (egg->item_type_id < 0 || egg->item_type_id >= NUMBER_OF_ITEM_TYPES) {
+        // Show question mark for messed up items.
+        layer_mask = LAYER_MASK_2_FRAMES;
+        tex = cached_texture(game, ASSET_MISC_Q_INV_PNG);
+    }
+    else {
+        ItemType* reg = &item_registry[egg->item_type_id];
+        layer_mask = egg->layer_mask;
+        tex = cached_texture(game, reg->icon_asset);
+    }
+
+    int tex_width, tex_height;
+    int r = SDL_QueryTexture(tex, NULL, NULL, &tex_width, &tex_height)
+          + SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+
+    SDL_assert(r == 0);
+
+    MOD_SOLID_COLOR(egg->e, tex);
+
+    for (int i = 0; i < 8; i++) {
+        if (egg->layer_mask & (1 << i)) {
+            SDL_Rect src = src_rect_frame(i, tex_width, tex_height, 32, 32);
+            SDL_RenderCopy(game->renderer, tex, &src, dest);
+        }
+    }
+
+    UNMOD_SOLID_COLOR(egg->e, tex);
+}
 void egg_dropped(void* vdata, void* vegg) {
     MobEgg* egg_drop = (MobEgg*)vegg;
     struct EggData* data = vdata;
