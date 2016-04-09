@@ -43,6 +43,13 @@ module TimeUnits
   def minute
     minutes
   end
+
+  def in_seconds
+    self / 60
+  end
+  def in_minutes
+    self / 60 / 60
+  end
 end
 
 Fixnum.send(:include, TimeUnits)

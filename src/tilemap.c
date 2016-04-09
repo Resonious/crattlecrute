@@ -179,7 +179,7 @@ TileCollision process_bottom_sensor(GenericBody* guy, CollisionMap* tilemap, Sen
             return process_bottom_sensor_one_tile_down(guy, tilemap, t, sensor);
 
         // Try next tile up
-        if (height == 31) {
+        if (height >= 31) {
             int new_tilespace_y = t->tilespace.x[sensor+Y] + 1;
             // Make sure "one tile up" is in fact a valid tile index..
             if (new_tilespace_y >= 0 && new_tilespace_y < tilemap->height) {
@@ -196,7 +196,7 @@ TileCollision process_bottom_sensor(GenericBody* guy, CollisionMap* tilemap, Sen
                         height = new_height;
 
                         // Checking 2 tiles up for bottom sensor is absurd.
-                        if (height == 31) {
+                        if (height >= 31) {
                             result.hit = true;
                             result.new_position = guy->position.x[Y];
                             return result;
@@ -342,7 +342,7 @@ TileCollision process_side_sensor(GenericBody* guy, CollisionMap* tilemap, Sense
             height = heights[y_within_tile];
 
             // Move over one tile if we're max height
-            if (height == 31) {
+            if (height >= 31) {
                 const int tilepos_offset_amount = sensor_dir == LEFT_SENSOR ? 32 : -32;
 
                 int new_tilespace_dim = t->tilespace.x[sensor + X];
@@ -705,7 +705,7 @@ void draw_map(struct Game* game, Map* map) {
     SDL_UnlockMutex(map->locked);
 }
 
-static void do_bottom_sensors(GenericBody* guy, CollisionMap* tile_collision, vec4i* tilemap_dim) {
+static void do_bottom_sensors(GenericBody* guy, CollisionMap* tile_collision, vec4i* tilemap_dim, TileCollision* b1ref, TileCollision* b2ref) {
     SensedTile t;
     // == BOTTOM SENSORS ==
     sense_tile(&guy->position, tilemap_dim, &guy->bottom_sensors, &t);
@@ -744,6 +744,11 @@ static void do_bottom_sensors(GenericBody* guy, CollisionMap* tile_collision, ve
                 guy->ground_angle = 0.0f;
         }
     }
+
+    if (b1ref)
+        *b1ref = b_collision_1;
+    if (b2ref)
+        *b2ref = b_collision_2;
 }
 
 void collide_generic_body(struct GenericBody* body, CollisionMap* tile_collision) {
@@ -755,9 +760,11 @@ void collide_generic_body(struct GenericBody* body, CollisionMap* tile_collision
         tile_collision->height, tile_collision->width
     );
 
+    TileCollision b_collision_1, b_collision_2;
+
     bool guy_was_grounded = body->grounded;
     if (guy_was_grounded)
-        do_bottom_sensors(body, tile_collision, &tilemap_dim);
+        do_bottom_sensors(body, tile_collision, &tilemap_dim, &b_collision_1, &b_collision_2);
 
     vec4 guy_new_x_position;
     guy_new_x_position.x[X] = body->position.x[X];
@@ -781,8 +788,8 @@ void collide_generic_body(struct GenericBody* body, CollisionMap* tile_collision
     // == LEFT SENSORS ==
     if (body->position.x[X] < body->old_position.x[X]) {
         sense_tile(&guy_new_x_position, &tilemap_dim, &body->left_sensors, &t);
-        l_collision_1 = process_side_sensor(body, tile_collision, &t,   LEFT_SENSOR, SENSOR_1);
-        l_collision_2 = process_side_sensor(body, tile_collision, &t,   LEFT_SENSOR, SENSOR_2);
+        l_collision_1 = process_side_sensor(body, tile_collision, &t, LEFT_SENSOR, SENSOR_1);
+        l_collision_2 = process_side_sensor(body, tile_collision, &t, LEFT_SENSOR, SENSOR_2);
         left_hit = l_collision_1.hit || l_collision_2.hit;
     }
     else
@@ -820,8 +827,8 @@ void collide_generic_body(struct GenericBody* body, CollisionMap* tile_collision
         body->hit_ceiling = false;
     body->hit_wall = ((left_hit && l_collision_1.hit && l_collision_2.hit) || (right_hit && r_collision_1.hit && r_collision_2.hit));
 
-    if (!guy_was_grounded)
-        do_bottom_sensors(body, tile_collision, &tilemap_dim);
+    // Even if we were grounded and did one of these in the beginnin, we want to do another.
+    do_bottom_sensors(body, tile_collision, &tilemap_dim, &b_collision_1, &b_collision_2);
 
     body->left_hit = left_hit;
     body->right_hit = right_hit;
@@ -837,10 +844,11 @@ void collide_character(struct Character* guy, CollisionMap* tile_collision) {
     );
 
     GenericBody* body = (GenericBody*)guy;
+    TileCollision b_collision_1, b_collision_2;
 
     bool guy_was_grounded = guy->grounded;
     if (guy_was_grounded)
-        do_bottom_sensors(body, tile_collision, &tilemap_dim);
+        do_bottom_sensors(body, tile_collision, &tilemap_dim, &b_collision_1, &b_collision_2);
 
     vec4 guy_new_x_position;
     guy_new_x_position.x[X] = guy->position.x[X];
@@ -909,8 +917,9 @@ void collide_character(struct Character* guy, CollisionMap* tile_collision) {
         guy->slide_speed = 0;
     }
 
-    if (!guy_was_grounded)
-        do_bottom_sensors(body, tile_collision, &tilemap_dim);
+    // Even if we were grounded and did one of these in the beginnin, we want to do another.
+    do_bottom_sensors(body, tile_collision, &tilemap_dim, &b_collision_1, &b_collision_2);
+
     if (guy->grounded)
         guy->dy = 0;
 

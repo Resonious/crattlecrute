@@ -43,7 +43,7 @@ void pick_up_item(PhysicsMob* mob, int item_type, struct Game* game, struct Map*
 
 // ==== PON ====
 
-#define set_pon_sensors(pon) set_collision_sensors(&pon->body, 50, 34, 0);
+#define set_pon_sensors(pon) set_collision_sensors(&pon->body, 34, 34, 0);
 
 void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos) {
     SDL_assert(sizeof(MobPon) <= sizeof(MediumMob));
@@ -91,6 +91,14 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
 
     pon->body.position.simd = _mm_add_ps(pon->body.position.simd, pon->velocity.simd);
     collide_generic_body(&pon->body, &map->tile_collision);
+    GenericBody halfway = pon->body;
+    collide_generic_body(&halfway, &map->tile_collision);
+    pon->body.position = halfway.position;
+    pon->body.left_hit = pon->body.left_hit || halfway.left_hit;
+    pon->body.right_hit = pon->body.right_hit || halfway.right_hit;
+    pon->body.grounded = pon->body.grounded || halfway.grounded;
+    pon->body.hit_ceiling = pon->body.hit_ceiling || halfway.hit_ceiling;
+    pon->body.hit_wall = pon->body.hit_wall || halfway.hit_wall;
 
     if (pon->body.hit_ceiling || pon->body.grounded)
         pon->velocity.x[Y] = 0;

@@ -83,13 +83,19 @@ void initialize_genes_with_colors(struct Game* game, struct Character* guy, SDL_
     guy->eye_color  = *eye_color;
     guy->eye_type = eye_type;
 
-    guy->left_foot_color.r = 255;
-    guy->left_foot_color.g = 0;
-    guy->left_foot_color.b = 0;
-    guy->left_foot_color.a = 255;
-    guy->right_foot_color = guy->left_foot_color;
+    if (guy->genes.specifiers & GSPEC_SOLID_COLOR) {
+        guy->left_foot_color = genes_solid_color(&guy->genes);
+        guy->right_foot_color = guy->left_foot_color;
+    }
+    else {
+        guy->left_foot_color.r = 255;
+        guy->left_foot_color.g = 0;
+        guy->left_foot_color.b = 0;
+        guy->left_foot_color.a = 255;
+        guy->right_foot_color = guy->left_foot_color;
+    }
     mod_color(&guy->genes, &guy->right_foot_color, guy->genes.flags);
-    mod_color(&guy->genes, &guy->left_foot_color,  guy->genes.flags);
+    mod_color(&guy->genes, &guy->left_foot_color, guy->genes.flags);
 
     // ATTRIBUTES
     const float base_stat = 0.7f;
@@ -102,7 +108,15 @@ void initialize_genes_with_colors(struct Game* game, struct Character* guy, SDL_
 }
 
 void update_genes(struct Game* game, struct Character* guy) {
-    // TODO ..
+    if (guy->age < guy->age_of_maturity) {
+#define INC_ATTR(attr) guy->attr += 0.3f * (1.0f / (float)guy->age_of_maturity);
+        INC_ATTR(ground_speed_max);
+        INC_ATTR(run_speed_max);
+        INC_ATTR(ground_acceleration);
+        INC_ATTR(ground_deceleration);
+        INC_ATTR(jump_acceleration);
+        INC_ATTR(jump_cancel_dy);
+    }
 }
 
 void mature_genes(struct Game* game, struct Character* guy) {
