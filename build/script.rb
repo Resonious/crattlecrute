@@ -143,6 +143,9 @@ end
 def phash(h)
   puts "-----------------------------"
   h.each do |name, seconds|
+    if block_given?
+      next unless yield(name.to_s)
+    end
     puts "#{name} ==> #{seconds} seconds"
     puts "-----------------------------"
   end
@@ -173,7 +176,7 @@ def average_bench_over(time)
 end
 alias avg_bench average_bench_over
 
-def peak_bench_over(time)
+def peak_bench_over(time, &block)
   bench = game.bench
   peaks = Hash.new(0)
   count = 0
@@ -186,7 +189,7 @@ def peak_bench_over(time)
     count += 1
 
     if count >= time
-      phash peaks
+      phash(peaks, &block)
 
       raise Done
     end
@@ -201,7 +204,7 @@ def test_egg
   e = Egg.new
   e.age = 0
   e.hatching_age = 2.seconds
-  e.genes = GSPEC_DARKER_COLOR
+  e.genes = random_genes | GSPEC_SOLID_COLOR | GSPEC_DARKER_COLOR
   e
 end
 

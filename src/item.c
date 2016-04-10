@@ -112,7 +112,6 @@ void item_egg_render(void* vitem, struct Game* game, SDL_Rect* dest) {
     SDL_assert(r == 0);
 
     MOD_SOLID_COLOR(egg->e, tex);
-
     for (int i = 0; i < 8; i++) {
         if (egg->layer_mask & (1 << i)) {
             SDL_Rect src = src_rect_frame(i, tex_width, tex_height, 32, 32);

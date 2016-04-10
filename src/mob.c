@@ -583,13 +583,14 @@ void mob_mgc_load(void* vmgc, struct Game* game, struct Map* map, byte* buffer, 
         chunk.bytes = malloc(2048);
 
         if (game->net_joining) {
-            memcpy(chunk.bytes, buffer + *pos, chunk_size);
+            memcpy(chunk.bytes, buffer + (*pos), chunk_size);
             read_character_from_data(guy, &chunk);
         }
         else {
             read_character_from_data(guy, &game->data.characters[mob->character_index]);
         }
         *pos += chunk_size;
+        set_character_bounds(guy);
         load_character_atlases(game, guy);
 
         free(chunk.bytes);

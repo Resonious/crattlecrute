@@ -29,7 +29,7 @@ static void mod_color(Genes* genes, SDL_Color* color, Uint16 flags) {
 }
 
 SDL_Color genes_solid_color(Genes* genes) {
-    return hue_to_color(wrap_degrees((float)genes->word));
+    return hue_to_color((float)(genes->word % 360));
 }
 
 void genes_decide_body_color(Genes* genes, SDL_Color* color) {

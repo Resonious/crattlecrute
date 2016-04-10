@@ -1,6 +1,7 @@
 #include "types.h"
 #include <stdlib.h>
 #include <math.h>
+#include "assets.h"
 
 void wait_for_then_use_lock(SDL_mutex* mutex) {
     if (SDL_LockMutex(mutex) != 0)
@@ -70,8 +71,9 @@ vec2 v2_mul(float s, vec2 u) {
 }
 
 SDL_Color hue_to_color(float hue) {
-    const float th = tanf(hue);
-    const float r3 = sqrtf(3.0f);
+    SDL_assert(hue < 360.0f);
+    const float th = tanf_360[(int)hue];
+    const float r3 = SQRT3;
 
     vec4 fcolor; fcolor.simd = _mm_set1_ps(0);
 

@@ -212,6 +212,15 @@ all_collision_data.each do |file, heights|
   header.write("};\n\n")
 end
 
+header.write("const static float tanf_360[] = {\n    ");
+(0...360).each do |n|
+  header.write("#{Math.tan(n)}f, ");
+  if n % 20 == 0
+    header.write("\n    ")
+  end
+end
+header.write("\n};\n\n");
+
 # NOTE that at this point, `all_files` does not actually contain ALL files.. (collision heightmaps are rejected for example)
 all_files.each_with_index do |file, index|
   header.write("#define ASSET_#{ident(file)} #{index}\n")

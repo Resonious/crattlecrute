@@ -118,6 +118,8 @@ static __m128i _mm_mul_epi32_x4(__m128i a, __m128i b)
             (thing) = (target); \
     }
 
+#define SQRT3 1.73205080757f
+
 typedef union vec2i {
     struct { int x, y; };
     int v[2];
