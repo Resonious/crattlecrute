@@ -94,16 +94,9 @@ void item_egg_render(void* vitem, struct Game* game, SDL_Rect* dest) {
     int layer_mask;
     SDL_Texture* tex;
 
-    if (egg->item_type_id < 0 || egg->item_type_id >= NUMBER_OF_ITEM_TYPES) {
-        // Show question mark for messed up items.
-        layer_mask = LAYER_MASK_2_FRAMES;
-        tex = cached_texture(game, ASSET_MISC_Q_INV_PNG);
-    }
-    else {
-        ItemType* reg = &item_registry[egg->item_type_id];
-        layer_mask = egg->layer_mask;
-        tex = cached_texture(game, reg->icon_asset);
-    }
+    ItemType* reg = &item_registry[egg->item_type_id];
+    layer_mask = egg->layer_mask;
+    tex = cached_texture(game, reg->icon_asset);
 
     int tex_width, tex_height;
     int r = SDL_QueryTexture(tex, NULL, NULL, &tex_width, &tex_height)
