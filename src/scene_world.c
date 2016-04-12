@@ -2115,6 +2115,12 @@ void scene_world_initialize(void* vdata, Game* game) {
         egg->e.hatching_age = 2 SECONDS;
         // egg->e.genes.specifiers |= GSPEC_DARKER_COLOR;
         // egg->e.genes.flags |= GFLAG_INTENSE;
+// #define PISS
+#ifdef PISS
+        egg->e.genes.specifiers = GSPEC_SOLID_COLOR;
+        egg->e.genes.flags = 56;
+        strcpy(game->new_character_name_buffer, "PISS");
+#endif
         game->pending_egg = egg;
         set_camera_target(game, data->map, &egg->body);
 
