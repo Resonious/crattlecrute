@@ -147,6 +147,9 @@ TileCollision process_bottom_sensor_one_tile_down(GenericBody* guy, CollisionMap
             // Just assume that we want to be placed here (this function should only be called when grounded)
             result.hit = true;
             result.new_position = (float)(t->tilepos.x[sensor+Y] + height - guy->bottom_sensors.x[sensor+Y]);
+            // Don't bother if it's > 16 pixels high of a slope...
+            if (abs(result.new_position - guy->position.x[Y]) > 16)
+                result.hit = false;
         }
     }
 

@@ -678,6 +678,7 @@ void read_guy_info_from_buffer(byte* buffer, Character* guy, int* area_id, int* 
     read_from_buffer(buffer, &guy->selected_slot,       pos, sizeof(guy->selected_slot));
     read_from_buffer(buffer, &guy->grabbed_slot,        pos, sizeof(guy->grabbed_slot));
     read_from_buffer(buffer, area_id,          pos, sizeof(int));
+    set_character_bounds(guy);
 }
 
 void write_guy_info_to_buffer(byte* buffer, Character* guy, int area_id, int* pos) {
@@ -702,7 +703,6 @@ void write_guy_info_to_buffer(byte* buffer, Character* guy, int area_id, int* po
     write_to_buffer(buffer, &guy->selected_slot,       pos, sizeof(guy->selected_slot));
     write_to_buffer(buffer, &guy->grabbed_slot,        pos, sizeof(guy->grabbed_slot));
     write_to_buffer(buffer, &area_id, pos, sizeof(int));
-    set_character_bounds(guy);
 }
 
 void read_guy_inventory_from_buffer(byte* buffer, Character* guy, int* pos) {
