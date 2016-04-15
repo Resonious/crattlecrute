@@ -98,13 +98,16 @@ void initialize_genes_with_colors(struct Game* game, struct Character* guy, SDL_
     mod_color(&guy->genes, &guy->left_foot_color, guy->genes.flags);
 
     // ATTRIBUTES
-    const float base_stat = 0.7f;
+    // const float base_stat = 0.7f;
+    const float base_stat = 0.9f;
     guy->ground_speed_max    = base_stat;
     guy->run_speed_max       = base_stat;
     guy->ground_acceleration = base_stat;
     guy->ground_deceleration = base_stat;
     guy->jump_acceleration   = base_stat;
     guy->jump_cancel_dy      = base_stat;
+    // TEMP
+    guy->age = guy->age_of_maturity - 1;
 }
 
 void update_genes(struct Game* game, struct Character* guy) {

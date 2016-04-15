@@ -330,7 +330,8 @@ no_renderer:
     SDL_Thread* data_write_thread = NULL;
     if (game->gamedata_file_path) {
         FILE* data_read = fopen(game->gamedata_file_path, "r");
-        if (data_read != NULL) {
+        // TODO remove the false lol
+        if (false && data_read != NULL) {
             read_game_data(&game->data, data_read);
             fclose(data_read);
 #ifdef _DEBUG

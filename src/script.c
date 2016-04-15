@@ -53,7 +53,11 @@ vec2 mrb_vec2(mrb_state* mrb, mrb_value value) {
 }
 
 mrb_value mrb_debug_game_bench(mrb_state* mrb, mrb_value self) {
+#ifdef _DEBUG
   return _bench_hash;
+#else
+  return mrb_nil_value();
+#endif
 }
 
 mrb_value mrb_sym_to_i(mrb_state* mrb, mrb_value self) {

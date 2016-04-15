@@ -673,8 +673,10 @@ void read_guy_info_from_buffer(byte* buffer, Character* guy, int* area_id, int* 
     read_from_buffer(buffer, &guy->ground_deceleration, pos, sizeof(guy->ground_deceleration));
     read_from_buffer(buffer, &guy->jump_acceleration,   pos, sizeof(guy->jump_acceleration));
     read_from_buffer(buffer, &guy->jump_cancel_dy,      pos, sizeof(guy->jump_cancel_dy));
-    read_from_buffer(buffer, &guy->age,                pos, sizeof(guy->age));
-    read_from_buffer(buffer, &guy->age_of_maturity,    pos, sizeof(guy->age_of_maturity));
+    read_from_buffer(buffer, &guy->age,                 pos, sizeof(guy->age));
+    read_from_buffer(buffer, &guy->age_of_maturity,     pos, sizeof(guy->age_of_maturity));
+    read_from_buffer(buffer, &guy->selected_slot,       pos, sizeof(guy->selected_slot));
+    read_from_buffer(buffer, &guy->grabbed_slot,        pos, sizeof(guy->grabbed_slot));
     read_from_buffer(buffer, area_id,          pos, sizeof(int));
 }
 
@@ -697,6 +699,8 @@ void write_guy_info_to_buffer(byte* buffer, Character* guy, int area_id, int* po
     write_to_buffer(buffer, &guy->jump_cancel_dy,      pos, sizeof(guy->jump_cancel_dy));
     write_to_buffer(buffer, &guy->age,                 pos, sizeof(guy->age));
     write_to_buffer(buffer, &guy->age_of_maturity,     pos, sizeof(guy->age_of_maturity));
+    write_to_buffer(buffer, &guy->selected_slot,       pos, sizeof(guy->selected_slot));
+    write_to_buffer(buffer, &guy->grabbed_slot,        pos, sizeof(guy->grabbed_slot));
     write_to_buffer(buffer, &area_id, pos, sizeof(int));
 }
 
