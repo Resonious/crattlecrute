@@ -171,6 +171,9 @@ typedef struct GenericBody {
     bool left_hit, right_hit, grounded, hit_ceiling, hit_wall;
     // In degrees
     float ground_angle;
+
+    // TODO use this
+    vec4 push_velocity;
 } GenericBody;
 
 struct Map;

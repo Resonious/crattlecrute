@@ -59,6 +59,8 @@ typedef struct Character {
     bool left_hit, right_hit, grounded, hit_ceiling, hit_wall;
     // In degrees
     float ground_angle;
+
+    vec4 push_velocity;
     // === END OF GenericBody ===
 
     // (x[0], x[1])  (x[2], x[3])

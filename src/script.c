@@ -391,6 +391,26 @@ mrb_value mrb_character_age(mrb_state* mrb, mrb_value self) {
     return mrb_fixnum_value(guy->age);
 }
 
+mrb_value mrb_character_age_eq(mrb_state* mrb, mrb_value self) {
+    Character* guy = DATA_PTR(self);
+    Game* game = (Game*)mrb->ud;
+
+    mrb_int new_age;
+    mrb_get_args(mrb, "i", &new_age);
+
+    bool was_young = guy->age < guy->age_of_maturity;
+    guy->age = new_age;
+    if (was_young && guy->age >= guy->age_of_maturity) {
+        guy->body_type = CRATTLECRUTE_STANDARD;
+        guy->feet_type = CRATTLECRUTE_STANDARD;
+        mature_genes(game, guy);
+        set_character_bounds(guy);
+        load_character_atlases(game, guy);
+    }
+
+    return mrb_fixnum_value(guy->age);
+}
+
 mrb_value mrb_character_age_of_maturity(mrb_state* mrb, mrb_value self) {
     Character* guy = DATA_PTR(self);
     return mrb_fixnum_value(guy->age_of_maturity);
@@ -945,6 +965,7 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.character_class, "dirty!", mrb_character_mark_dirty, MRB_ARGS_NONE());
 
     mrb_define_method(game->mrb, game->ruby.character_class, "age", mrb_character_age, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.character_class, "age=", mrb_character_age_eq, MRB_ARGS_REQ(1));
     mrb_define_method(game->mrb, game->ruby.character_class, "age_of_maturity", mrb_character_age_of_maturity, MRB_ARGS_NONE());
 
     // ==================================== class Item =================================
