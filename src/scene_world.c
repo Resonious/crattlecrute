@@ -2559,7 +2559,7 @@ done_with_physics:;
     // if (just_pressed(&game->controls, C_F1))
         // switch_scene(game, SCENE_OFFSET_VIEWER);
 
-    if (s->net.status == NOT_CONNECTED) {
+    if (s->net.status == NOT_CONNECTED || s->net.status == WANT_TO_JOIN) {
         if (just_pressed(&game->controls, C_F1)) {
             start_editing_text(game, s->net.textinput_port, EDITABLE_TEXT_BUFFER_SIZE, &text_box_rect);
             s->net.status = HOSTING;
