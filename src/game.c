@@ -256,11 +256,6 @@ void read_game_data(GameData* data, FILE* file) {
     fread(&number_of_areas, sizeof(int), 1, file);
 
     for (int i = 0; i < number_of_areas; i++) {
-        // ======= Area ID of this map ========
-        int area_id;
-        fread(&area_id, sizeof(int), 1, file);
-        SDL_assert(area_id == i);
-
         read_data_chunk(&data->maps[i], file);
     }
 
@@ -288,9 +283,6 @@ void write_game_data(GameData* data, FILE* file) {
     fwrite(&number_of_areas, sizeof(int), 1, file);
 
     for (int i = 0; i < number_of_areas; i++) {
-        // ======= Area ID of this map ========
-        fwrite(&i, sizeof(int), 1, file);
-
         write_data_chunk(&data->maps[i], file);
     }
 

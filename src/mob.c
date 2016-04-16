@@ -40,6 +40,16 @@ void pick_up_item(PhysicsMob* mob, int item_type, struct Game* game, struct Map*
         }
     }
 }
+void unit_collide(PhysicsMob* mob1, PhysicsMob* mob2, float strength) {
+    if (mob1->mob_type_id == -1 || mob2->mob_type_id == -1)
+        return;
+
+    MobType* reg1 = &mob_registry[mob1->mob_type_id];
+    MobType* reg2 = &mob_registry[mob2->mob_type_id];
+
+    if ((reg1->flags & MOBF_UNIT_PUSH) && (reg2->flags & MOBF_UNIT_GET_PUSHED))
+        push_generic_bodies(&mob1->body, &mob2->body, strength);
+}
 
 // ==== PON ====
 
@@ -54,6 +64,7 @@ void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos
     memset(&pon->body, 0, sizeof(GenericBody));
     pon->body.position = (vec4) { pos.x, pos.y, 0.0f, 0.0f };
     pon->body.old_position.simd = pon->body.position.simd;
+    pon->body.push_velocity.simd = _mm_set1_ps(0.0f);
     set_pon_sensors(pon);
 
     pon->velocity.simd = _mm_set1_ps(0.0f);
@@ -90,17 +101,12 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
     MOVE_TOWARDS(pon->velocity.x[X], 0, pon->body.grounded ? 1.0f : 0.025f);
 
     pon->body.position.simd = _mm_add_ps(pon->body.position.simd, pon->velocity.simd);
+    apply_push_velocity(&pon->body);
     collide_generic_body(&pon->body, &map->tile_collision);
-    GenericBody halfway = pon->body;
-    collide_generic_body(&halfway, &map->tile_collision);
-    pon->body.position = halfway.position;
-    pon->body.left_hit = pon->body.left_hit || halfway.left_hit;
-    pon->body.right_hit = pon->body.right_hit || halfway.right_hit;
-    pon->body.grounded = pon->body.grounded || halfway.grounded;
-    pon->body.hit_ceiling = pon->body.hit_ceiling || halfway.hit_ceiling;
-    pon->body.hit_wall = pon->body.hit_wall || halfway.hit_wall;
 
-    if (pon->body.hit_ceiling || pon->body.grounded)
+    if (pon->body.hit_ceiling)
+        pon->velocity.x[Y] = -1;
+    if (pon->body.grounded)
         pon->velocity.x[Y] = 0;
     if (pon->body.hit_wall)
         pon->velocity.x[X] = -(pon->velocity.x[X]);
@@ -125,6 +131,13 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
     }
 
     pon->body.old_position.simd = pon->body.position.simd;
+}
+void mob_pon_interact(void* vpon, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls) {
+    MobPon* pon = (MobPon*)vpon;
+    push_generic_bodies(&pon->body, (GenericBody*)character, 50.0f);
+}
+void mob_pon_mob_interact(void* vpon, struct Game* game, struct Map* map, MobCommon* other_mob) {
+    unit_collide((PhysicsMob*)vpon, (PhysicsMob*)other_mob, 50.0f);
 }
 void mob_pon_render(void* vpon, struct Game* game, struct Map* map) {
     MobPon* pon = (MobPon*)vpon;
@@ -189,6 +202,7 @@ void mob_pon_sync_receive(void* vpon, struct Game* game, struct Map* map, byte* 
 void mob_fruit_initialize(void* vfruit, struct Game* game, struct Map* map, vec2 pos) {
     MobFruit* fruit = (MobFruit*)vfruit;
     set_fruit_sensors(fruit);
+    fruit->body.push_velocity.simd = _mm_set1_ps(0.0f);
     fruit->body.position.x[X] = pos.x;
     fruit->body.position.x[Y] = pos.y;
     fruit->body.old_position.simd = fruit->body.position.simd;
@@ -203,11 +217,20 @@ void mob_fruit_update(void* vfruit, struct Game* game, struct Map* map) {
         fruit->dy = -17.0f;
     fruit->body.position.x[Y] += fruit->dy;
 
+    apply_push_velocity(&fruit->body);
     collide_generic_body(&fruit->body, &map->tile_collision);
+
+    if (fruit->body.grounded)
+        fruit->dy = 0.0f;
+
+    fruit->body.old_position.simd = fruit->body.position.simd;
 }
 void mob_fruit_interact(void* vfruit, struct Game* game, struct Map* map, struct Character* guy, struct Controls* controls) {
     MobFruit* fruit = (MobFruit*)vfruit;
     pick_up_item((PhysicsMob*)fruit, ITEM_FRUIT, game, map, guy, controls, NULL, NULL);
+}
+void mob_fruit_mob_interact(void* vf, struct Game* game, struct Map* map, MobCommon* other_mob) {
+    unit_collide((PhysicsMob*)vf, (PhysicsMob*)other_mob, 50.0f);
 }
 void mob_fruit_render(void* vfruit, struct Game* game, struct Map* map) {
     MobFruit* fruit = (MobFruit*)vfruit;
@@ -247,6 +270,7 @@ void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos
     SDL_assert(sizeof(MobEgg) <= sizeof(MediumMob));
     MobEgg* egg = (MobEgg*)vegg;
     set_egg_sensors(egg);
+    egg->body.push_velocity.simd = _mm_set1_ps(0.0f);
     egg->body.position.x[X] = pos.x;
     egg->body.position.x[Y] = pos.y;
     egg->body.old_position.simd = egg->body.position.simd;
@@ -299,7 +323,11 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
         egg->dy = -17.0f;
     egg->body.position.x[Y] += egg->dy;
 
+    apply_push_velocity(&egg->body);
     collide_generic_body(&egg->body, &map->tile_collision);
+
+    if (egg->body.grounded)
+        egg->dy = 0.0f;
 
     if (game->net_joining)
         return;
@@ -365,6 +393,9 @@ void mob_egg_interact(void* vegg, struct Game* game, struct Map* map, struct Cha
     MobEgg* egg = (MobEgg*)vegg;
     if (egg->e.age != egg->e.hatching_age)
         pick_up_item((PhysicsMob*)vegg, ITEM_EGG, game, map, character, ctrls, &egg->e, set_egg_item_data);
+}
+void mob_egg_mob_interact(void* ve, struct Game* game, struct Map* map, MobCommon* other_mob) {
+    unit_collide((PhysicsMob*)ve, (PhysicsMob*)other_mob, 50.0f);
 }
 void mob_egg_render(void* vegg, struct Game* game, struct Map* map) {
     MobEgg* egg = (MobEgg*)vegg;

@@ -129,3 +129,30 @@ float wrap_degrees(float deg) {
         deg -= 360.0f;
     return deg;
 }
+
+void push_generic_bodies(GenericBody* pusher, GenericBody* pushee, float pstr) {
+    vec4 dist;
+    dist.simd = _mm_sub_ps(pushee->position.simd, pusher->position.simd);
+
+    float square_length = powf(dist.x[0], 2) + powf(dist.x[1], 2);
+    float angle = atan2f(dist.x[1], dist.x[0]);
+    float push_str = pstr / square_length;
+
+    if (push_str < 0.001f)
+        return;
+
+    vec4 push;
+    push.x[0] = cosf(angle) * push_str;
+    push.x[1] = sinf(angle) * push_str;
+
+    pushee->push_velocity.simd = _mm_add_ps(pushee->push_velocity.simd, push.simd);
+    if (fabsf(pushee->push_velocity.x[0]) >= 5.0f)
+        pushee->push_velocity.x[0] = 5.0f * SIGN_OF(pushee->push_velocity.x[0]);
+    if (fabsf(pushee->push_velocity.x[1]) >= 5.0f)
+        pushee->push_velocity.x[1] = 5.0f * SIGN_OF(pushee->push_velocity.x[1]);
+}
+
+void apply_push_velocity(GenericBody* body) {
+    body->position.simd = _mm_add_ps(body->position.simd, body->push_velocity.simd);
+    MOVE_TOWARDS(body->push_velocity.x[0], 0, 0.3f);
+}

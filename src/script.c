@@ -402,15 +402,7 @@ mrb_value mrb_character_age_eq(mrb_state* mrb, mrb_value self) {
     mrb_int new_age;
     mrb_get_args(mrb, "i", &new_age);
 
-    bool was_young = guy->age < guy->age_of_maturity;
-    guy->age = new_age;
-    if (was_young && guy->age >= guy->age_of_maturity) {
-        guy->body_type = CRATTLECRUTE_STANDARD;
-        guy->feet_type = CRATTLECRUTE_STANDARD;
-        mature_genes(game, guy);
-        set_character_bounds(guy);
-        load_character_atlases(game, guy);
-    }
+    set_character_age(game, guy, new_age);
 
     return mrb_fixnum_value(guy->age);
 }

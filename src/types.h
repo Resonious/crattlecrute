@@ -172,9 +172,13 @@ typedef struct GenericBody {
     // In degrees
     float ground_angle;
 
-    // TODO use this
     vec4 push_velocity;
 } GenericBody;
+
+// push_str is like mass^2 I guess
+void push_generic_bodies(GenericBody* pusher, GenericBody* pushee, float push_str);
+// currently decays the velocity by a constant 0.3f px/fr^2
+void apply_push_velocity(GenericBody* body);
 
 struct Map;
 struct MobCommon;
@@ -185,3 +189,4 @@ typedef void(*SpawnMobFunc)(void*, struct Map*, struct Game*, int, vec2, void*, 
 typedef void(*DespawnMobFunc)(void*, struct Map*, struct Game*, struct MobCommon*);
 
 #endif // TYPES_H
+

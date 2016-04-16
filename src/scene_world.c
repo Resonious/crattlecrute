@@ -2118,7 +2118,7 @@ void scene_world_initialize(void* vdata, Game* game) {
         egg->e.hatching_age = 2 SECONDS;
         // egg->e.genes.specifiers |= GSPEC_DARKER_COLOR;
         // egg->e.genes.flags |= GFLAG_INTENSE;
-        if (pcg32_boundedrand(10) > 3) {
+        if (pcg32_boundedrand(100) > 90) {
             egg->e.genes.specifiers = GSPEC_SOLID_COLOR;
             egg->e.genes.flags = pcg32_boundedrand(360);
         }
@@ -2318,6 +2318,7 @@ void scene_world_update(void* vs, Game* game) {
                 collide_character(&plr->guy, &map->tile_collision);
                 slide_character(map->gravity, &plr->guy);
                 interact_character_with_world(game, &plr->guy, &plr->controls, map, s, (s->net.status == HOSTING) ? remote_go_through_door : NULL);
+                inc_character_age(game, &plr->guy);
                 update_character_animation(&plr->guy);
 
                 sync_player_frame_if_should(s->net.status, plr);
@@ -2445,7 +2446,7 @@ void scene_world_update(void* vs, Game* game) {
         collide_character(s->guy, &s->map->tile_collision);
         slide_character(s->map->gravity, s->guy);
         interact_character_with_world(game, s->guy, &game->controls, s->map, s, local_go_through_door);
-        apply_character_age(game, s->guy);
+        inc_character_age(game, s->guy);
         update_character_animation(s->guy);
         updated_guy_physics = true;
     }

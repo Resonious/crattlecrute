@@ -682,7 +682,6 @@ void draw_map(struct Game* game, Map* map) {
         SDL_RenderFillRects(game->renderer, topbot_borders, 2);
     }
 
-    BENCH_START(small_mobs);
     for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
         MobCommon* mob = (MobCommon*)&map->state->small_mobs[i];
         if (mob->mob_type_id != -1) {
@@ -690,10 +689,6 @@ void draw_map(struct Game* game, Map* map) {
             mob_registry[mob->mob_type_id].render(mob, game, map);
         }
     }
-    BENCH_END(small_mobs);
-#ifdef _DEBUG
-    SDL_assert(small_mobs_seconds < 0.01);
-#endif
     for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
         MobCommon* mob = (MobCommon*)&map->state->medium_mobs[i];
         if (mob->mob_type_id != -1)
@@ -1046,7 +1041,7 @@ void update_map(
 ) {
     wait_for_then_use_lock(map->locked);
     if (game->net_joining)
-        goto update_mobs;
+        goto UpdateMobs;
     // Spawn mobs when needed.
     for (int i = 0; i < map->number_of_spawn_zones; i++) {
         MobSpawnZone* zone = &map->spawn_zones[i];
@@ -1068,48 +1063,43 @@ void update_map(
 
                     // TODO add spawn frequency or something to maps.
                     zone->countdown_until_next_spawn_attempt = 60 * 60 * 60;
-                    goto update_mobs;
+                    goto UpdateMobs;
                 }
             }
         }
     }
 
-    /*
+UpdateMobs:;
 #define UPDATE_MOBS(size, mob_list)\
     for (int i = 0; i < MAP_STATE_MAX_##size##_MOBS; i++) {\
         MobCommon* mob = &map->state->mob_list[i];\
-        if (mob->mob_type_id != -1)\
-            mob_registry[mob->mob_type_id].update(mob, game, map);\
+        if (mob->mob_type_id != -1) {\
+            MobType* reg = &mob_registry[mob->mob_type_id];\
+            if (reg->update)\
+                reg->update(mob, game, map);\
+            \
+            if (after_mob_update)\
+                after_mob_update(data, map, game, mob);\
+            \
+            INTERACT_MOBS(SMALL, small_mobs, mob_list);\
+            INTERACT_MOBS(MEDIUM, medium_mobs, mob_list);\
+            INTERACT_MOBS(LARGE, large_mobs, mob_list);\
+        }\
     }
+#define INTERACT_MOBS(size, mob_list, from_list)\
+    for (int j = 0; j < MAP_STATE_MAX_##size##_MOBS; j++) {\
+        if (map->state->mob_list == map->state->from_list && j == i) continue;\
+        MobCommon* other_mob = &map->state->mob_list[j];\
+        if (other_mob->mob_type_id != -1 && reg->mob_interact)\
+            reg->mob_interact(mob, game, map, other_mob);\
+    }
+
+    BENCH_START(update_mobs);
     UPDATE_MOBS(SMALL,  small_mobs);
     UPDATE_MOBS(MEDIUM, medium_mobs);
     UPDATE_MOBS(LARGE,  large_mobs);
-    */
-update_mobs:
-    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
-        MobCommon* mob = &map->state->small_mobs[i];
-        if (mob->mob_type_id != -1) {
-            mob_registry[mob->mob_type_id].update(mob, game, map);
-            if (after_mob_update != NULL)
-                after_mob_update(data, map, game, mob);
-        }
-    }
-    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
-        MobCommon* mob = &map->state->medium_mobs[i];
-        if (mob->mob_type_id != -1) {
-            mob_registry[mob->mob_type_id].update(mob, game, map);
-            if (after_mob_update != NULL)
-                after_mob_update(data, map, game, mob);
-        }
-    }
-    for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++) {
-        MobCommon* mob = &map->state->large_mobs[i];
-        if (mob->mob_type_id != -1) {
-            mob_registry[mob->mob_type_id].update(mob, game, map);
-            if (after_mob_update != NULL)
-                after_mob_update(data, map, game, mob);
-        }
-    }
+    BENCH_END(update_mobs);
+
     SDL_UnlockMutex(map->locked);
 }
 
@@ -1342,8 +1332,24 @@ void write_map_state(Map* map, byte* buffer, int* pos) {
     SYNC_MAP_STATE(LARGE,  large_mobs,  write_to_buffer, save);
 }
 void read_map_state(Map* map, byte* buffer, int* pos) {
-    SYNC_MAP_STATE(SMALL,  small_mobs,  read_from_buffer, load);
-    SYNC_MAP_STATE(MEDIUM, medium_mobs, read_from_buffer, load);
+    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
+        MobCommon* mob = (MobCommon*)&map->state->small_mobs[i];
+        read_from_buffer(buffer, &mob->mob_type_id, pos, sizeof(int));
+
+        if (mob->mob_type_id != -1) {
+            mob->index = i;
+            mob_registry[mob->mob_type_id].load(mob, map->game, map, buffer, pos);
+        }
+    }
+    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
+        MobCommon* mob = (MobCommon*)&map->state->medium_mobs[i];
+        read_from_buffer(buffer, &mob->mob_type_id, pos, sizeof(int));
+
+        if (mob->mob_type_id != -1) {
+            mob->index = i;
+            mob_registry[mob->mob_type_id].load(mob, map->game, map, buffer, pos);
+        }
+    }
     SYNC_MAP_STATE(LARGE,  large_mobs,  read_from_buffer, load);
 }
 

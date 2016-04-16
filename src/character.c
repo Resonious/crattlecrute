@@ -241,10 +241,10 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
     }
 }
 
-void apply_character_age(struct Game* game, Character* guy) {
-    guy->age += 1;
-    if (guy->age == guy->age_of_maturity) {
-        // TODO MATURE!
+void set_character_age(struct Game* game, Character* guy, int age) {
+    int old_age = guy->age;
+    guy->age = age;
+    if (old_age < guy->age_of_maturity && guy->age >= guy->age_of_maturity) {
         guy->body_type = CRATTLECRUTE_STANDARD;
         guy->feet_type = CRATTLECRUTE_STANDARD;
         mature_genes(game, guy);
@@ -319,6 +319,8 @@ void write_character_to_data(Character* guy, struct DataChunk* chunk, bool attri
     write_to_buffer(chunk->bytes, &guy->body_color, &chunk->size, sizeof(SDL_Color));
     write_to_buffer(chunk->bytes, &guy->left_foot_color, &chunk->size, sizeof(SDL_Color));
     write_to_buffer(chunk->bytes, &guy->right_foot_color, &chunk->size, sizeof(SDL_Color));
+    write_to_buffer(chunk->bytes, &guy->body_type, &chunk->size, sizeof(int));
+    write_to_buffer(chunk->bytes, &guy->feet_type, &chunk->size, sizeof(int));
     write_to_buffer(chunk->bytes, guy->inventory.items, &chunk->size, guy->inventory.capacity * sizeof(ItemCommon));
     write_to_buffer(chunk->bytes, &guy->age, &chunk->size, sizeof(Uint64));
     write_to_buffer(chunk->bytes, &guy->age_of_maturity, &chunk->size, sizeof(Uint64));
@@ -367,6 +369,8 @@ int read_character_from_data(Character* guy, struct DataChunk* chunk) {
     read_from_buffer(chunk->bytes, &guy->body_color, &pos, sizeof(SDL_Color));
     read_from_buffer(chunk->bytes, &guy->left_foot_color, &pos, sizeof(SDL_Color));
     read_from_buffer(chunk->bytes, &guy->right_foot_color, &pos, sizeof(SDL_Color));
+    read_from_buffer(chunk->bytes, &guy->body_type, &pos, sizeof(int));
+    read_from_buffer(chunk->bytes, &guy->feet_type, &pos, sizeof(int));
     read_from_buffer(chunk->bytes, guy->inventory.items, &pos, guy->inventory.capacity * sizeof(ItemCommon));
     read_from_buffer(chunk->bytes, &guy->age, &pos, sizeof(Uint64));
     read_from_buffer(chunk->bytes, &guy->age_of_maturity, &pos, sizeof(Uint64));
@@ -677,6 +681,7 @@ void default_character(struct Game* game, Character* target) {
     // "Stats" (not bar-stats or whatever)
     SDL_memset(&target->stats, 0, sizeof(target->stats));
 
+    target->push_velocity.simd = _mm_set1_ps(0.0f);
     target->ground_angle = 0.0f;
     target->slide_speed = 0.0f;
     target->position.x[0] = 0.0f;

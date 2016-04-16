@@ -11,20 +11,6 @@ struct Controls;
 
 enum MobSizeClass { SMALL, MEDIUM, LARGE };
 
-typedef struct MobType {
-    int id;
-    enum MobSizeClass size_class;
-
-    void(*initialize)(void* mob, struct Game* game, struct Map* map, vec2 pos);
-    void(*update)(void* mob, struct Game* game, struct Map* map);
-    void(*interact)(void* mob, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls);
-    void(*render)(void* mob, struct Game* game, struct Map* map);
-    void(*save)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
-    void(*load)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
-    bool(*sync_send)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
-    void(*sync_receive)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
-} MobType;
-
 #define MOB_FIELDS\
     int index, mob_type_id
 
@@ -34,6 +20,27 @@ typedef struct MobType {
 typedef struct MobCommon { MOB_FIELDS; } MobCommon;
 
 typedef struct PhysicsMob { PHYSICS_MOB_FIELDS; } PhysicsMob;
+
+typedef struct MobType {
+    int id;
+    enum MobSizeClass size_class;
+    Uint16 flags;
+
+    void(*initialize)(void* mob, struct Game* game, struct Map* map, vec2 pos);
+    void(*update)(void* mob, struct Game* game, struct Map* map);
+    void(*interact)(void* mob, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls);
+    void(*mob_interact)(void* mob, struct Game* game, struct Map* map, MobCommon* other_mob);
+    void(*render)(void* mob, struct Game* game, struct Map* map);
+    void(*save)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
+    void(*load)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
+    bool(*sync_send)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
+    void(*sync_receive)(void* mob, struct Game* game, struct Map* map, byte* buffer, int* pos);
+} MobType;
+
+#define MOBF_HAS_BODY (1 << 1)
+#define MOBF_UNIT_PUSH (1 << 2)
+#define MOBF_UNIT_GET_PUSHED (1 << 3)
+#define MOBF_UNIT_COLLIDE (MOBF_UNIT_PUSH | MOBF_UNIT_GET_PUSHED)
 
 typedef struct SmallMob {
     MOB_FIELDS;
@@ -85,6 +92,8 @@ typedef struct MobPon {
 } MobPon;
 void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos);
 void mob_pon_update(void* vpon, struct Game* game, struct Map* map);
+void mob_pon_interact(void* vpon, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls);
+void mob_pon_mob_interact(void* vpon, struct Game* game, struct Map* map, MobCommon* other_mob);
 void mob_pon_render(void* vpon, struct Game* game, struct Map* map);
 void mob_pon_save(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
 void mob_pon_load(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
@@ -98,6 +107,7 @@ typedef struct MobFruit {
 void mob_fruit_initialize(void* vfruit, struct Game* game, struct Map* map, vec2 pos);
 void mob_fruit_update(void* vfruit, struct Game* game, struct Map* map);
 void mob_fruit_interact(void* vfruit, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls);
+void mob_fruit_mob_interact(void* mob, struct Game* game, struct Map* map, MobCommon* other_mob);
 void mob_fruit_render(void* vfruit, struct Game* game, struct Map* map);
 void mob_fruit_save(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
 void mob_fruit_load(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
@@ -107,6 +117,7 @@ void mob_fruit_sync_receive(void* mob, struct Game*, struct Map* map, byte* buff
 void mob_egg_initialize(void* vegg, struct Game* game, struct Map* map, vec2 pos);
 void mob_egg_update(void* vegg, struct Game* game, struct Map* map);
 void mob_egg_interact(void* vegg, struct Game* game, struct Map* map, struct Character* character, struct Controls* ctrls);
+void mob_egg_mob_interact(void* mob, struct Game* game, struct Map* map, MobCommon* other_mob);
 void mob_egg_render(void* vegg, struct Game* game, struct Map* map);
 void mob_egg_save(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
 void mob_egg_load(void* mob, struct Game*, struct Map* map, byte* buffer, int* pos);
@@ -131,9 +142,11 @@ static MobType mob_registry[] = {
     {
         MOB_PON,
         MEDIUM,
+        MOBF_HAS_BODY | MOBF_UNIT_COLLIDE,
         mob_pon_initialize,
         mob_pon_update,
-        NULL,
+        mob_pon_interact,
+        mob_pon_mob_interact,
         mob_pon_render,
         mob_pon_save,
         mob_pon_load,
@@ -143,9 +156,11 @@ static MobType mob_registry[] = {
     {
         MOB_FRUIT,
         MEDIUM,
+        MOBF_HAS_BODY | MOBF_UNIT_COLLIDE,
         mob_fruit_initialize,
         mob_fruit_update,
         mob_fruit_interact,
+        mob_fruit_mob_interact,
         mob_fruit_render,
         mob_fruit_save,
         mob_fruit_load,
@@ -155,9 +170,11 @@ static MobType mob_registry[] = {
     {
         MOB_EGG,
         MEDIUM,
+        MOBF_HAS_BODY | MOBF_UNIT_COLLIDE,
         mob_egg_initialize,
         mob_egg_update,
         mob_egg_interact,
+        mob_egg_mob_interact,
         mob_egg_render,
         mob_egg_save,
         mob_egg_load,
@@ -167,9 +184,11 @@ static MobType mob_registry[] = {
     {
         MOB_GARDEN_CRATTLECRUTE,
         SMALL,
+        MOBF_HAS_BODY | MOBF_UNIT_COLLIDE,
         mob_mgc_initialize,
         mob_mgc_update,
         mob_mgc_interact,
+        NULL,
         mob_mgc_render,
         mob_mgc_save,
         mob_mgc_load,

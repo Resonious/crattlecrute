@@ -194,7 +194,8 @@ void default_character_animations(struct Game* game, Character* guy);
 void load_character_atlases(struct Game* game, Character* guy);
 enum InventoryAction apply_character_inventory(Character* guy, struct Controls* controls, struct Game* game, struct Map* map);
 void apply_character_physics(struct Game* game, Character* guy, struct Controls* controls, float gravity, float drag);
-void apply_character_age(struct Game* game, Character* guy);
+#define inc_character_age(game, guy) set_character_age((game), (guy), (guy)->age + 1)
+void set_character_age(struct Game* game, Character* guy, int age);
 void update_character_animation(Character* guy);
 void randomize_character(Character* guy);
 
