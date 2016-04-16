@@ -7,13 +7,17 @@ assets_base_dir = File.dirname File.expand_path __FILE__
 
 FileUtils.mkdir_p "#{assets_base_dir}/build"
 
+def pretty_assetpath(f)
+  f.gsub(/^.+[\/\\]crattle[\\\/]/, '')
+end
+
 # First compile all .tmx files in asset-dev to compressed form
 puts "finding .tmx files in #{assets_base_dir}/asset-dev/maps"
 Dir.glob("#{assets_base_dir}/asset-dev/maps/*.tmx").reject(&File.method(:directory?)).each do |map_tmx_file|
   out_file = map_tmx_file
     .gsub('asset-dev', 'assets')
     .gsub('.tmx', '.cm')
-  puts "COMPILING #{map_tmx_file} TO #{out_file}"
+  puts "COMPILING #{pretty_assetpath map_tmx_file} TO #{pretty_assetpath out_file}"
 
   begin
     FileUtils.mkdir_p(File.dirname(out_file))
@@ -182,7 +186,7 @@ all_files.each do |file|
   bytes = IO.binread(file)
   assets.write(bytes)
 
-  puts file.gsub! /^.*[\/\\]assets[\/\\]/, ''
+  file.gsub! /^.*[\/\\]assets[\/\\]/, ''
   header.write(
     "    // #{file}\n"\
     "    #{current_offset}, #{bytes.size},\n"\

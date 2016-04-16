@@ -83,7 +83,7 @@ void mob_pon_update(void* vpon, struct Game* game, struct Map* map) {
             pon->frame_inc *= -1;
     }
 
-    pon->velocity.x[Y] -= 1.15f;
+    pon->velocity.x[Y] -= map->gravity;
     if (pon->velocity.x[Y] < -17.0f)
       pon->velocity.x[Y] = -17.0f;
 
@@ -198,7 +198,7 @@ void mob_fruit_initialize(void* vfruit, struct Game* game, struct Map* map, vec2
 void mob_fruit_update(void* vfruit, struct Game* game, struct Map* map) {
     MobFruit* fruit = (MobFruit*)vfruit;
 
-    fruit->dy -= 1.15f;
+    fruit->dy -= map->gravity;
     if (fruit->dy < -17.0f)
         fruit->dy = -17.0f;
     fruit->body.position.x[Y] += fruit->dy;
@@ -294,7 +294,7 @@ void spawned_new_baby(void* data, void* mob) {
 void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
     MobEgg* egg = (MobEgg*)vegg;
 
-    egg->dy -= 1.15f;
+    egg->dy -= map->gravity;
     if (egg->dy < -17.0f)
         egg->dy = -17.0f;
     egg->body.position.x[Y] += egg->dy;
@@ -513,9 +513,9 @@ void mob_mgc_update(void* vmgc, struct Game* game, struct Map* map) {
         controls = DATA_PTR(rcontrols);
 
     update_genes(game, guy);
-    apply_character_physics(game, guy, controls, 1.15f, 0.025f);
+    apply_character_physics(game, guy, controls, map->gravity, map->drag);
     collide_character(guy, &map->tile_collision);
-    slide_character(1.15f, guy);
+    slide_character(map->gravity, guy);
     update_character_animation(guy);
 
     character_post_update(guy);

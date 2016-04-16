@@ -12,6 +12,7 @@ ImageLayer = Struct.new(
 )
 MapObject = Struct.new(:id, :name, :type, :x, :y, :width, :height, :properties)
 SpawnRate = Struct.new(:mob_name, :percentage)
+MapOptions = Struct.new(:gravity, :drag)
 
 IMAGE_LAYER_DEFAULTS = {
   parallax_factor: 1,
@@ -350,13 +351,13 @@ def read_tmx(file)
     attrs = object.attributes
 
     struct = MapObject.new
-    struct.id = attrs['id'].value
-    struct.name = attrs['name'] ? attrs['name'].value : '<unnamed>'
-    struct.x = (attrs['x'] ? attrs['x'].value : '0').to_i
-    struct.y = map_height - (attrs['y'] ? attrs['y'].value : '0').to_i
+    struct.id     = attrs['id'].value
+    struct.name   = attrs['name'] ? attrs['name'].value : '<unnamed>'
+    struct.x      = (attrs['x'] ? attrs['x'].value : '0').to_i
+    struct.y      = map_height - (attrs['y'] ? attrs['y'].value : '0').to_i
     struct.width  = (attrs['width']  ?  attrs['width'].value : '0').to_i
     struct.height = (attrs['height'] ? attrs['height'].value : '0').to_i
-    struct.type = attrs['type'].value.downcase.to_sym if attrs['type']
+    struct.type   = attrs['type'].value.downcase.to_sym if attrs['type']
     struct.properties = {}
 
     object.css('properties property').each do |property|
@@ -367,9 +368,21 @@ def read_tmx(file)
     map_objects << struct
   end
 
+  map_options = MapOptions.new(1.15, 0.025)
+
+  tmx.css('map > properties > property').each do |prop|
+    attrs = prop.attributes
+
+    case attrs['name'].value
+    when 'gravity' then map_options.gravity = eval(attrs['value'].value)
+    when 'drag'    then map_options.drag = eval(attrs['value'].value)
+    else puts "UNKNOWN MAP PROPERTY #{attrs['name'].inspect}"
+    end
+  end
+
   # === DONE ===
-  Struct.new(:layers, :image_layers, :map_objects, :tiles_high, :tiles_wide, :name, :filename, :height)
-        .new( layers, image_layers,  map_objects,  tiles_high,  tiles_wide, map_name, filename, map_height)
+  Struct.new(:layers, :image_layers, :map_objects, :tiles_high, :tiles_wide, :name, :filename, :height, :options)
+        .new( layers, image_layers,  map_objects,  tiles_high,  tiles_wide, map_name, filename, map_height, map_options)
 end
 
 def write_cm(map, file_dest)
@@ -410,7 +423,7 @@ def write_cm(map, file_dest)
   collision_sublayer = collision_layer.sublayers.values.first
 
   # ==== HEADER ====
-  file.write('CM1') # Magic (and version number I guess lol)
+  file.write('CM2') # Magic (and version number I guess lol)
   file.write(
     # Tilemap width and height (both Uint32)
     [map.tiles_wide, map.tiles_high].pack('LL')
@@ -425,6 +438,9 @@ def write_cm(map, file_dest)
   file.write([all_spawn_rates.map(&:last).map(&:size).reduce(0, :+)].pack('S'))
   # Number of mob spawn zones: Uint8
   file.write([mob_zones.size].pack('C'))
+
+  # == Not really needed for header but right after header: gravity and drag (float32 x2)
+  file.write([map.options.gravity.to_f, map.options.drag.to_f].pack('ff'))
 
   non_collision_layers.each do |layer|
     layer.sublayers.values.each do |sublayer|

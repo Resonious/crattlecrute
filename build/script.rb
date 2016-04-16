@@ -208,6 +208,10 @@ def test_egg
   e
 end
 
+def goto_test
+  world.move_to 0, [200, 200]
+end
+
 def inc_hue(plr, amount)
   h = plr.body_color.hue
   h += amount

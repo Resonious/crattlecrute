@@ -257,7 +257,9 @@ void read_game_data(GameData* data, FILE* file) {
 
     for (int i = 0; i < number_of_areas; i++) {
         // ======= Area ID of this map ========
-        fread(&i, sizeof(int), 1, file);
+        int area_id;
+        fread(&area_id, sizeof(int), 1, file);
+        SDL_assert(area_id == i);
 
         read_data_chunk(&data->maps[i], file);
     }

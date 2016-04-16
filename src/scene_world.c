@@ -136,8 +136,6 @@ typedef struct RemotePlayer {
 typedef struct WorldScene {
     Game* game;
     // TODO TODO MOVE GRAVITY AND DRAG TO MAPS
-    float gravity;
-    float drag;
     Character* guy;
 
     // inventory interface stuff
@@ -169,6 +167,9 @@ typedef struct WorldScene {
         byte status_message_countdown;
         enum { HOSTING, JOINING, NOT_CONNECTED, WANT_TO_JOIN } status;
         bool connected;
+
+        // Countdown until we send out position to the server for evaluation.
+        SDL_atomic_t send_position_countdown;
 
         bool just_finished_transition;
 
@@ -1811,6 +1812,7 @@ int network_client_loop(void* vdata) {
             if (scene->net.just_finished_transition) {
                 scene->net.just_finished_transition = false;
                 *flags |= NETF_MAPSTATE;
+                // This is just to let the server know that we're done transitioning.
             }
 
             short size_wrote = (short)pos;
@@ -2051,10 +2053,6 @@ void scene_world_initialize(void* vdata, Game* game) {
     game->net.spawn_mob = unconnected_spawn_mob;
     game->net.despawn_mob = unconnected_despawn_mob;
 
-    // Testing physics!!!!
-    data->gravity = 1.15f; // In pixels per frame per frame
-    data->drag = 0.025f; // Again p/f^2
-
     data->controls_stream.current_frame = -1;
     data->controls_stream.pos = 1;
 
@@ -2252,6 +2250,9 @@ void scene_world_update(void* vs, Game* game) {
         // Decrement position sync counters
         for (int j = 0; j < MAX_PLAYERS; j++)
             SDL_AtomicAdd(&player->countdown_until_i_get_position_of[j], -1);
+
+        if (s->net.status == JOINING)
+            SDL_AtomicAdd(&s->net.send_position_countdown, -1);
     }
 
     // Have net players playback controls
@@ -2313,9 +2314,9 @@ void scene_world_update(void* vs, Game* game) {
 
                 update_genes(game, &plr->guy);
                 apply_character_inventory(&plr->guy, &plr->controls, game, map);
-                apply_character_physics(game, &plr->guy, &plr->controls, s->gravity, s->drag);
+                apply_character_physics(game, &plr->guy, &plr->controls, map->gravity, map->drag);
                 collide_character(&plr->guy, &map->tile_collision);
-                slide_character(s->gravity, &plr->guy);
+                slide_character(map->gravity, &plr->guy);
                 interact_character_with_world(game, &plr->guy, &plr->controls, map, s, (s->net.status == HOSTING) ? remote_go_through_door : NULL);
                 update_character_animation(&plr->guy);
 
@@ -2440,9 +2441,9 @@ void scene_world_update(void* vs, Game* game) {
         }
 
         update_genes(game, s->guy);
-        apply_character_physics(game, s->guy, &game->controls, s->gravity, s->drag);
+        apply_character_physics(game, s->guy, &game->controls, s->map->gravity, s->map->drag);
         collide_character(s->guy, &s->map->tile_collision);
-        slide_character(s->gravity, s->guy);
+        slide_character(s->map->gravity, s->guy);
         interact_character_with_world(game, s->guy, &game->controls, s->map, s, local_go_through_door);
         apply_character_age(game, s->guy);
         update_character_animation(s->guy);

@@ -1151,7 +1151,7 @@ void load_map(const int asset, /*out*/ Map* map) {
     AssetFile file = load_asset(asset);
     SDL_assert(file.bytes[0] == 'C');
     SDL_assert(file.bytes[1] == 'M');
-    SDL_assert(file.bytes[2] == '1');
+    SDL_assert(file.bytes[2] == '2');
     int pos = 3;
 
     READ(Uint32, tiles_wide);
@@ -1161,6 +1161,10 @@ void load_map(const int asset, /*out*/ Map* map) {
     READ(Uint8, door_count);
     READ(Uint16, total_spawn_rate_count);
     READ(Uint8, spawn_zone_count);
+
+    // NOTE Defaults for these are defined in tilemap_compressor.rb
+    READ(float, gravity);
+    READ(float, drag);
 
     map->asset_id = asset;
     map->width  = tiles_wide * 32;
@@ -1172,6 +1176,10 @@ void load_map(const int asset, /*out*/ Map* map) {
     map->number_of_backgrounds  = (int)background_count;
     map->number_of_doors        = (int)door_count;
     map->number_of_spawn_zones  = (int)spawn_zone_count;
+
+    map->gravity = gravity;
+    map->drag    = drag;
+
     // We're gonna just put tilemap structs sequentially after the map struct
     map->tilemaps = (Tilemap*)(map + 1);
 
@@ -1305,6 +1313,7 @@ void load_map(const int asset, /*out*/ Map* map) {
 }
 
 void clear_map_state(Map* map) {
+    // TODO use despawn_mob or something so we can do some cleanup function
     for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
         map->state->small_mobs[i].mob_type_id = -1;
     }
