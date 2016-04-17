@@ -381,6 +381,8 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
             }
         }
     }
+
+    egg->body.old_position.simd = egg->body.position.simd;
 }
 
 static void set_egg_item_data(void* vd, void* vegg) {

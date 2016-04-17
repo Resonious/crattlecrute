@@ -392,6 +392,8 @@ int read_character_from_data(Character* guy, struct DataChunk* chunk) {
     read_from_buffer(chunk->bytes, &guy->animation_state, &pos, sizeof(enum CharacterAnimation));
     read_from_buffer(chunk->bytes, &guy->flip, &pos, sizeof(SDL_RendererFlip));
 
+    set_character_bounds(guy);
+
     return pos;
 }
 

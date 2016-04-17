@@ -385,6 +385,23 @@ mrb_value mrb_map_spawn_script_mob(mrb_state* mrb, mrb_value self) {
     return mrb_nil_value();
 }
 
+mrb_value mrb_map_mob_count(mrb_state* mrb, mrb_value self) {
+    Map* map = DATA_PTR(self);
+
+    mrb_int count = 0;
+    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++)
+        if (map->state->small_mobs[i].mob_type_id != -1)
+            count += 1;
+    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++)
+        if (map->state->medium_mobs[i].mob_type_id != -1)
+            count += 1;
+    for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++)
+        if (map->state->large_mobs[i].mob_type_id != -1)
+            count += 1;
+
+    return mrb_fixnum_value(count);
+}
+
 mrb_value mrb_character_init(mrb_state* mrb, mrb_value self) {
     mrb_data_init(self, NULL, &mrb_character_type);
     return self;
@@ -902,6 +919,7 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.map_class, "initialize", mrb_map_init, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.map_class, "game", mrb_map_game, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.map_class, "spawn_script_mob", mrb_map_spawn_script_mob, MRB_ARGS_REQ(1));
+    mrb_define_method(game->mrb, game->ruby.map_class, "mob_count", mrb_map_mob_count, MRB_ARGS_NONE());
 
     // ==================================== class Mob =================================
     game->ruby.mob_class = mrb_define_class(game->mrb, "Mob", game->mrb->object_class);

@@ -212,6 +212,10 @@ def goto_test
   world.move_to 0, [200, 200]
 end
 
+def mob_count
+  world.current_map.mob_count
+end
+
 def inc_hue(plr, amount)
   h = plr.body_color.hue
   h += amount

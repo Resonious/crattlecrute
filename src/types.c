@@ -134,11 +134,15 @@ void push_generic_bodies(GenericBody* pusher, GenericBody* pushee, float pstr) {
     vec4 dist;
     dist.simd = _mm_sub_ps(pushee->position.simd, pusher->position.simd);
 
+    float pusher_approx_size = fabsf(pusher->left_sensors.x[S2X] - pusher->right_sensors.x[S2X]);
+    if (fabsf(dist.x[X]) > pusher_approx_size)
+        return;
+
     float square_length = powf(dist.x[0], 2) + powf(dist.x[1], 2);
     float angle = atan2f(dist.x[1], dist.x[0]);
     float push_str = pstr / square_length;
 
-    if (push_str < 0.001f)
+    if (push_str < 0.05f)
         return;
 
     vec4 push;
@@ -155,4 +159,5 @@ void push_generic_bodies(GenericBody* pusher, GenericBody* pushee, float pstr) {
 void apply_push_velocity(GenericBody* body) {
     body->position.simd = _mm_add_ps(body->position.simd, body->push_velocity.simd);
     MOVE_TOWARDS(body->push_velocity.x[0], 0, 0.3f);
+    MOVE_TOWARDS(body->push_velocity.x[1], 0, 0.3f);
 }

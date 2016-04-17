@@ -2109,13 +2109,14 @@ void scene_world_initialize(void* vdata, Game* game) {
         DataChunk* character_chunk = &game->data.characters[game->data.character];
         if (character_chunk->bytes) {
             read_character_from_data(data->guy, character_chunk);
+            load_character_atlases(game, data->guy);
             set_camera_target(game, data->map, (GenericBody*)data->guy);
         }
     }
     else {
         data->guy = NULL;
         MobEgg* egg = spawn_mob(data->map, game, MOB_EGG, (vec2) { 3862.0f, 985.0f });
-        egg->e.hatching_age = 2 SECONDS;
+        egg->e.hatching_age = 1 SECONDS;
         // egg->e.genes.specifiers |= GSPEC_DARKER_COLOR;
         // egg->e.genes.flags |= GFLAG_INTENSE;
         if (pcg32_boundedrand(100) > 90) {

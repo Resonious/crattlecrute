@@ -1319,6 +1319,7 @@ void clear_map_state(Map* map) {
     for (int i = 0; i < MAP_STATE_MAX_##size##_MOBS; i++) {\
         MobCommon* mob = (MobCommon*)&map->state->mob_list[i];\
         buffer_op(buffer, &mob->mob_type_id, pos, sizeof(int));\
+        SDL_assert(mob->mob_type_id >= -1);\
 \
         if (mob->mob_type_id != -1) {\
             mob->index = i;\
