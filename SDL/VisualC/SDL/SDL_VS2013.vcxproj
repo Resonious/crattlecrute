@@ -244,6 +244,8 @@
     <ClInclude Include="..\..\..\src\cache.h" />
     <ClInclude Include="..\..\..\src\character.h" />
     <ClInclude Include="..\..\..\src\coords.h" />
+    <ClInclude Include="..\..\..\src\data.h" />
+    <ClInclude Include="..\..\..\src\data_tests.h" />
     <ClInclude Include="..\..\..\src\dxsdkver.h" />
     <ClInclude Include="..\..\..\src\egg.h" />
     <ClInclude Include="..\..\..\src\game.h" />
@@ -392,6 +394,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\src\assets.c" />
     <ClCompile Include="..\..\..\src\character.c" />
+    <ClCompile Include="..\..\..\src\data.c" />
     <ClCompile Include="..\..\..\src\egg.c" />
     <ClCompile Include="..\..\..\src\game.c" />
     <ClCompile Include="..\..\..\src\item.c" />

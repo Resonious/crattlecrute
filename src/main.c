@@ -135,8 +135,18 @@ void cleanup() {
     SDL_Quit();
 }
 
+#define DATA_TESTS
+#ifdef DATA_TESTS
+#include "data_tests.h"
+#endif
+
 int main(int argc, char** argv) {
     BENCH_START(total_initialization);
+
+#ifdef DATA_TESTS
+    run_data_tests();
+#endif
+
     SDL_assert(sizeof(byte) == 1);
     ticks_per_second = SDL_GetPerformanceFrequency();
     _MM_SET_ROUNDING_MODE(_MM_ROUND_DOWN);
