@@ -62,6 +62,27 @@ bool test_can_write_and_read_a_bunch_of_stuff(byte* memory) {
     return true;
 }
 
+bool test_sections_work(byte* memory) {
+    float to_write = 1.205000043f;
+
+    AbdBuffer buffer = DATATEST_NEW_BUFFER();
+    abd_transfer(ABD_WRITE, ABDT_FLOAT, &buffer, &to_write, NULL);
+    abd_section(ABD_WRITE, &buffer, "Test Section");
+    buffer.pos = 0;
+
+    float to_read;
+    abd_transfer(ABD_READ, ABDT_FLOAT, &buffer, &to_read, NULL);
+
+    byte read_type;
+    char* read_annotation;
+    char read_sect[32];
+    abd_read_field(&buffer, &read_type, &read_annotation);
+    abd_read_string(&buffer, read_sect);
+
+    EXPECT(strcmp(read_sect, "Test Section") == 0);
+    return true;
+}
+
 #define RUN_TEST(name) if (name(memory)) printf(#name" passed!\n"); else printf(#name" FAILED.");
 
 void run_data_tests() {
@@ -69,6 +90,7 @@ void run_data_tests() {
     RUN_TEST(test_can_write_and_read_an_unannotated_float);
     RUN_TEST(test_can_write_and_read_an_annotated_float);
     RUN_TEST(test_can_write_and_read_a_bunch_of_stuff);
+    RUN_TEST(test_sections_work);
 }
 
 #endif

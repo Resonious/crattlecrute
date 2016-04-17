@@ -3,20 +3,17 @@
 
 #define abd_write_field_header(buf, type, annotation) (buf)->bytes[(buf)->pos++] = (type) | ((annotation) ? ABDF_ANNOTATED : 0);
 
-void abd_write_annotation(AbdBuffer* buf, char* annotation) {
-    if (annotation == NULL)
-        return;
-
-    size_t str_size = strlen(annotation);
+void abd_write_string(AbdBuffer* buf, char* string) {
+    size_t str_size = strlen(string);
     if (str_size >= 256) {
-        memcpy(buf->bytes + buf->pos, annotation, 256);
+        memcpy(buf->bytes + buf->pos, string, 256);
         buf->bytes[buf->pos + 256] = '\0';
         buf->pos += 256;
     }
     else {
         size_t actual_size = str_size + 1;
         buf->bytes[buf->pos++] = actual_size;
-        memcpy(buf->bytes + buf->pos, annotation, actual_size);
+        memcpy(buf->bytes + buf->pos, string, actual_size);
         buf->pos += actual_size;
     }
 }
@@ -31,6 +28,13 @@ void read_4_bytes(AbdBuffer* buf, void* dest) {
     buf->pos += 4;
 }
 
+void abd_read_string(AbdBuffer* buf, void* dest) {
+    byte length = buf->bytes[buf->pos++];
+    if (dest)
+        memcpy(dest, buf->bytes + buf->pos, length);
+    buf->pos += length;
+}
+
 DataFunc abd_data_write[] = {
     write_4_bytes, // ABDT_FLOAT
     write_4_bytes  // ABDT_S32
@@ -41,6 +45,25 @@ DataFunc abd_data_read[] = {
     read_4_bytes  // ABDT_S32
 };
 
+void abd_section(int rw, AbdBuffer* buf, char* section_label) {
+    switch (rw) {
+    case ABD_READ: {
+        byte read_type;
+        abd_read_field(buf, &read_type, NULL);
+        SDL_assert(read_type == ABDT_SECTION);
+        abd_read_string(buf, NULL);
+
+    } break;
+
+    case ABD_WRITE: {
+        SDL_assert(section_label != NULL);
+        abd_write_field_header(buf, ABDT_SECTION, false);
+        abd_write_string(buf, section_label);
+
+    } break;
+    }
+}
+
 void abd_transfer(int rw, byte type, AbdBuffer* buf, void* data, char* write_annotation) {
     SDL_assert(type < ABD_TYPE_COUNT);
 
@@ -48,13 +71,14 @@ void abd_transfer(int rw, byte type, AbdBuffer* buf, void* data, char* write_ann
     case ABD_READ: {
         byte read_type;
         abd_read_field(buf, &read_type, NULL);
+        SDL_assert(read_type != ABDT_SECTION);
 
         abd_data_read[type](buf, data);
     } break;
 
     case ABD_WRITE: {
         abd_write_field_header(buf, type, write_annotation);
-        if (write_annotation) abd_write_annotation(buf, write_annotation);
+        if (write_annotation) abd_write_string(buf, write_annotation);
 
         abd_data_write[type](buf, data);
     } break;
