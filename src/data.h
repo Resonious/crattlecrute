@@ -1,3 +1,5 @@
+// ABD stands for Annotated Binary Data/Document (whatever).
+
 #ifndef DATA_H
 #define DATA_H
 
