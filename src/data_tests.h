@@ -32,7 +32,7 @@ bool test_can_write_and_read_an_annotated_float(byte* memory) {
 
     EXPECT(read_type == ABDT_FLOAT);
     EXPECT(read_annotation != NULL);
-    EXPECT(strcmp(read_annotation, "Here's my float") == 0);
+    EXPECT(str_eq(read_annotation, "Here's my float"));
     return true;
 }
 
@@ -79,7 +79,26 @@ bool test_sections_work(byte* memory) {
     abd_read_field(&buffer, &read_type, &read_annotation);
     abd_read_string(&buffer, read_sect);
 
-    EXPECT(strcmp(read_sect, "Test Section") == 0);
+    EXPECT(str_eq(read_sect, "Test Section"));
+    return true;
+}
+
+bool test_inspect_works(byte* memory) {
+    float fl = 1.205000043f;
+    int in = 4;
+
+    AbdBuffer buffer = DATATEST_NEW_BUFFER();
+    abd_transfer(ABD_WRITE, ABDT_FLOAT, &buffer, &fl, "the float");
+    abd_transfer(ABD_WRITE, ABDT_S32, &buffer, &in, NULL);
+    abd_section(ABD_WRITE, &buffer, "Test Section");
+    abd_transfer(ABD_WRITE, ABDT_S32, &buffer, &in, "This is the same int");
+    buffer.capacity = buffer.pos;
+    buffer.pos = 0;
+
+    bool r = abd_inspect(&buffer);
+    EXPECT(r);
+    EXPECT(buffer.pos == 0);
+
     return true;
 }
 
@@ -91,6 +110,7 @@ void run_data_tests() {
     RUN_TEST(test_can_write_and_read_an_annotated_float);
     RUN_TEST(test_can_write_and_read_a_bunch_of_stuff);
     RUN_TEST(test_sections_work);
+    RUN_TEST(test_inspect_works);
 }
 
 #endif

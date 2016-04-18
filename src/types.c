@@ -130,6 +130,20 @@ float wrap_degrees(float deg) {
     return deg;
 }
 
+bool str_eq(char* s1, char* s2) {
+    size_t i = 0;
+    while (true) {
+        if (s1[i] != s2[i])
+            return false;
+
+        if (s1[i] == 0)
+            break;
+
+        i += 1;
+    }
+    return true;
+}
+
 void push_generic_bodies(GenericBody* pusher, GenericBody* pushee, float pstr) {
     vec4 dist;
     dist.simd = _mm_sub_ps(pushee->position.simd, pusher->position.simd);

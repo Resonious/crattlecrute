@@ -153,6 +153,9 @@ SDL_Color hue_to_color(float hue);
 // hues are in degrees
 float color_to_hue(SDL_Color color);
 
+bool str_eq(char* s1, char* s2);
+#define MATCH_STR(s1, s2) if (str_eq((s1), (s2)))
+
 typedef struct GenericBody {
     // (x[0] left to right, x[1] down to up)
     vec4 position;

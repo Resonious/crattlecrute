@@ -23,13 +23,26 @@ enum AbdType {
     ABDT_SECTION
 };
 
+static const char* abd_type_str(byte type) {
+    switch (type) {
+    case ABDT_FLOAT:   return "Float";
+    case ABDT_S32:     return "Sint32";
+    case ABDT_SECTION: return "(Section)";
+    default:
+        return "ERROR";
+    }
+}
+
 typedef void(*DataFunc)(AbdBuffer*, void*);
+typedef void(*DataInspectFunc)(AbdBuffer*, byte);
 extern DataFunc abd_data_write[];
 extern DataFunc abd_data_read[];
+extern DataInspectFunc abd_data_inspect[];
 
 void abd_transfer(int rw, byte type, AbdBuffer* buf, void* data, char* write_annotation);
 void abd_section(int rw, AbdBuffer* buf, char* section_label);
 void abd_read_field(AbdBuffer* buf, byte* type, char** annotation);
+bool abd_inspect(AbdBuffer* buf);
 
 void abd_write_string(AbdBuffer* buf, char* string);
 void abd_read_string(AbdBuffer* buf, void* dest);
