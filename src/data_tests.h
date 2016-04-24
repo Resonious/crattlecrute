@@ -5,7 +5,7 @@
 #define DATATEST_NEW_BUFFER() { .bytes = memory, .capacity = 2048, .pos = 0 }
 #define EXPECT(cond) SDL_assert_always(cond); if (!(cond)) return false;
 
-bool test_can_write_and_read_an_unannotated_float(byte* memory) {
+static bool test_can_write_and_read_an_unannotated_float(byte* memory) {
     float to_write = 1.205000043f;
 
     AbdBuffer buffer = DATATEST_NEW_BUFFER();
@@ -19,7 +19,7 @@ bool test_can_write_and_read_an_unannotated_float(byte* memory) {
     return true;
 }
 
-bool test_can_write_and_read_an_annotated_float(byte* memory) {
+static bool test_can_write_and_read_an_annotated_float(byte* memory) {
     float to_write = 1.205000043f;
 
     AbdBuffer buffer = DATATEST_NEW_BUFFER();
@@ -36,7 +36,7 @@ bool test_can_write_and_read_an_annotated_float(byte* memory) {
     return true;
 }
 
-bool test_can_write_and_read_a_bunch_of_stuff(byte* memory) {
+static bool test_can_write_and_read_a_bunch_of_stuff(byte* memory) {
     AbdBuffer buffer = DATATEST_NEW_BUFFER();
     float  f1 = 0.1f, f2 = 0.2f;
     Sint32 i1 = 1,    i2 = 2;
@@ -62,7 +62,7 @@ bool test_can_write_and_read_a_bunch_of_stuff(byte* memory) {
     return true;
 }
 
-bool test_sections_work(byte* memory) {
+static bool test_sections_work(byte* memory) {
     float to_write = 1.205000043f;
 
     AbdBuffer buffer = DATATEST_NEW_BUFFER();
@@ -83,19 +83,33 @@ bool test_sections_work(byte* memory) {
     return true;
 }
 
-bool test_inspect_works(byte* memory) {
+static bool test_inspect_works(byte* memory) {
     float fl = 1.205000043f;
     int in = 4;
+    vec2 v2 = {10.5f, 0.2f};
+    vec4 v4;
+    v4.simd = _mm_set_ps(4.1, 3.2f, 2.3f, 1.4f);
+    SDL_Color col = {255, 0, 0, 255};
+    bool boo = true;
+    unsigned int uin = 120000;
 
     AbdBuffer buffer = DATATEST_NEW_BUFFER();
     abd_transfer(ABD_WRITE, ABDT_FLOAT, &buffer, &fl, "the float");
     abd_transfer(ABD_WRITE, ABDT_S32, &buffer, &in, NULL);
     abd_section(ABD_WRITE, &buffer, "Test Section");
     abd_transfer(ABD_WRITE, ABDT_S32, &buffer, &in, "This is the same int");
+    abd_transfer(ABD_WRITE, ABDT_VEC2, &buffer, &v2, "a vec2");
+    abd_transfer(ABD_WRITE, ABDT_VEC4, &buffer, &v4, NULL);
+    abd_section(ABD_WRITE, &buffer, "New Types");
+    abd_transfer(ABD_WRITE, ABDT_COLOR, &buffer, &col, NULL);
+    abd_transfer(ABD_WRITE, ABDT_BOOL, &buffer, &boo, "True"); boo = false;
+    abd_transfer(ABD_WRITE, ABDT_BOOL, &buffer, &boo, "False");
+    abd_transfer(ABD_WRITE, ABDT_STRING, &buffer, "A string value", "that is a string");
+    abd_transfer(ABD_WRITE, ABDT_U32, &buffer, &uin, NULL);
     buffer.capacity = buffer.pos;
     buffer.pos = 0;
 
-    bool r = abd_inspect(&buffer);
+    bool r = abd_inspect(&buffer, stdout);
     EXPECT(r);
     EXPECT(buffer.pos == 0);
 

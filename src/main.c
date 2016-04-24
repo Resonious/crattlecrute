@@ -111,7 +111,7 @@ void cleanup() {
     SDL_AtomicSet(&game->data.write_wanted, false);
 
     if (SDL_TryLockMutex(game->data.locked) == 0) {
-        FILE* game_data = fopen(game->gamedata_file_path, "w");
+        FILE* game_data = fopen(game->gamedata_file_path, "wb");
         if (game_data) {
             write_game_data(&game->data, game_data);
             fclose(game_data);
@@ -339,13 +339,14 @@ no_renderer:
     BENCH_START(loading_game_data);
     SDL_Thread* data_write_thread = NULL;
     if (game->gamedata_file_path) {
-        FILE* data_read = fopen(game->gamedata_file_path, "r");
+        FILE* data_read = fopen(game->gamedata_file_path, "rb");
         // TODO remove the false lol
         if (data_read != NULL) {
             read_game_data(&game->data, data_read);
             fclose(data_read);
 #ifdef _DEBUG
-            printf("Loaded game data\n");
+            printf("Loaded game data! Inspection:\n");
+            inspect_game_data(&game->data, stdout);
 #endif
         }
         else {

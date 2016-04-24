@@ -299,102 +299,50 @@ void character_post_update(Character* guy) {
     guy->just_went_through_door = false;
 }
 
-void write_character_to_data(Character* guy, struct DataChunk* chunk, bool attributes_only) {
-    set_data_chunk_cap(chunk, 2048);
-    chunk->size = 0;
+void transfer_character_physics(Character* guy, byte rw, struct DataChunk* chunk) {
+    DATA_CHUNK_TO_BUF(rw, chunk, buf, 1024);
 
-#define WRITE_UNLESS_ATTRS_ONLY(field, bsize) (attributes_only ? chunk->size += (bsize) : write_to_buffer(chunk->bytes, (field), &chunk->size, (bsize)))
+    data_section(rw, buf, "character physics");
 
-    const int name_length = CHARACTER_NAME_LENGTH;
-    write_to_buffer(chunk->bytes, &name_length, &chunk->size, sizeof(int));
-    write_to_buffer(chunk->bytes, guy->name, &chunk->size, name_length);
-
-    write_to_buffer(chunk->bytes, &guy->ground_speed_max, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->run_speed_max, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->ground_acceleration, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->ground_deceleration, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->jump_acceleration, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->jump_cancel_dy, &chunk->size, sizeof(float));
-    write_to_buffer(chunk->bytes, &guy->eye_color, &chunk->size, sizeof(SDL_Color));
-    write_to_buffer(chunk->bytes, &guy->body_color, &chunk->size, sizeof(SDL_Color));
-    write_to_buffer(chunk->bytes, &guy->left_foot_color, &chunk->size, sizeof(SDL_Color));
-    write_to_buffer(chunk->bytes, &guy->right_foot_color, &chunk->size, sizeof(SDL_Color));
-    write_to_buffer(chunk->bytes, &guy->body_type, &chunk->size, sizeof(int));
-    write_to_buffer(chunk->bytes, &guy->feet_type, &chunk->size, sizeof(int));
-    write_to_buffer(chunk->bytes, guy->inventory.items, &chunk->size, guy->inventory.capacity * sizeof(ItemCommon));
-    write_to_buffer(chunk->bytes, &guy->age, &chunk->size, sizeof(Uint64));
-    write_to_buffer(chunk->bytes, &guy->age_of_maturity, &chunk->size, sizeof(Uint64));
-
-    // TODO this kinda sucks 'cause it checks every fucking time... it's fuckup-proof though.
-    WRITE_UNLESS_ATTRS_ONLY(guy->position.x, sizeof(vec4));
-    WRITE_UNLESS_ATTRS_ONLY(guy->old_position.x, sizeof(vec4));
-
-    WRITE_UNLESS_ATTRS_ONLY(&guy->ground_angle, sizeof(float));
-    WRITE_UNLESS_ATTRS_ONLY(&guy->dy, sizeof(float));
-    WRITE_UNLESS_ATTRS_ONLY(&guy->ground_speed, sizeof(float));
-    WRITE_UNLESS_ATTRS_ONLY(&guy->run_speed, sizeof(float));
-    WRITE_UNLESS_ATTRS_ONLY(&guy->slide_speed, sizeof(float));
-
-    WRITE_UNLESS_ATTRS_ONLY(&guy->jumped, 1);
-    WRITE_UNLESS_ATTRS_ONLY(&guy->just_jumped, 1);
-    WRITE_UNLESS_ATTRS_ONLY(&guy->width, sizeof(int));
-    WRITE_UNLESS_ATTRS_ONLY(&guy->height, sizeof(int));
-
-    WRITE_UNLESS_ATTRS_ONLY(&guy->animation_state, sizeof(enum CharacterAnimation));
-    WRITE_UNLESS_ATTRS_ONLY(&guy->flip, sizeof(SDL_RendererFlip));
+    data_vec4(rw, buf, guy->position.x);
+    data_vec4(rw, buf, guy->old_position.x);
+    data_float(rw, buf, &guy->ground_angle);
+    data_float(rw, buf, &guy->dy);
+    data_float(rw, buf, &guy->ground_speed);
+    data_float(rw, buf, &guy->run_speed);
+    data_float(rw, buf, &guy->slide_speed);
+    data_bool(rw, buf, &guy->jumped);
+    data_bool(rw, buf, &guy->just_jumped);
+    data_s32(rw, buf, &guy->width);
+    data_s32(rw, buf, &guy->height);
+    data_s32(rw, buf, &guy->animation_state);
+    data_s32(rw, buf, &guy->flip);
 }
 
-int read_character_from_data(Character* guy, struct DataChunk* chunk) {
-    int pos = 0;
+void transfer_character(Character* guy, byte rw, struct DataChunk* chunk) {
+    DATA_CHUNK_TO_BUF(rw, chunk, buf, 1024);
 
-    int name_length;
-    read_from_buffer(chunk->bytes, &name_length, &pos, sizeof(int));
-    if (name_length > CHARACTER_NAME_LENGTH) {
-        read_from_buffer(chunk->bytes, guy->name, &pos, CHARACTER_NAME_LENGTH);
-        guy->name[CHARACTER_NAME_LENGTH - 1] = '\0';
-        pos += name_length - CHARACTER_NAME_LENGTH;
-        printf("TRUNCATED CHARACTER NAME! Sorry, %s\n", guy->name);
-    }
-    else {
-        read_from_buffer(chunk->bytes, guy->name, &pos, name_length);
-    }
+    data_section(rw, buf, "character attributes");
 
-    read_from_buffer(chunk->bytes, &guy->ground_speed_max, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->run_speed_max, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->ground_acceleration, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->ground_deceleration, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->jump_acceleration, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->jump_cancel_dy, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->eye_color, &pos, sizeof(SDL_Color));
-    read_from_buffer(chunk->bytes, &guy->body_color, &pos, sizeof(SDL_Color));
-    read_from_buffer(chunk->bytes, &guy->left_foot_color, &pos, sizeof(SDL_Color));
-    read_from_buffer(chunk->bytes, &guy->right_foot_color, &pos, sizeof(SDL_Color));
-    read_from_buffer(chunk->bytes, &guy->body_type, &pos, sizeof(int));
-    read_from_buffer(chunk->bytes, &guy->feet_type, &pos, sizeof(int));
-    read_from_buffer(chunk->bytes, guy->inventory.items, &pos, guy->inventory.capacity * sizeof(ItemCommon));
-    read_from_buffer(chunk->bytes, &guy->age, &pos, sizeof(Uint64));
-    read_from_buffer(chunk->bytes, &guy->age_of_maturity, &pos, sizeof(Uint64));
+    data_string(rw, buf, guy->name);
+    data_float(rw, buf, &guy->ground_speed_max);
+    data_float(rw, buf, &guy->run_speed_max);
+    data_float(rw, buf, &guy->ground_acceleration);
+    data_float(rw, buf, &guy->ground_deceleration);
+    data_float(rw, buf, &guy->jump_acceleration);
+    data_float(rw, buf, &guy->jump_cancel_dy);
+    data_color(rw, buf, &guy->eye_color);
+    data_color(rw, buf, &guy->body_color);
+    data_color(rw, buf, &guy->left_foot_color);
+    data_color(rw, buf, &guy->right_foot_color);
+    data_s32(rw, buf, &guy->body_type);
+    data_s32(rw, buf, &guy->feet_type);
+    // TODO transfer inventory - I don't want to right now :(
+    // write_to_buffer(chunk->bytes, guy->inventory.items, &chunk->size, guy->inventory.capacity * sizeof(ItemCommon));
+    data_u32(rw, buf, &guy->age);
+    data_u32(rw, buf, &guy->age_of_maturity);
 
-    read_from_buffer(chunk->bytes, guy->position.x, &pos, sizeof(vec4));
-    read_from_buffer(chunk->bytes, guy->old_position.x, &pos, sizeof(vec4));
-
-    read_from_buffer(chunk->bytes, &guy->ground_angle, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->dy, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->ground_speed, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->run_speed, &pos, sizeof(float));
-    read_from_buffer(chunk->bytes, &guy->slide_speed, &pos, sizeof(float));
-
-    read_from_buffer(chunk->bytes, &guy->jumped, &pos, 1);
-    read_from_buffer(chunk->bytes, &guy->just_jumped, &pos, 1);
-    read_from_buffer(chunk->bytes, &guy->width, &pos, sizeof(int));
-    read_from_buffer(chunk->bytes, &guy->height, &pos, sizeof(int));
-
-    read_from_buffer(chunk->bytes, &guy->animation_state, &pos, sizeof(enum CharacterAnimation));
-    read_from_buffer(chunk->bytes, &guy->flip, &pos, sizeof(SDL_RendererFlip));
-
-    set_character_bounds(guy);
-
-    return pos;
+    if (rw == ABD_READ) set_character_bounds(guy);
 }
 
 // ======= RENDERING =========

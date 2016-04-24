@@ -11,6 +11,20 @@
 #define TILE_HEIGHT_FOR_SENSOR(heights, tile_index, sensor_dir) \
   ((int*)(&heights[tile_index.index]) + (sensor_dir * 32))
 
+#define EACH_MOB(map, mob_var, expr)\
+    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {\
+        MobCommon* mob_var = (MobCommon*)&map->state->small_mobs[i];\
+        do { expr } while(0);\
+    }\
+    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {\
+        MobCommon* mob_var = (MobCommon*)&map->state->medium_mobs[i];\
+        do { expr } while(0);\
+    }\
+    for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++) {\
+        MobCommon* mob_var = (MobCommon*)&map->state->large_mobs[i];\
+        do { expr } while(0);\
+    }
+
 typedef struct {
     int top2down[32];
     int bottom2up[32];
@@ -211,9 +225,8 @@ void clear_map_state(Map* map);
 void write_map_state(Map* map, byte* buffer, int* pos);
 void read_map_state(Map* map, byte* buffer, int* pos);
 struct DataChunk;
-void write_map_to_data(Map* map, struct DataChunk* chunk);
-void read_map_from_data(Map* map, struct DataChunk* chunk);
 
+void transfer_map_to_data(Map* map, byte rw, struct DataChunk* chunk);
 void collide_generic_body(struct GenericBody* body, CollisionMap* tile_collision);
 
 #endif // TILEMAP_H

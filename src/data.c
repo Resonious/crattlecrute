@@ -3,7 +3,48 @@
 
 #define abd_write_field_header(buf, type, annotation) (buf)->bytes[(buf)->pos++] = (type) | ((annotation) ? ABDF_ANNOTATED : 0);
 
-void abd_write_string(AbdBuffer* buf, char* string) {
+void write_1_byte(AbdBuffer* buf, void* data) {
+    memcpy(buf->bytes + buf->pos, data, 1);
+    buf->pos += 1;
+}
+
+void read_1_byte(AbdBuffer* buf, void* dest) {
+    memcpy(dest, buf->bytes + buf->pos, 1);
+    buf->pos += 1;
+}
+
+void write_4_bytes(AbdBuffer* buf, void* data) {
+    memcpy(buf->bytes + buf->pos, data, 4);
+    buf->pos += 4;
+}
+
+void read_4_bytes(AbdBuffer* buf, void* dest) {
+    memcpy(dest, buf->bytes + buf->pos, 4);
+    buf->pos += 4;
+}
+
+void write_8_bytes(AbdBuffer* buf, void* data) {
+    memcpy(buf->bytes + buf->pos, data, 8);
+    buf->pos += 8;
+}
+
+void read_8_bytes(AbdBuffer* buf, void* dest) {
+    memcpy(dest, buf->bytes + buf->pos, 8);
+    buf->pos += 8;
+}
+
+void write_16_bytes(AbdBuffer* buf, void* data) {
+    memcpy(buf->bytes + buf->pos, data, 16);
+    buf->pos += 16;
+}
+
+void read_16_bytes(AbdBuffer* buf, void* dest) {
+    memcpy(dest, buf->bytes + buf->pos, 16);
+    buf->pos += 16;
+}
+
+void abd_write_string(AbdBuffer* buf, void* str) {
+    char* string = (char*)str;
     size_t str_size = strlen(string);
     if (str_size >= 256) {
         memcpy(buf->bytes + buf->pos, string, 256);
@@ -18,16 +59,6 @@ void abd_write_string(AbdBuffer* buf, char* string) {
     }
 }
 
-void write_4_bytes(AbdBuffer* buf, void* data) {
-    memcpy(buf->bytes + buf->pos, data, 4);
-    buf->pos += 4;
-}
-
-void read_4_bytes(AbdBuffer* buf, void* dest) {
-    memcpy(dest, buf->bytes + buf->pos, 4);
-    buf->pos += 4;
-}
-
 void abd_read_string(AbdBuffer* buf, void* dest) {
     byte length = buf->bytes[buf->pos++];
     if (dest)
@@ -35,31 +66,94 @@ void abd_read_string(AbdBuffer* buf, void* dest) {
     buf->pos += length;
 }
 
-void inspect_float(AbdBuffer* buf, byte type) {
-    float f;
-    abd_data_read[type](buf, &f);
-    printf("%f", f);
+void inspect_float(AbdBuffer* buf, byte type, FILE* f) {
+    float fl;
+    abd_data_read[type](buf, &fl);
+    fprintf(f, "%f", fl);
 }
 
-void inspect_integer_type(AbdBuffer* buf, byte type) {
+void inspect_integer_type(AbdBuffer* buf, byte type, FILE* f) {
     Sint64 i = 0;
     abd_data_read[type](buf, &i);
-    printf("%i", i);
+    fprintf(f, "%i", i);
+}
+
+void inspect_unsigned_integer_type(AbdBuffer* buf, byte type, FILE* f) {
+    Uint64 i = 0;
+    abd_data_read[type](buf, &i);
+    fprintf(f, "%lu", i);
+}
+
+void inspect_vec2(AbdBuffer* buf, byte type, FILE* f) {
+    vec2 v;
+    abd_data_read[type](buf, &v);
+    fprintf(f, "(%f, %f)", v.x, v.y);
+}
+
+void inspect_vec4(AbdBuffer* buf, byte type, FILE* f) {
+    vec4 v;
+    abd_data_read[type](buf, &v);
+    fprintf(f, "(%f, %f, %f, %f)", v.x[0], v.x[1], v.x[2], v.x[3]);
+}
+
+void inspect_color(AbdBuffer* buf, byte type, FILE* f) {
+    SDL_Color c;
+    abd_data_read[type](buf, &c);
+    fprintf(f, "#%06x", *(Uint32*)(&c));
+}
+
+void inspect_bool(AbdBuffer* buf, byte type, FILE* f) {
+    bool b;
+    abd_data_read[type](buf, &b);
+    if (b)
+        fprintf(f, "true");
+    else
+        fprintf(f, "false");
+}
+
+void inspect_string(AbdBuffer* buf, byte type, FILE* f) {
+    char string[256];
+    abd_read_string(buf, string);
+    fprintf(f, "\"%s\"", string);
 }
 
 DataFunc abd_data_write[] = {
-    write_4_bytes, // ABDT_FLOAT
-    write_4_bytes  // ABDT_S32
+    write_4_bytes,   // ABDT_FLOAT
+    write_8_bytes,   // ABDT_VEC2
+    write_16_bytes,  // ABDT_VEC4
+    write_4_bytes,   // ABDT_S32
+    write_8_bytes,   // ABDT_S64
+    write_4_bytes,   // ABDT_U32
+    write_8_bytes,   // ABDT_U64
+    write_4_bytes,   // ABDT_COLOR
+    write_1_byte,    // ABDT_BOOL
+    abd_write_string // ABDT_STRING
 };
 
 DataFunc abd_data_read[] = {
-    read_4_bytes, // ABDT_FLOAT
-    read_4_bytes  // ABDT_S32
+    read_4_bytes,   // ABDT_FLOAT
+    read_8_bytes,   // ABDT_VEC2
+    read_16_bytes,  // ABDT_VEC4
+    read_4_bytes,   // ABDT_S32
+    read_8_bytes,   // ABDT_S64
+    read_4_bytes,   // ABDT_U32
+    read_8_bytes,   // ABDT_U64
+    read_4_bytes,   // ABDT_COLOR
+    read_1_byte,    // ABDT_BOOL
+    abd_read_string // ABDT_STRING
 };
 
 DataInspectFunc abd_data_inspect[] = {
-    inspect_float,       // ABDT_FLOAT
-    inspect_integer_type // ABDT_S32
+    inspect_float,        // ABDT_FLOAT
+    inspect_vec2,         // ABDT_VEC2
+    inspect_vec4,         // ABDT_VEC4
+    inspect_integer_type, // ABDT_S32
+    inspect_integer_type, // ABDT_S64
+    inspect_unsigned_integer_type, // ABDT_U32
+    inspect_unsigned_integer_type, // ABDT_U64
+    inspect_color,        // ABDT_COLOR
+    inspect_bool,         // ABDT_BOOL
+    inspect_string        // ABDT_STRING
 };
 
 void abd_section(int rw, AbdBuffer* buf, char* section_label) {
@@ -119,7 +213,7 @@ void abd_read_field(AbdBuffer* buf, byte* type, char** annotation) {
     *type = read_type;
 }
 
-bool abd_inspect(AbdBuffer* buf) {
+bool abd_inspect(AbdBuffer* buf, FILE* f) {
     int r = true;
     int old_pos = buf->pos;
     int limit;
@@ -136,25 +230,25 @@ bool abd_inspect(AbdBuffer* buf) {
         abd_read_field(buf, &type, &annotation);
 
         if (type != ABDT_SECTION)
-            printf("%s: ", abd_type_str(type));
+            fprintf(f, "%s: ", abd_type_str(type));
 
         if (type < ABD_TYPE_COUNT)
-            abd_data_inspect[type](buf, type);
+            abd_data_inspect[type](buf, type, f);
         else if (type == ABDT_SECTION) {
             char section_text[512];
             abd_read_string(buf, section_text);
-            printf("==== %s ====", section_text);
+            fprintf(f, "==== %s ====", section_text);
         }
         else {
-            printf("Cannot inspect type: %i\nExiting inspection.\n", type);
+            fprintf(f, "Cannot inspect type: %i\nExiting inspection.\n", type);
             r = false;
             goto Done;
         }
 
         if (annotation) {
-            printf(" -- \"%s\"", annotation);
+            fprintf(f, " -- \"%s\"", annotation);
         }
-        printf("\n");
+        fprintf(f, "\n");
     }
 
     Done:

@@ -201,7 +201,7 @@ int write_game_data_thread(void* vgame) {
             SDL_Delay(1000);
 
         if (game->data.character >= 0) {
-            FILE* game_data = fopen(game->gamedata_file_path, "w");
+            FILE* game_data = fopen(game->gamedata_file_path, "wb");
             write_game_data(&game->data, game_data);
             fclose(game_data);
 #ifdef _DEBUG
@@ -227,66 +227,70 @@ void read_data_chunk(DataChunk* chunk, FILE* file) {
     }
 }
 
-void read_game_data(GameData* data, FILE* file) {
+typedef size_t(*FileIoFunc)(void*, size_t, size_t, FILE*);
+typedef void(*DataChunkFunc)(DataChunk*, FILE*);
+static FileIoFunc ftransfer_func[] = { fread, fwrite };
+static DataChunkFunc transfer_data_chunk_func[] = { read_data_chunk, write_data_chunk };
+
+#define CC_DATA_CURRENT_VERSION 1
+
+void transfer_game_data(GameData* data, byte rw, FILE* file) {
     wait_for_then_use_lock(data->locked);
+    FileIoFunc ftransfer = ftransfer_func[rw];
+    DataChunkFunc transfer_data_chunk = transfer_data_chunk_func[rw];
 
-    // ======== FILE VERSION =============
-    int cc_data_version = -1;
-    fread(&cc_data_version, sizeof(int), 1, file);
+    // ============= FILE VERSION ================
+    int cc_data_version = rw == ABD_WRITE ? CC_DATA_CURRENT_VERSION : -1;
+    ftransfer(&cc_data_version, sizeof(int), 1, file);
 
-    if (cc_data_version != 0) {
-        printf("WARNING: bad data file! version id %i. No gamedata loaded.\n", cc_data_version);
+    if (rw == ABD_READ && cc_data_version != CC_DATA_CURRENT_VERSION) {
+        printf("WARNING: wrong data file version (%i) - can't load game data.\n", cc_data_version);
         return;
     }
-    SDL_assert(cc_data_version == 0);
 
-    // ======== Current Area ID ==========
-    fread(&data->area, sizeof(int), 1, file);
+    // ============= Current Area ==============
+    ftransfer(&data->area, sizeof(int), 1, file);
 
-    // ======== Character Data ===========
-    fread(&data->character_count, sizeof(int), 1, file);
-    SDL_assert(data->character_count < MAX_CHARACTERS);
-    fread(&data->character, sizeof(int), 1, file);
-    for (int i = 0; i < data->character_count; i++) {
-        read_data_chunk(&data->characters[i], file);
-    }
+    // ============== Position =================
+    transfer_data_chunk(&data->character_physics_state, file);
 
-    // ======== NUMBER OF AREAS ==========
-    int number_of_areas = NUMBER_OF_AREAS;
-    fread(&number_of_areas, sizeof(int), 1, file);
+    // ========== Character Attributes =========
+    ftransfer(&data->character_count, sizeof(int), 1, file);
+    ftransfer(&data->character, sizeof(int), 1, file);
+    for (int i = 0; i < data->character_count; i++)
+        transfer_data_chunk(&data->characters[i], file);
 
-    for (int i = 0; i < number_of_areas; i++) {
-        read_data_chunk(&data->maps[i], file);
-    }
+    // ========== NUMBER OF AREAS ==============
+    int number_of_areas = rw == ABD_WRITE ? NUMBER_OF_AREAS : -1;
+    ftransfer(&number_of_areas, sizeof(int), 1, file);
+    for (int i = 0; i < number_of_areas; i++)
+        transfer_data_chunk(&data->maps[i], file);
 
     SDL_UnlockMutex(data->locked);
 }
-void write_game_data(GameData* data, FILE* file) {
-    wait_for_then_use_lock(data->locked);
 
-    // ======== FILE VERSION =============
-    int cc_data_version = 0;
-    fwrite(&cc_data_version, sizeof(int), 1, file);
+#define BUF_FROM_CHUNK(chunk) (AbdBuffer){.pos=0, .capacity=(chunk).size, .bytes=(chunk).bytes}
+void inspect_game_data(GameData* data, FILE* f) {
+    fprintf(f, "Area: %i\n", data->area);
+    fprintf(f, "Current character #: %i\n", data->character);
+    fprintf(f, "---Character physics state:\n");
+    abd_inspect(&data->character_physics_state, f);
 
-    // ======== Current Area ID ==========
-    fwrite(&data->area, sizeof(int), 1, file);
-
-    // ======== Character Data ===========
-    fwrite(&data->character_count, sizeof(int), 1, file);
-    fwrite(&data->character, sizeof(int), 1, file);
-    for(int i = 0; i < data->character_count; i++) {
-        write_data_chunk(&data->characters[i], file);
+    for (int i = 0; i < data->character_count; i++) {
+        fprintf(f, "\n======= CHARACTER %i of %i: =======\n", i, data->character_count);
+        AbdBuffer buf = BUF_FROM_CHUNK(data->characters[i]);
+        abd_inspect(&buf, f);
     }
 
-    // ======== NUMBER OF AREAS ==========
-    int number_of_areas = NUMBER_OF_AREAS;
-    fwrite(&number_of_areas, sizeof(int), 1, file);
+    for (int i = 0; i < NUMBER_OF_AREAS; i++) {
+        DataChunk* chunk = &data->maps[i];
+        if (chunk->size <= 0)
+            continue;
 
-    for (int i = 0; i < number_of_areas; i++) {
-        write_data_chunk(&data->maps[i], file);
+        AbdBuffer buf = BUF_FROM_CHUNK(data->maps[i]);
+        fprintf(f, "\n======= AREA %i =======\n", i);
+        abd_inspect(&buf, f);
     }
-
-    SDL_UnlockMutex(data->locked);
 }
 
 bool save_game(Game* game) {

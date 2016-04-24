@@ -199,8 +199,8 @@ void set_character_age(struct Game* game, Character* guy, int age);
 void update_character_animation(Character* guy);
 void randomize_character(Character* guy);
 
-void write_character_to_data(Character* guy, struct DataChunk* chunk, bool attributes_only);
-int read_character_from_data(Character* guy, struct DataChunk* chunk);
+void transfer_character(Character* guy, byte rw, struct DataChunk* chunk);
+void transfer_character_physics(Character* guy, byte rw, struct DataChunk* chunk);
 
 // data will be passed to any of the provided callbacks when called.
 void interact_character_with_world(

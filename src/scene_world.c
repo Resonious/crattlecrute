@@ -195,12 +195,12 @@ bool save(WorldScene* scene) {
     if (game->data.character < 0)
         return false;
 
-    bool should_write_positions = scene->net.status != JOINING && scene->current_area != AREA_NET_ZONE;
-    write_character_to_data(scene->guy, &game->data.characters[game->data.character], !should_write_positions);
+    if ((scene->net.status != JOINING && scene->current_area != AREA_NET_ZONE) || game->data.character_physics_state.size == 0)
+        transfer_character_physics(scene->guy, ABD_WRITE, &game->data.character_physics_state);
+    transfer_character(scene->guy, ABD_WRITE, &game->data.characters[game->data.character]);
 
-    if (scene->net.status != JOINING) {
-        write_map_to_data(scene->map, &game->data.maps[scene->current_area]);
-    }
+    if (scene->net.status != JOINING)
+        transfer_map_to_data(scene->map, ABD_WRITE, &game->data.maps[scene->current_area]);
 
     SDL_UnlockMutex(game->data.locked);
     return save_game(game);
@@ -448,7 +448,14 @@ void connected_spawn_mob(void* vs, Map* map, struct Game* game, int mob_type_id,
             write_to_buffer(player->mob_event_buffer, &mob_type_id,  &player->mob_event_buffer_pos, sizeof(int));
             write_to_buffer(player->mob_event_buffer, &pos,          &player->mob_event_buffer_pos, sizeof(vec2));
             write_to_buffer(player->mob_event_buffer, &m_id,         &player->mob_event_buffer_pos, sizeof(int));
-            mob_type->save(mob, game, map, player->mob_event_buffer, &player->mob_event_buffer_pos);
+
+            AbdBuffer abuf;
+            abuf.bytes = player->mob_event_buffer;
+            abuf.capacity = MOB_EVENT_BUFFER_SIZE;
+            abuf.pos = player->mob_event_buffer_pos;
+
+            mob_type->transfer(mob, game, map, ABD_WRITE, &abuf);
+            player->mob_event_buffer_pos = abuf.pos;
 
             player->mob_event_count += 1;
             SDL_UnlockMutex(player->mob_event_buffer_locked);
@@ -1026,7 +1033,14 @@ RemotePlayer* netop_update_controls(WorldScene* scene, byte* buffer, struct sock
                         mob->mob_type_id = mob_type;
                         mob->index = index_from_mob_id(m_id);
                         reg->initialize(mob, scene->game, scene->map, position);
-                        reg->load(mob, scene->game, scene->map, buffer, &pos);
+
+                        AbdBuffer abuf;
+                        abuf.capacity = PACKET_SIZE;
+                        abuf.pos = pos;
+                        abuf.bytes = buffer;
+
+                        reg->transfer(mob, scene->game, scene->map, ABD_READ, &abuf);
+                        pos = abuf.pos;
                     } break;
 
                     case NETF_MOBEVENT_UPDATE: {
@@ -2106,9 +2120,13 @@ void scene_world_initialize(void* vdata, Game* game) {
           
         default_character(game, data->guy);
         default_character_animations(game, data->guy);
+
         DataChunk* character_chunk = &game->data.characters[game->data.character];
+        DataChunk* character_physics_chunk = &game->data.character_physics_state;
+
         if (character_chunk->bytes) {
-            read_character_from_data(data->guy, character_chunk);
+            transfer_character(data->guy, ABD_READ, character_chunk);
+            transfer_character_physics(data->guy, ABD_READ, character_physics_chunk);
             load_character_atlases(game, data->guy);
             set_camera_target(game, data->map, (GenericBody*)data->guy);
         }

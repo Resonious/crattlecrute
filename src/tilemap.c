@@ -1304,54 +1304,43 @@ void load_map(const int asset, /*out*/ Map* map) {
 
 void clear_map_state(Map* map) {
     // TODO use despawn_mob or something so we can do some cleanup function
-    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
-        map->state->small_mobs[i].mob_type_id = -1;
-    }
-    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
-        map->state->medium_mobs[i].mob_type_id = -1;
-    }
-    for (int i = 0; i < MAP_STATE_MAX_LARGE_MOBS; i++) {
-        map->state->large_mobs[i].mob_type_id = -1;
-    }
+    EACH_MOB(map, (mob), {
+        mob->mob_type_id = -1;
+    });
 }
 
-#define SYNC_MAP_STATE(size, mob_list, buffer_op, mob_op)\
-    for (int i = 0; i < MAP_STATE_MAX_##size##_MOBS; i++) {\
-        MobCommon* mob = (MobCommon*)&map->state->mob_list[i];\
-        buffer_op(buffer, &mob->mob_type_id, pos, sizeof(int));\
-        SDL_assert(mob->mob_type_id >= -1);\
-\
-        if (mob->mob_type_id != -1) {\
-            mob->index = i;\
-            mob_registry[mob->mob_type_id].mob_op(mob, map->game, map, buffer, pos);\
-        }\
-    }
+void transfer_map_state(Map* map, byte rw, AbdBuffer* buf) {
+    data_section(rw, buf, "mob states");
+    EACH_MOB(map, (mob), {
+        data_s32_a(rw, buf, &mob->mob_type_id, "mob type id");
+        SDL_assert(mob->mob_type_id >= -1);
 
+        if (mob->mob_type_id != -1) {
+            data_section(rw, buf, "BEGIN MOB");
+            mob->index = 1;
+            mob_registry[mob->mob_type_id].transfer(mob, map->game, map, rw, buf);
+            data_section(rw, buf, "END MOB");
+        }
+    });
+}
 void write_map_state(Map* map, byte* buffer, int* pos) {
-    SYNC_MAP_STATE(SMALL,  small_mobs,  write_to_buffer, save);
-    SYNC_MAP_STATE(MEDIUM, medium_mobs, write_to_buffer, save);
-    SYNC_MAP_STATE(LARGE,  large_mobs,  write_to_buffer, save);
+    AbdBuffer buf = buf_new(buffer, *pos);
+    transfer_map_state(map, ABD_WRITE, &buf);
+    *pos = buf.pos;
 }
 void read_map_state(Map* map, byte* buffer, int* pos) {
-    for (int i = 0; i < MAP_STATE_MAX_SMALL_MOBS; i++) {
-        MobCommon* mob = (MobCommon*)&map->state->small_mobs[i];
-        read_from_buffer(buffer, &mob->mob_type_id, pos, sizeof(int));
+    AbdBuffer buf = buf_new(buffer, *pos);
+    transfer_map_state(map, ABD_READ, &buf);
+    *pos = buf.pos;
+}
 
-        if (mob->mob_type_id != -1) {
-            mob->index = i;
-            mob_registry[mob->mob_type_id].load(mob, map->game, map, buffer, pos);
-        }
-    }
-    for (int i = 0; i < MAP_STATE_MAX_MEDIUM_MOBS; i++) {
-        MobCommon* mob = (MobCommon*)&map->state->medium_mobs[i];
-        read_from_buffer(buffer, &mob->mob_type_id, pos, sizeof(int));
+void transfer_map_to_data(Map* map, byte rw, struct DataChunk* chunk) {
+    DATA_CHUNK_TO_BUF(rw, chunk, buf, sizeof(MapState) + map->number_of_spawn_zones * sizeof(MobSpawnZone));
 
-        if (mob->mob_type_id != -1) {
-            mob->index = i;
-            mob_registry[mob->mob_type_id].load(mob, map->game, map, buffer, pos);
-        }
-    }
-    SYNC_MAP_STATE(LARGE,  large_mobs,  read_from_buffer, load);
+    data_u32(rw, buf, &map->area_id);
+    transfer_map_state(map, rw, buf);
+
+    data_s32(rw, buf, &map->number_of_spawn_zones);
 }
 
 void write_map_to_data(Map* map, struct DataChunk* chunk) {

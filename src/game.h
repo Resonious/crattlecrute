@@ -57,6 +57,7 @@ typedef struct DataChunk {
 typedef struct GameData {
     int area;
     int character;
+    DataChunk character_physics_state;
     int character_count;
     DataChunk characters[MAX_CHARACTERS];
     DataChunk maps[NUMBER_OF_AREAS];
@@ -154,8 +155,10 @@ typedef struct Game {
 
 bool save_game(Game* game);
 void set_data_chunk_cap(DataChunk* chunk, int capacity);
-void read_game_data(GameData* data, FILE* file);
-void write_game_data(GameData* data, FILE* file);
+void transfer_game_data(GameData* data, byte rw, FILE* file);
+#define read_game_data(data, file) transfer_game_data((data), ABD_READ, (file));
+#define write_game_data(data, file) transfer_game_data((data), ABD_WRITE, (file));
+void inspect_game_data(GameData* data, FILE* f);
 
 // Switch to a new scene (COMING SOON: fade to scene!?)
 void switch_scene(Game* game, int to_scene);

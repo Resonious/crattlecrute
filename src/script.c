@@ -364,6 +364,12 @@ mrb_value mrb_game_crattlecrutes(mrb_state* mrb, mrb_value self) {
     return a;
 }
 
+mrb_value mrb_game_inspect_data(mrb_state* mrb, mrb_value self) {
+    Game* game = DATA_PTR(self);
+    inspect_game_data(&game->data, stdout);
+    return mrb_nil_value();
+}
+
 mrb_value mrb_map_init(mrb_state* mrb, mrb_value self) {
     mrb_data_init(self, NULL, &mrb_map_type);
     return self;
@@ -894,6 +900,7 @@ void script_init(struct Game* game) {
     mrb_define_method(game->mrb, game->ruby.game_class, "cancel_text", mrb_game_cancel_text, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.game_class, "headless?", mrb_game_is_headless, MRB_ARGS_NONE());
     mrb_define_method(game->mrb, game->ruby.game_class, "crattlecrutes", mrb_game_crattlecrutes, MRB_ARGS_NONE());
+    mrb_define_method(game->mrb, game->ruby.game_class, "inspect_data", mrb_game_inspect_data, MRB_ARGS_NONE());
 
     // ==================================== class World ===============================
     game->ruby.world_class = mrb_define_class(game->mrb, "World", game->mrb->object_class);
