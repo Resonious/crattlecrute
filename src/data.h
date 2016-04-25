@@ -22,6 +22,10 @@ typedef struct AbdBuffer {
         set_data_chunk_cap((chunk), (write_capacity));\
         (chunk)->size = 0;\
     }\
+    else {\
+        (chunk)->capacity = (chunk)->size;\
+        (chunk)->size = 0;\
+    }\
     AbdBuffer* bufname = (AbdBuffer*)(chunk);\
 
 #define ABDF_ANNOTATED (1 << 7)

@@ -223,7 +223,6 @@ no_renderer:
 #endif
     }
     else {
-        game->gamedata_file_path = NULL;
         const char* message = "Couldn't find place to write game data. Won't be able to save!";
         if (game->window)
             SDL_ShowSimpleMessageBox(0, "Error", message, game->window);

@@ -43,6 +43,16 @@ void read_16_bytes(AbdBuffer* buf, void* dest) {
     buf->pos += 16;
 }
 
+void abd_write_vec4(AbdBuffer* buf, void* vdata) {
+    __m128* data = (__m128*)vdata;
+    _mm_store_ps((float*)buf->bytes, *data);
+}
+
+void abd_read_vec4(AbdBuffer* buf, void* vdest) {
+    __m128* dest = (__m128*)vdest;
+    *dest = _mm_load_ps((float*)buf->bytes);
+}
+
 void abd_write_string(AbdBuffer* buf, void* str) {
     char* string = (char*)str;
     size_t str_size = strlen(string);
@@ -120,7 +130,7 @@ void inspect_string(AbdBuffer* buf, byte type, FILE* f) {
 DataFunc abd_data_write[] = {
     write_4_bytes,   // ABDT_FLOAT
     write_8_bytes,   // ABDT_VEC2
-    write_16_bytes,  // ABDT_VEC4
+    abd_write_vec4,  // ABDT_VEC4
     write_4_bytes,   // ABDT_S32
     write_8_bytes,   // ABDT_S64
     write_4_bytes,   // ABDT_U32
@@ -133,7 +143,7 @@ DataFunc abd_data_write[] = {
 DataFunc abd_data_read[] = {
     read_4_bytes,   // ABDT_FLOAT
     read_8_bytes,   // ABDT_VEC2
-    read_16_bytes,  // ABDT_VEC4
+    abd_read_vec4,  // ABDT_VEC4
     read_4_bytes,   // ABDT_S32
     read_8_bytes,   // ABDT_S64
     read_4_bytes,   // ABDT_U32

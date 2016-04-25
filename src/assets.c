@@ -314,7 +314,7 @@ Map* cached_area(Game* game, int area_id) {
         if (!game->net_joining) {
             DataChunk* chunk = &game->data.maps[area_id];
             if (chunk->size > 0)
-                read_map_from_data(cached_asset->map, chunk);
+                transfer_map_to_data(cached_asset->map, ABD_READ, chunk);
         }
     }
     else
