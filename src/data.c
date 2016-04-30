@@ -43,14 +43,38 @@ void read_16_bytes(AbdBuffer* buf, void* dest) {
     buf->pos += 16;
 }
 
+void write_4_floats(AbdBuffer* buf, void* data) {
+    SDL_assert((size_t)data % 16 == 0);
+    float* v4       = (float*)data;
+    float* buf_dest = (float*)buf->bytes + buf->pos;
+    buf_dest[0] = v4[0];
+    buf_dest[1] = v4[1];
+    buf_dest[2] = v4[2];
+    buf_dest[3] = v4[3];
+    buf->pos += 16;
+}
+
+void read_4_floats(AbdBuffer* buf, void* data) {
+    SDL_assert((size_t)data % 16 == 0);
+    float* v4      = (float*)data;
+    float* buf_src = (float*)buf->bytes + buf->pos;
+    v4[0] = buf_src[0];
+    v4[1] = buf_src[1];
+    v4[2] = buf_src[2];
+    v4[3] = buf_src[3];
+    buf->pos += 16;
+}
+
 void abd_write_vec4(AbdBuffer* buf, void* vdata) {
     __m128* data = (__m128*)vdata;
-    _mm_store_ps((float*)buf->bytes, *data);
+    _mm_storeu_ps((float*)(buf->bytes + buf->pos), *data);
+    buf->pos += 16;
 }
 
 void abd_read_vec4(AbdBuffer* buf, void* vdest) {
     __m128* dest = (__m128*)vdest;
-    *dest = _mm_load_ps((float*)buf->bytes);
+    *dest = _mm_loadu_ps((float*)(buf->bytes + buf->pos));
+    buf->pos += 16;
 }
 
 void abd_write_string(AbdBuffer* buf, void* str) {

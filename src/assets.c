@@ -127,7 +127,6 @@ AssetFile load_asset(int asset) {
 }
 #endif // EMBEDDED_ASSETS
 
-// only used within this file...
 static SDL_Surface* makesurface(byte* image, int width, int height) {
     SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
         image, width, height, 32, width * 4, RMASK, GMASK, BMASK, AMASK

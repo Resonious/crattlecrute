@@ -100,6 +100,8 @@ static bool test_inspect_works(byte* memory) {
     abd_transfer(ABD_WRITE, ABDT_S32, &buffer, &in, "This is the same int");
     abd_transfer(ABD_WRITE, ABDT_VEC2, &buffer, &v2, "a vec2");
     abd_transfer(ABD_WRITE, ABDT_VEC4, &buffer, &v4, NULL);
+    abd_transfer(ABD_WRITE, ABDT_BOOL, &buffer, &boo, "True (I think)");
+    abd_transfer(ABD_WRITE, ABDT_VEC4, &buffer, &v4, NULL);
     abd_section(ABD_WRITE, &buffer, "New Types");
     abd_transfer(ABD_WRITE, ABDT_COLOR, &buffer, &col, NULL);
     abd_transfer(ABD_WRITE, ABDT_BOOL, &buffer, &boo, "True"); boo = false;
