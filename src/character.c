@@ -299,9 +299,7 @@ void character_post_update(Character* guy) {
     guy->just_went_through_door = false;
 }
 
-void transfer_character_physics(Character* guy, byte rw, struct DataChunk* chunk) {
-    DATA_CHUNK_TO_BUF(rw, chunk, buf, 1024);
-
+void data_character_physics(Character* guy, byte rw, struct AbdBuffer* buf) {
     data_section(rw, buf, "character physics");
 
     data_vec4(rw, buf, guy->position.x);
@@ -319,9 +317,7 @@ void transfer_character_physics(Character* guy, byte rw, struct DataChunk* chunk
     data_s32(rw, buf, &guy->flip);
 }
 
-void transfer_character(Character* guy, byte rw, struct DataChunk* chunk) {
-    DATA_CHUNK_TO_BUF(rw, chunk, buf, 1024);
-
+void data_character(Character* guy, byte rw, struct AbdBuffer* buf) {
     data_section(rw, buf, "character attributes");
 
     data_string(rw, buf, guy->name);
@@ -343,6 +339,16 @@ void transfer_character(Character* guy, byte rw, struct DataChunk* chunk) {
     data_u32(rw, buf, &guy->age_of_maturity);
 
     if (rw == ABD_READ) set_character_bounds(guy);
+}
+
+void transfer_character_physics(Character* guy, byte rw, struct DataChunk* chunk) {
+    DATA_CHUNK_TO_BUF(rw, chunk, buf, 1024);
+    data_character_physics(guy, rw, buf);
+}
+
+void transfer_character(Character* guy, byte rw, struct DataChunk* chunk) {
+    DATA_CHUNK_TO_BUF(rw, chunk, buf, 1024);
+    data_character(guy, rw, buf);
 }
 
 // ======= RENDERING =========

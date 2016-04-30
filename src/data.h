@@ -26,7 +26,7 @@ typedef struct AbdBuffer {
         (chunk)->capacity = (chunk)->size;\
         (chunk)->size = 0;\
     }\
-    AbdBuffer* bufname = (AbdBuffer*)(chunk);\
+    AbdBuffer* bufname = (AbdBuffer*)(chunk);
 
 #define ABDF_ANNOTATED (1 << 7)
 #define ABD_TYPE_MASK (~(ABDF_ANNOTATED))

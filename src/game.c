@@ -277,7 +277,7 @@ void inspect_game_data(GameData* data, FILE* f) {
     abd_inspect(&data->character_physics_state, f);
 
     for (int i = 0; i < data->character_count; i++) {
-        fprintf(f, "\n======= CHARACTER %i of %i: =======\n", i, data->character_count);
+        fprintf(f, "\n======= CHARACTER %i of %i: =======\n", i, data->character_count - 1);
         AbdBuffer buf = BUF_FROM_CHUNK(data->characters[i]);
         abd_inspect(&buf, f);
     }

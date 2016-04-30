@@ -1,3 +1,4 @@
+#include "data.h"
 #include "mob.h"
 #include "tilemap.h"
 #include "assets.h"
@@ -550,68 +551,53 @@ void mob_mgc_render(void* vmgc, struct Game* game, struct Map* map) {
     draw_character(game, guy, guy->view);
 }
 void mob_mgc_transfer(void* vmgc, struct Game* game, struct Map* map, byte rw, AbdBuffer* buf) {
-    // TODO gonna do nothing for now...
-}
-/*
-void mob_mgc_save(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
-    write_to_buffer(buffer, &mob->character_index, pos, sizeof(int));
+
+    data_u32(rw, buf, &mob->character_index);
 
     if (mob->character_index >= 0) {
         Character* guy = mgc_character(game, mob);
 
-        DataChunk* chunk = &game->data.characters[mob->character_index];
-        write_character_to_data(guy, chunk, false);
-
-        write_to_buffer(buffer, &chunk->size, pos, sizeof(int));
-        write_to_buffer(buffer, chunk->bytes, pos, chunk->size);
-    }
-}
-void mob_mgc_load(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
-    MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
-    read_from_buffer(buffer, &mob->character_index, pos, sizeof(int));
-    mob->just_switched_guys = false;
-
-    if (mob->character_index >= 0) {
-        Character* guy = mgc_character(game, mob);
-        default_character(game, guy);
-        default_character_animations(game, guy);
-
-        int chunk_size;
-        read_from_buffer(buffer, &chunk_size, pos, sizeof(int));
-        SDL_assert(chunk_size < 2048 && chunk_size > 0);
-
-        DataChunk chunk;
-        chunk.bytes = malloc(2048);
-
-        if (game->net_joining) {
-            memcpy(chunk.bytes, buffer + (*pos), chunk_size);
-            read_character_from_data(guy, &chunk);
-        }
+        if (rw == ABD_WRITE)
+            transfer_character(guy, ABD_WRITE, &game->data.characters[mob->character_index]);
         else {
-            read_character_from_data(guy, &game->data.characters[mob->character_index]);
+            default_character(game, guy);
+            default_character_animations(game, guy);
         }
-        *pos += chunk_size;
-        set_character_bounds(guy);
-        load_character_atlases(game, guy);
 
-        free(chunk.bytes);
+        data_character_physics(guy, rw, buf);
+        data_character(guy, rw, buf);
+
+        if (rw == ABD_READ)
+            load_character_atlases(game, guy);
     }
 }
-*/
 bool mob_mgc_sync_send(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
     MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
     if (mob->character_index >= 0 && mob->just_switched_guys) {
         SDL_assert(!game->net_joining);
         mob->just_switched_guys = false;
 
-        // TODO ...
-        // mob_mgc_save(vmgc, game, map, buffer, pos);
-        // return true;
+        AbdBuffer buf = buf_new(buffer, *pos);
+        Character* guy = mgc_character(game, mob);
+
+        data_character_physics(guy, ABD_WRITE, &buf);
+        data_character(guy, ABD_WRITE, &buf);
+
+        *pos = buf.pos;
+
+        return true;
     }
 
     return false;
 }
 void mob_mgc_sync_receive(void* vmgc, struct Game* game, struct Map* map, byte* buffer, int* pos) {
-    // mob_mgc_load(vmgc, game, map, buffer, pos);
+    MobGardenCrattle* mob = (MobGardenCrattle*)vmgc;
+    AbdBuffer buf = buf_new(buffer, *pos);
+    Character* guy = mgc_character(game, mob);
+
+    data_character_physics(guy, ABD_WRITE, &buf);
+    data_character(guy, ABD_WRITE, &buf);
+
+    *pos = buf.pos;
 }

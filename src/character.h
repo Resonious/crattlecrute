@@ -199,6 +199,8 @@ void set_character_age(struct Game* game, Character* guy, int age);
 void update_character_animation(Character* guy);
 void randomize_character(Character* guy);
 
+void data_character(Character* guy, byte rw, struct AbdBuffer* buf);
+void data_character_physics(Character* guy, byte rw, struct AbdBuffer* buf);
 void transfer_character(Character* guy, byte rw, struct DataChunk* chunk);
 void transfer_character_physics(Character* guy, byte rw, struct DataChunk* chunk);
 
