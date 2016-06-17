@@ -1056,8 +1056,8 @@ void update_map(
                 MobSpawnRate* spawn = &zone->spawns[j];
                 if (spawn->percentage != 0 && random <= spawn->percentage) {
                     vec2 target_pos = {
-                        zone->x + (rand() % zone->width),
-                        zone->y + (rand() % zone->height)
+                        zone->x + pcg32_boundedrand(zone->width),
+                        zone->y + pcg32_boundedrand(zone->height)
                     };
                     game->net.spawn_mob(game->current_scene_data, map, game, spawn->mob_type_id, target_pos, NULL, NULL);
 

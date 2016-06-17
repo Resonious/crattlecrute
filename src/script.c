@@ -38,7 +38,7 @@ vec2 mrb_vec2(mrb_state* mrb, mrb_value value) {
     Game* game = (Game*)mrb->ud;
 
     if (mrb_array_p(value)) {
-        mrb_value* array = RARRAY_PTR(value);
+        const mrb_value* array = RARRAY_PTR(value);
         int len = RARRAY_LEN(value);
         if (len < 2)
             return (vec2) { mrb_to_f(mrb, array[0]), mrb_to_f(mrb, array[0]) };

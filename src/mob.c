@@ -55,7 +55,7 @@ void mob_pon_initialize(void* vpon, struct Game* game, struct Map* map, vec2 pos
     SDL_assert(sizeof(MobPon) <= sizeof(MediumMob));
 
     MobPon* pon = (MobPon*)vpon;
-    SDL_assert((int)(&pon->body) % 16 == 0);
+    SDL_assert((Uint64)(&pon->body) % 16 == 0);
 
     memset(&pon->body, 0, sizeof(GenericBody));
     pon->body.position = (vec4) { pos.x, pos.y, 0.0f, 0.0f };

@@ -200,7 +200,7 @@ header.write "};\n\n"
 
 all_collision_data.each do |file, heights|
   file = file.gsub(/^.*[\/\\]assets[\/\\]/, '').gsub(/\.collision\.png/, '')
-  header.write("const static TileHeights COLLISION_#{ident(file)}[] = {\n")
+  header.write("static TileHeights COLLISION_#{ident(file)}[] = {\n")
 
   heights.each do |collision|
     header.write("    {\n")

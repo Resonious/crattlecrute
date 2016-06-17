@@ -103,7 +103,7 @@ mrb_value rb_reload(mrb_state* mrb, mrb_value self) {
 // WOOO PLEASE DON'T ACCESS THIS ANYWHERE. THANKS.
 Game* _game_to_save_on_exit;
 
-void cleanup() {
+void cleanup(void) {
     Game* game = _game_to_save_on_exit;
     if (game->current_scene->save)
         game->current_scene->save(game->current_scene_data, game);
@@ -111,8 +111,8 @@ void cleanup() {
     SDL_AtomicSet(&game->data.write_wanted, false);
 
     if (SDL_TryLockMutex(game->data.locked) == 0) {
-        FILE* game_data = fopen(game->gamedata_file_path, "wb");
-        if (game_data) {
+        FILE* game_data;
+        if (!fopen_s(&game_data, game->gamedata_file_path, "wb")) {
             write_game_data(&game->data, game_data);
             fclose(game_data);
             printf("Saved game ONE LAST TIME.\n");
@@ -161,7 +161,7 @@ int main(int argc, char** argv) {
     for (int i = 0; i < NUMBER_OF_ASSETS; i++) {
         game->asset_cache.assets[i].id = ASSET_NOT_LOADED;
     }
-    pcg32_srandom(time(NULL), game);
+    pcg32_srandom(time(NULL), (uint64_t)game);
 
     game->data.locked = SDL_CreateMutex();
     SDL_AtomicSet(&game->data.write_wanted, false);
@@ -243,8 +243,8 @@ no_renderer:
             int result = SDL_GetWindowWMInfo(game->window, &wminfo);
             if (result == 1) {
                 HWND hwnd = wminfo.info.win.window;
-                SetClassLongPtr(hwnd, -14, (LONG)icon);
-                SetClassLongPtr(hwnd, -34, (LONG)icon);
+                SetClassLongPtr(hwnd, -14, (LONG_PTR)icon);
+                SetClassLongPtr(hwnd, -34, (LONG_PTR)icon);
             }
         }
 #else
@@ -338,9 +338,8 @@ no_renderer:
     BENCH_START(loading_game_data);
     SDL_Thread* data_write_thread = NULL;
     if (game->gamedata_file_path) {
-        FILE* data_read = fopen(game->gamedata_file_path, "rb");
-        // TODO remove the false lol
-        if (data_read != NULL) {
+        FILE* data_read;
+        if (!(fopen_s(&data_read, game->gamedata_file_path, "rb"))) {
             read_game_data(&game->data, data_read);
             fclose(data_read);
 #ifdef _DEBUG

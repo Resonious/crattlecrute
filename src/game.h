@@ -113,10 +113,10 @@ typedef struct Game {
         mrb_value controls;
     } ruby;
     struct {
-        int text_buf_size;
+        size_t text_buf_size;
         char* text;
         char* composition;
-        int cursor;
+        size_t cursor;
         int selection_length;
         bool enter_pressed;
         bool canceled;
@@ -172,9 +172,9 @@ int write_game_data_thread(void*);
 // === Text functions ===
 
 #define set_text_color(game, r, g, b) SDL_SetTextureColorMod((game)->font, (r), (g), (b));
-void draw_text_ex_caret(Game* game, int x, int y, char* text, int padding, float scale, int caret);
+void draw_text_ex_caret(Game* game, int x, int y, char* text, int padding, float scale, size_t caret);
 void draw_text_ex(Game* game, int x, int y, char* text, int padding, float scale);
-void draw_text_caret(Game* game, int x, int y, char* text, int caret);
+void draw_text_caret(Game* game, int x, int y, char* text, size_t caret);
 void draw_text(Game* game, int x, int y, char* text);
 void input_text(Game* game, char* text);
 void handle_key_during_text_edit(Game* game, SDL_Event* event);

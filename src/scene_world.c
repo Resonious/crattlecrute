@@ -352,9 +352,9 @@ void remote_go_through_door(void* vs, Game* game, Character* guy, Door* door) {
 void unconnected_set_item(void* vs, struct Character* guy, struct Game* game, int slot, int item, void* data, DataCallback callback) {
     WorldScene* s = (WorldScene*)vs;
     if (s->net.status != JOINING) {
-        ItemCommon* item = set_item(&guy->inventory, game, slot, item);
-        if (item && callback)
-            callback(data, item);
+        ItemCommon* item_cmn = set_item(&guy->inventory, game, slot, item);
+        if (item_cmn && callback)
+            callback(data, item_cmn);
     }
 }
 
@@ -494,7 +494,7 @@ void sync_player_frame_if_should(int status, RemotePlayer* plr) {
 #define SET_LOCKED_STRING(var, str) \
     while (SDL_AtomicGet(&var##_locked)) {} \
     SDL_AtomicSet(&var##_locked, true); \
-    strcpy(var, str); \
+    strcpy_s(var, 512, str); \
     SDL_AtomicSet(&var##_locked, false);
 #define SET_LOCKED_STRING_F(var, str, ...) \
     while (SDL_AtomicGet(&var##_locked)) {} \
@@ -1656,6 +1656,21 @@ void remote_player_enters_net_zone_door(void* vs) {
         net_zone->doors[1].flags ^= DOOR_INVERT_Y;
 }
 
+int set_tcp_nodelay(SOCKET socket) {
+    int flag = 1;
+    int result = setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int));
+    if (result < 0) {
+        SDL_ShowSimpleMessageBox(
+            0, "Socket error",
+            "Could not set TCP_NODELAY on socket. Network activity may be slow.",
+            main_window
+        );
+    }
+
+    SDL_assert(socket != SOCKET_ERROR);
+    return result;
+}
+
 int network_server_listen(void* vdata) {
     WorldScene* scene = (WorldScene*)vdata;
 
@@ -1684,8 +1699,6 @@ int network_server_listen(void* vdata) {
     scene->net.remote_id = 0;
     scene->guy->player_id = 0;
     scene->net.next_id = 1;
-
-    struct sockaddr_in other_address;
 
     wait_for_then_use_lock(scene->controls_stream.locked);
     scene->controls_stream.current_frame = 0;
@@ -1756,7 +1769,7 @@ int network_client_loop(void* vdata) {
     other_address.sin_port = htons(atoi(port));
     if (connect(scene->net.local_socket, (struct sockaddr*)&other_address, sizeof(other_address)) < 0) {
         SET_LOCKED_STRING(scene->net.status_message, "Failed to connect.");
-        scene->net.status_message_countdown = 60 * 10;
+        scene->net.status_message_countdown = (byte)(60 * 10);
         scene->net.status = NOT_CONNECTED;
         scene->map->doors[0].flags |= DOOR_VISIBLE;
         return 0;
@@ -1919,21 +1932,6 @@ int network_client_loop(void* vdata) {
 
 SDL_Rect text_box_rect = { 200, 200, 400, 40 };
 
-int set_tcp_nodelay(SOCKET socket) {
-    int flag = 1;
-    int result = setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int));
-    if (result < 0) {
-        SDL_ShowSimpleMessageBox(
-            0, "Socket error",
-            "Could not set TCP_NODELAY on socket. Network activity may be slow.",
-            main_window
-        );
-    }
-
-    SDL_assert(socket != SOCKET_ERROR);
-    return result;
-}
-
 void net_host(WorldScene* data) {
     cached_area(data->game, AREA_NET_ZONE);
     data->net.status = HOSTING;
@@ -2007,7 +2005,7 @@ mrb_value mrb_world_host(mrb_state* mrb, mrb_value self) {
             else
                 goto just_connect;
 
-        char* port_cstr = mrb_string_value_cstr(mrb, &port);
+        const char* port_cstr = mrb_string_value_cstr(mrb, &port);
         SDL_strlcpy(scene->net.textinput_port, port_cstr, EDITABLE_TEXT_BUFFER_SIZE);
     }
 
@@ -2031,7 +2029,7 @@ mrb_value mrb_world_join(mrb_state* mrb, mrb_value self) {
             else
                 goto just_connect;
 
-        char* addr_cstr = mrb_string_value_cstr(mrb, &addr);
+        const char* addr_cstr = mrb_string_value_cstr(mrb, &addr);
         SDL_strlcpy(scene->net.textinput_ip_address, addr_cstr, EDITABLE_TEXT_BUFFER_SIZE);
     }
 
@@ -2170,7 +2168,7 @@ void scene_world_initialize(void* vdata, Game* game) {
     data->inv_fade_countdown = 0;
 
     if (data->guy)
-        SDL_assert(((int)&data->guy->position) % 16 == 0);
+        SDL_assert(((Uint64)&data->guy->position) % 16 == 0);
     BENCH_END(loading_crattle1);
 
     BENCH_START(loading_sound);

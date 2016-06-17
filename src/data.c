@@ -1,5 +1,6 @@
 #include "data.h"
 #include "character.h"
+#include <inttypes.h>
 
 #define abd_write_field_header(buf, type, annotation) (buf)->bytes[(buf)->pos++] = (type) | ((annotation) ? ABDF_ANNOTATED : 0);
 
@@ -87,9 +88,9 @@ void abd_write_string(AbdBuffer* buf, void* str) {
     }
     else {
         size_t actual_size = str_size + 1;
-        buf->bytes[buf->pos++] = actual_size;
+        byte bsize = buf->bytes[buf->pos++] = (byte)actual_size;
         memcpy(buf->bytes + buf->pos, string, actual_size);
-        buf->pos += actual_size;
+        buf->pos += bsize;
     }
 }
 
@@ -109,13 +110,13 @@ void inspect_float(AbdBuffer* buf, byte type, FILE* f) {
 void inspect_integer_type(AbdBuffer* buf, byte type, FILE* f) {
     Sint64 i = 0;
     abd_data_read[type](buf, &i);
-    fprintf(f, "%i", i);
+    fprintf(f, "%"PRIi64, i);
 }
 
 void inspect_unsigned_integer_type(AbdBuffer* buf, byte type, FILE* f) {
     Uint64 i = 0;
     abd_data_read[type](buf, &i);
-    fprintf(f, "%lu", i);
+    fprintf(f, "%"PRIu64, i);
 }
 
 void inspect_vec2(AbdBuffer* buf, byte type, FILE* f) {

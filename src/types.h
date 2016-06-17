@@ -1,6 +1,8 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <xmmintrin.h>
 #include <emmintrin.h>
 

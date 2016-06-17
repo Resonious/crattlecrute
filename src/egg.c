@@ -22,9 +22,9 @@ static void mod_color(Genes* genes, SDL_Color* color, Uint16 flags) {
             else
                 factor /= 2.0f;
 
-        color->r *= factor;
-        color->g *= factor;
-        color->b *= factor;
+        color->r = (int)((float)color->r * factor);
+        color->g = (int)((float)color->g * factor);
+        color->b = (int)((float)color->b * factor);
     }
 }
 

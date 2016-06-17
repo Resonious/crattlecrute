@@ -88,7 +88,7 @@ enum InventoryAction apply_character_inventory(Character* guy, struct Controls* 
             ItemType* reg = &item_registry[item->item_type_id];
 
             vec2 pos_offset;
-            pos_offset.x = guy->flip == SDL_FLIP_HORIZONTAL ? -20 : 20;
+            pos_offset.x = guy->flip == SDL_FLIP_HORIZONTAL ? -20.0f : 20.0f;
             pos_offset.y = 20;
             vec2 drop_pos = { guy->position.x[X], guy->position.x[Y] };
             v2_add_to(&drop_pos, pos_offset);
@@ -242,7 +242,7 @@ void apply_character_physics(struct Game* game, Character* guy, struct Controls*
 }
 
 void set_character_age(struct Game* game, Character* guy, int age) {
-    int old_age = guy->age;
+    Uint64 old_age = guy->age;
     guy->age = age;
     if (old_age < guy->age_of_maturity && guy->age >= guy->age_of_maturity) {
         guy->body_type = CRATTLECRUTE_STANDARD;
@@ -362,8 +362,8 @@ void draw_eye(struct Game* game, AnimationAtlas* atlas, struct GenericBody* body
     float eye_angle = (flip == SDL_FLIP_HORIZONTAL ? 180.0f - offset->angle : offset->angle) - 90.0f;
 
     vec2 eye_offset = {
-        (flip == SDL_FLIP_HORIZONTAL ? -offset->x : offset->x),
-        offset->y
+        (float)(flip == SDL_FLIP_HORIZONTAL ? -offset->x : offset->x),
+        (float)offset->y
     };
     vec2 eye_pivot = { 1, 1 };
 
@@ -404,8 +404,8 @@ void draw_character(struct Game* game, Character* guy, CharacterView* guy_view) 
     const int number_of_layers = 3;
     SDL_Rect src = atlas->frames[guy->animation_frame];
     SDL_Rect dest = {
-        guy->position.x[X] - guy->center_x - game->camera.x[X],
-        game->window_height - (guy->position.x[Y] + guy->center_y - game->camera.x[Y]),
+        (int)(guy->position.x[X] - guy->center_x - game->camera.x[X]),
+        (int)(game->window_height - (guy->position.x[Y] + guy->center_y - game->camera.x[Y])),
 
         90, 90
     };
@@ -606,10 +606,10 @@ void set_character_bounds(Character* target) {
         target->right_sensors.simd = _mm_add_epi32(target->right_sensors.simd, right_offset.simd);
     }
 
-    target->middle_sensors.x[S1X] = target->left_sensors.x[S1X];
-    target->middle_sensors.x[S1Y] = (target->left_sensors.x[S1Y] + target->left_sensors.x[S2Y]) / 2.0f;
-    target->middle_sensors.x[S2X] = target->right_sensors.x[S1X];
-    target->middle_sensors.x[S2Y] = (target->right_sensors.x[S1Y] + target->right_sensors.x[S2Y]) / 2.0f;
+    target->middle_sensors.x[S1X] = (int)target->left_sensors.x[S1X];
+    target->middle_sensors.x[S1Y] = (int)((target->left_sensors.x[S1Y] + target->left_sensors.x[S2Y]) / 2.0f);
+    target->middle_sensors.x[S2X] = (int)target->right_sensors.x[S1X];
+    target->middle_sensors.x[S2Y] = (int)((target->right_sensors.x[S1Y] + target->right_sensors.x[S2Y]) / 2.0f);
 }
 
 void default_character(struct Game* game, Character* target) {

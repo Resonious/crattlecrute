@@ -144,7 +144,7 @@ SDL_Surface* load_image(int asset) {
     AssetFile image_asset = load_asset(asset);
 
     int width = 0, height = 0, comp = 0;
-    byte* image = stbi_load_from_memory(image_asset.bytes, image_asset.size, &width, &height, &comp, 4);
+    byte* image = stbi_load_from_memory(image_asset.bytes, (int)image_asset.size, &width, &height, &comp, 4);
     if (image == NULL)
         SDL_ShowSimpleMessageBox(0, "YO!", "Couldn't load this image", main_window);
 
@@ -418,7 +418,7 @@ AnimationAtlas* cached_atlas(struct Game* game, int asset, int sprite_width, int
 
         eye_offset->x = eye_bottom.x;
         eye_offset->y = eye_bottom.y;
-        eye_offset->angle = atan2f(eye_top.y - eye_bottom.y, eye_top.x - eye_bottom.x) / (float)M_PI * 180.0f;
+        eye_offset->angle = atan2f((float)(eye_top.y - eye_bottom.y), (float)(eye_top.x - eye_bottom.x)) / (float)M_PI * 180.0f;
     }
     free_image(image);
 

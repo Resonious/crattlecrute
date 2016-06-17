@@ -88,7 +88,7 @@ static bool test_inspect_works(byte* memory) {
     int in = 4;
     vec2 v2 = {10.5f, 0.2f};
     vec4 v4;
-    v4.simd = _mm_set_ps(4.1, 3.2f, 2.3f, 1.4f);
+    v4.simd = _mm_set_ps(4.1f, 3.2f, 2.3f, 1.4f);
     SDL_Color col = {255, 0, 0, 255};
     bool boo = true;
     unsigned int uin = 120000;
