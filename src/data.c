@@ -1,78 +1,67 @@
 #include "data.h"
-#include "character.h"
-#include <inttypes.h>
+#include "SDL.h"
 
 #define abd_write_field_header(buf, type, annotation) (buf)->bytes[(buf)->pos++] = (type) | ((annotation) ? ABDF_ANNOTATED : 0);
 
-void write_1_byte(AbdBuffer* buf, void* data) {
+static void write_1_byte(AbdBuffer* buf, void* data) {
     memcpy(buf->bytes + buf->pos, data, 1);
     buf->pos += 1;
 }
 
-void read_1_byte(AbdBuffer* buf, void* dest) {
+static void read_1_byte(AbdBuffer* buf, void* dest) {
     memcpy(dest, buf->bytes + buf->pos, 1);
     buf->pos += 1;
 }
 
-void write_4_bytes(AbdBuffer* buf, void* data) {
+static void write_2_bytes(AbdBuffer* buf, void* data) {
+    memcpy(buf->bytes + buf->pos, data, 2);
+    buf->pos += 2;
+}
+
+static void read_2_bytes(AbdBuffer* buf, void* dest) {
+    memcpy(dest, buf->bytes + buf->pos, 2);
+    buf->pos += 2;
+}
+
+static void write_4_bytes(AbdBuffer* buf, void* data) {
     memcpy(buf->bytes + buf->pos, data, 4);
     buf->pos += 4;
 }
 
-void read_4_bytes(AbdBuffer* buf, void* dest) {
+static void read_4_bytes(AbdBuffer* buf, void* dest) {
     memcpy(dest, buf->bytes + buf->pos, 4);
     buf->pos += 4;
 }
 
-void write_8_bytes(AbdBuffer* buf, void* data) {
+static void write_8_bytes(AbdBuffer* buf, void* data) {
     memcpy(buf->bytes + buf->pos, data, 8);
     buf->pos += 8;
 }
 
-void read_8_bytes(AbdBuffer* buf, void* dest) {
+static void read_8_bytes(AbdBuffer* buf, void* dest) {
     memcpy(dest, buf->bytes + buf->pos, 8);
     buf->pos += 8;
 }
 
-void write_16_bytes(AbdBuffer* buf, void* data) {
+static void write_16_bytes(AbdBuffer* buf, void* data) {
     memcpy(buf->bytes + buf->pos, data, 16);
     buf->pos += 16;
 }
 
-void read_16_bytes(AbdBuffer* buf, void* dest) {
+static void read_16_bytes(AbdBuffer* buf, void* dest) {
     memcpy(dest, buf->bytes + buf->pos, 16);
     buf->pos += 16;
 }
 
-void write_4_floats(AbdBuffer* buf, void* data) {
-    SDL_assert((size_t)data % 16 == 0);
-    float* v4       = (float*)data;
-    float* buf_dest = (float*)buf->bytes + buf->pos;
-    buf_dest[0] = v4[0];
-    buf_dest[1] = v4[1];
-    buf_dest[2] = v4[2];
-    buf_dest[3] = v4[3];
-    buf->pos += 16;
-}
-
-void read_4_floats(AbdBuffer* buf, void* data) {
-    SDL_assert((size_t)data % 16 == 0);
-    float* v4      = (float*)data;
-    float* buf_src = (float*)buf->bytes + buf->pos;
-    v4[0] = buf_src[0];
-    v4[1] = buf_src[1];
-    v4[2] = buf_src[2];
-    v4[3] = buf_src[3];
-    buf->pos += 16;
-}
-
-void abd_write_vec4(AbdBuffer* buf, void* vdata) {
+static void write_4_floats(AbdBuffer* buf, void* vdata) {
+    // abd_assert((size_t)data % 16 == 0);
     __m128* data = (__m128*)vdata;
     _mm_storeu_ps((float*)(buf->bytes + buf->pos), *data);
     buf->pos += 16;
 }
 
-void abd_read_vec4(AbdBuffer* buf, void* vdest) {
+static void read_4_floats(AbdBuffer* buf, void* vdest) {
+    // abd_assert((size_t)data % 16 == 0);
     __m128* dest = (__m128*)vdest;
     *dest = _mm_loadu_ps((float*)(buf->bytes + buf->pos));
     buf->pos += 16;
@@ -88,56 +77,56 @@ void abd_write_string(AbdBuffer* buf, void* str) {
     }
     else {
         size_t actual_size = str_size + 1;
-        byte bsize = buf->bytes[buf->pos++] = (byte)actual_size;
+        buf->bytes[buf->pos++] = actual_size;
         memcpy(buf->bytes + buf->pos, string, actual_size);
-        buf->pos += bsize;
+        buf->pos += actual_size;
     }
 }
 
 void abd_read_string(AbdBuffer* buf, void* dest) {
-    byte length = buf->bytes[buf->pos++];
+    uint8_t length = buf->bytes[buf->pos++];
     if (dest)
         memcpy(dest, buf->bytes + buf->pos, length);
     buf->pos += length;
 }
 
-void inspect_float(AbdBuffer* buf, byte type, FILE* f) {
+static void inspect_float(AbdBuffer* buf, uint8_t type, FILE* f) {
     float fl;
     abd_data_read[type](buf, &fl);
     fprintf(f, "%f", fl);
 }
 
-void inspect_integer_type(AbdBuffer* buf, byte type, FILE* f) {
-    Sint64 i = 0;
+static void inspect_integer_type(AbdBuffer* buf, uint8_t type, FILE* f) {
+    int64_t i = 0;
     abd_data_read[type](buf, &i);
-    fprintf(f, "%"PRIi64, i);
+    fprintf(f, "%i", i);
 }
 
-void inspect_unsigned_integer_type(AbdBuffer* buf, byte type, FILE* f) {
-    Uint64 i = 0;
+static void inspect_unsigned_integer_type(AbdBuffer* buf, uint8_t type, FILE* f) {
+    uint64_t i = 0;
     abd_data_read[type](buf, &i);
-    fprintf(f, "%"PRIu64, i);
+    fprintf(f, "%lu", i);
 }
 
-void inspect_vec2(AbdBuffer* buf, byte type, FILE* f) {
-    vec2 v;
-    abd_data_read[type](buf, &v);
-    fprintf(f, "(%f, %f)", v.x, v.y);
+static void inspect_vec2(AbdBuffer* buf, uint8_t type, FILE* f) {
+    float v[2];
+    abd_data_read[type](buf, v);
+    fprintf(f, "(%f, %f)", v[0], v[1]);
 }
 
-void inspect_vec4(AbdBuffer* buf, byte type, FILE* f) {
-    vec4 v;
-    abd_data_read[type](buf, &v);
-    fprintf(f, "(%f, %f, %f, %f)", v.x[0], v.x[1], v.x[2], v.x[3]);
+static void inspect_vec4(AbdBuffer* buf, uint8_t type, FILE* f) {
+    float v[4];
+    abd_data_read[type](buf, v);
+    fprintf(f, "(%f, %f, %f, %f)", v[0], v[1], v[2], v[3]);
 }
 
-void inspect_color(AbdBuffer* buf, byte type, FILE* f) {
-    SDL_Color c;
-    abd_data_read[type](buf, &c);
-    fprintf(f, "#%06x", *(Uint32*)(&c));
+static void inspect_color(AbdBuffer* buf, uint8_t type, FILE* f) {
+    uint8_t c[4];
+    abd_data_read[type](buf, c);
+    fprintf(f, "#%02x%02x%02x%02x", c[0], c[1], c[2], c[3]);
 }
 
-void inspect_bool(AbdBuffer* buf, byte type, FILE* f) {
+static void inspect_bool(AbdBuffer* buf, uint8_t type, FILE* f) {
     bool b;
     abd_data_read[type](buf, &b);
     if (b)
@@ -146,7 +135,7 @@ void inspect_bool(AbdBuffer* buf, byte type, FILE* f) {
         fprintf(f, "false");
 }
 
-void inspect_string(AbdBuffer* buf, byte type, FILE* f) {
+static void inspect_string(AbdBuffer* buf, uint8_t type, FILE* f) {
     char string[256];
     abd_read_string(buf, string);
     fprintf(f, "\"%s\"", string);
@@ -155,9 +144,13 @@ void inspect_string(AbdBuffer* buf, byte type, FILE* f) {
 DataFunc abd_data_write[] = {
     write_4_bytes,   // ABDT_FLOAT
     write_8_bytes,   // ABDT_VEC2
-    abd_write_vec4,  // ABDT_VEC4
+    write_4_floats,  // ABDT_VEC4
+    write_1_byte,    // ABDT_S8
+    write_2_bytes,   // ABDT_S16
     write_4_bytes,   // ABDT_S32
     write_8_bytes,   // ABDT_S64
+    write_1_byte,    // ABDT_U8
+    write_2_bytes,   // ABDT_U16
     write_4_bytes,   // ABDT_U32
     write_8_bytes,   // ABDT_U64
     write_4_bytes,   // ABDT_COLOR
@@ -168,9 +161,13 @@ DataFunc abd_data_write[] = {
 DataFunc abd_data_read[] = {
     read_4_bytes,   // ABDT_FLOAT
     read_8_bytes,   // ABDT_VEC2
-    abd_read_vec4,  // ABDT_VEC4
+    read_4_floats,  // ABDT_VEC4
+    read_1_byte,    // ABDT_S8
+    read_2_bytes,   // ABDT_S16
     read_4_bytes,   // ABDT_S32
     read_8_bytes,   // ABDT_S64
+    read_1_byte,    // ABDT_U8
+    read_2_bytes,   // ABDT_U16
     read_4_bytes,   // ABDT_U32
     read_8_bytes,   // ABDT_U64
     read_4_bytes,   // ABDT_COLOR
@@ -182,8 +179,12 @@ DataInspectFunc abd_data_inspect[] = {
     inspect_float,        // ABDT_FLOAT
     inspect_vec2,         // ABDT_VEC2
     inspect_vec4,         // ABDT_VEC4
+    inspect_integer_type, // ABDT_S8
+    inspect_integer_type, // ABDT_S16
     inspect_integer_type, // ABDT_S32
     inspect_integer_type, // ABDT_S64
+    inspect_unsigned_integer_type, // ABDT_U8
+    inspect_unsigned_integer_type, // ABDT_U16
     inspect_unsigned_integer_type, // ABDT_U32
     inspect_unsigned_integer_type, // ABDT_U64
     inspect_color,        // ABDT_COLOR
@@ -194,15 +195,15 @@ DataInspectFunc abd_data_inspect[] = {
 void abd_section(int rw, AbdBuffer* buf, char* section_label) {
     switch (rw) {
     case ABD_READ: {
-        byte read_type;
+        uint8_t read_type;
         abd_read_field(buf, &read_type, NULL);
-        SDL_assert(read_type == ABDT_SECTION);
+        abd_assert(read_type == ABDT_SECTION);
         abd_read_string(buf, NULL);
 
     } break;
 
     case ABD_WRITE: {
-        SDL_assert(section_label != NULL);
+        abd_assert(section_label != NULL);
         abd_write_field_header(buf, ABDT_SECTION, false);
         abd_write_string(buf, section_label);
 
@@ -210,15 +211,15 @@ void abd_section(int rw, AbdBuffer* buf, char* section_label) {
     }
 }
 
-void abd_transfer(int rw, byte type, AbdBuffer* buf, void* data, char* write_annotation) {
-    SDL_assert(type < ABD_TYPE_COUNT);
+void abd_transfer(int rw, uint8_t type, AbdBuffer* buf, void* data, char* write_annotation) {
+    abd_assert(type < ABD_TYPE_COUNT);
 
     switch (rw) {
     case ABD_READ: {
-        byte read_type;
+        uint8_t read_type;
         abd_read_field(buf, &read_type, NULL);
-        SDL_assert(read_type != ABDT_SECTION);
-        SDL_assert(read_type == type);
+        abd_assert(read_type != ABDT_SECTION);
+        abd_assert(read_type == type);
 
         abd_data_read[type](buf, data);
     } break;
@@ -232,12 +233,12 @@ void abd_transfer(int rw, byte type, AbdBuffer* buf, void* data, char* write_ann
     }
 }
 
-void abd_read_field(AbdBuffer* buf, byte* type, char** annotation) {
-    byte head = buf->bytes[buf->pos++];
-    byte read_type = head & ABD_TYPE_MASK;
+void abd_read_field(AbdBuffer* buf, uint8_t* type, char** annotation) {
+    uint8_t head = buf->bytes[buf->pos++];
+    uint8_t read_type = head & ABD_TYPE_MASK;
 
     if (head & ABDF_ANNOTATED) {
-        byte annotation_length = buf->bytes[buf->pos++];
+        uint8_t annotation_length = buf->bytes[buf->pos++];
         if (annotation)
             *annotation = buf->bytes + buf->pos;
         buf->pos += annotation_length;
@@ -260,7 +261,7 @@ bool abd_inspect(AbdBuffer* buf, FILE* f) {
     buf->pos = 0;
 
     while (buf->pos < limit) {
-        byte type;
+        uint8_t type;
         char* annotation;
         abd_read_field(buf, &type, &annotation);
 

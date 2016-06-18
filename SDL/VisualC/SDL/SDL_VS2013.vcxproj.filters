@@ -345,9 +345,6 @@
     <ClInclude Include="..\..\..\src\data.h">
       <Filter>game</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\data_tests.h">
-      <Filter>game</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\..\src\main\windows\version.rc" />

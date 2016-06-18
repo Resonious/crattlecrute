@@ -91,7 +91,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\..\..\PCG;..\..\..\MRuby\include;..\..\src\main\windows;..\..\..\win;..\..\..\STB;..\..\..\src;..\..\include;%(AdditionalIncludeDirectories);"$(DXSDK_DIR)\Include";</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>X86;DRAW_FPS;EMBEDDED_ASSETS;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>abd_assert=SDL_assert;X86;DRAW_FPS;EMBEDDED_ASSETS;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <PrecompiledHeader>
@@ -127,7 +127,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\..\..\PCG;..\..\..\MRuby\include;..\..\src\main\windows;..\..\..\win;..\..\..\STB;..\..\..\src;..\..\include;%(AdditionalIncludeDirectories);"$(DXSDK_DIR)\Include";</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>DRAW_FPS;EMBEDDED_ASSETS;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>abd_assert=SDL_assert;DRAW_FPS;EMBEDDED_ASSETS;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <PrecompiledHeader>
@@ -171,7 +171,7 @@
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <AdditionalIncludeDirectories>..\..\..\PCG;..\..\src\main\windows;..\..\..\win;..\..\..\STB;..\..\..\src;..\..\include;%(AdditionalIncludeDirectories);"$(DXSDK_DIR)\Include";</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>X86;DRAW_FPS;EMBEDDED_ASSETS;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>abd_assert=SDL_assert;X86;DRAW_FPS;EMBEDDED_ASSETS;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -211,7 +211,7 @@
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <AdditionalIncludeDirectories>..\..\..\PCG;..\..\..\MRuby\include;..\..\src\main\windows;..\..\..\win;..\..\..\STB;..\..\..\src;..\..\include;%(AdditionalIncludeDirectories);"$(DXSDK_DIR)\Include";</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>DRAW_FPS;EMBEDDED_ASSETS;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>abd_assert=SDL_assert;DRAW_FPS;EMBEDDED_ASSETS;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -249,7 +249,6 @@
     <ClInclude Include="..\..\..\src\character.h" />
     <ClInclude Include="..\..\..\src\coords.h" />
     <ClInclude Include="..\..\..\src\data.h" />
-    <ClInclude Include="..\..\..\src\data_tests.h" />
     <ClInclude Include="..\..\..\src\dxsdkver.h" />
     <ClInclude Include="..\..\..\src\egg.h" />
     <ClInclude Include="..\..\..\src\game.h" />

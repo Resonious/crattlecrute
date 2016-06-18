@@ -138,6 +138,7 @@ void item_egg_transfer(void* vitem, byte rw, AbdBuffer* buf) {
     data_s32(rw, buf, &egg->e.age);
     data_s32(rw, buf, &egg->e.hatching_age);
     data_u32(rw, buf, &egg->e.genes.word);
+    data_u8(rw, buf, &egg->layer_mask);
 }
 void egg_dropped(void* vdata, void* vegg) {
     MobEgg* egg_drop = (MobEgg*)vegg;
