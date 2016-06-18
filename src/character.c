@@ -333,8 +333,7 @@ void data_character(Character* guy, byte rw, struct AbdBuffer* buf) {
     data_color(rw, buf, &guy->right_foot_color);
     data_s32(rw, buf, &guy->body_type);
     data_s32(rw, buf, &guy->feet_type);
-    // TODO transfer inventory - I don't want to right now :(
-    // write_to_buffer(chunk->bytes, guy->inventory.items, &chunk->size, guy->inventory.capacity * sizeof(ItemCommon));
+    data_inventory(rw, buf, &guy->inventory);
     data_u32(rw, buf, &guy->age);
     data_u32(rw, buf, &guy->age_of_maturity);
 

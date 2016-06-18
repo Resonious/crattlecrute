@@ -9,8 +9,9 @@ struct Map;
 typedef struct ItemType {
     int id;
     int icon_asset;
-    void(*initialize)(void* vitem, struct Game* game);
+    void(*initialize)(void* vitem);
     void(*render)(void* vitem, struct Game* game, SDL_Rect* dest);
+    void(*transfer)(void* vitem, byte rw, AbdBuffer* buf);
     bool(*drop)(void* vitem, struct Game* game, struct Map* map, vec2 position);
 } ItemType;
 
@@ -36,8 +37,10 @@ typedef struct Inventory {
 
 struct Game;
 void initialize_inventory(Inventory* inv, int cap);
+void data_inventory(byte rw, AbdBuffer* buf, Inventory* inv);
 int find_good_inventory_slot(Inventory* inv);
 void render_layered_icon_item(void* item, struct Game* game, SDL_Rect* dest);
+void item_no_data_transfer(void* vitem, byte rw, AbdBuffer* buf);
 ItemCommon* set_item(Inventory* inv, struct Game* game, int slot, int item_type_id);
 
 // ============== ACTUAL ITEMS ===============
@@ -53,11 +56,15 @@ typedef struct ItemFruit {
     LAYERED_ICON_ITEM;
 } ItemFruit;
 
-void item_fruit_initialize(void* vitem, struct Game* game);
+void item_fruit_initialize(void* vitem);
+// void item_fruit_transfer(void* vitem, struct Game* game, byte rw, AbdBuffer* buf);
 bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 position);
 
-void item_egg_initialize(void* vitem, struct Game* game);
+// ItemEgg struct is defined in egg.h
+
+void item_egg_initialize(void* vitem);
 bool item_egg_drop(void* vitem, struct Game* game, struct Map* map, vec2 position);
+void item_egg_transfer(void* vitem, byte rw, AbdBuffer* buf);
 // copy/paste of layered icon thing
 void item_egg_render(void* item, struct Game* game, SDL_Rect* dest);
 
@@ -66,12 +73,14 @@ static ItemType item_registry[] = {
         ITEM_FRUIT, ASSET_FOOD_FRUIT_INV_PNG,
         item_fruit_initialize,
         render_layered_icon_item,
+        item_no_data_transfer,
         item_fruit_drop
     },
     {
         ITEM_EGG, ASSET_EGG_BASIC_INV_PNG,
         item_egg_initialize,
         item_egg_render,
+        item_egg_transfer,
         item_egg_drop
     }
 };

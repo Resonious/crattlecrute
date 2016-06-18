@@ -14,6 +14,22 @@ void initialize_inventory(Inventory* inv, int cap) {
     }
 }
 
+void data_inventory(byte rw, AbdBuffer* buf, Inventory* inv) {
+    data_s32(rw, buf, &inv->capacity);
+
+    for (int i = 0; i < inv->capacity; i++) {
+        ItemCommon* item = &inv->items[i];
+        data_s32(rw, buf, &item->item_type_id);
+
+        if (item->item_type_id != ITEM_NONE) {
+            if (rw == ABD_READ)
+                item_registry[item->item_type_id].initialize(item);
+
+            item_registry[item->item_type_id].transfer(item, rw, buf);
+        }
+    }
+}
+
 void render_layered_icon_item(void* vitem, struct Game* game, SDL_Rect* dest) {
     LayeredIconItem* item = (LayeredIconItem*)vitem;
     int layer_mask;
@@ -58,19 +74,21 @@ ItemCommon* set_item(Inventory* inv, struct Game* game, int slot, int type) {
 
     ItemCommon* item = &inv->items[slot];
     item->item_type_id = type;
-    item_registry[type].initialize(item, game);
+    item_registry[type].initialize(item);
 
     return item;
 }
 
 // ================== FRUIT =================
 
-void item_fruit_initialize(void* vitem, struct Game* game) {
+void item_fruit_initialize(void* vitem) {
     SDL_assert(sizeof(Inventory) <= sizeof(ItemCommon));
     ItemFruit* fruit = (ItemFruit*)vitem;
     fruit->layer_mask = LAYER_MASK_2_FRAMES;
 }
-
+void item_no_data_transfer(void* vitem, byte rw, AbdBuffer* buf) {
+    ItemFruit* fruit = (ItemFruit*)vitem;
+}
 bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 position) {
     // ItemFruit* fruit = (ItemFruit*)vitem;
 
@@ -81,7 +99,7 @@ bool item_fruit_drop(void* vitem, struct Game* game, struct Map* map, vec2 posit
 
 // ================== EGG ===================
 
-void item_egg_initialize(void* vitem, struct Game* game) {
+void item_egg_initialize(void* vitem) {
     SDL_assert(sizeof(ItemEgg) <= sizeof(ItemCommon));
     ItemEgg* egg = (ItemEgg*)vitem;
     egg->layer_mask = LAYER_MASK_2_FRAMES;
@@ -113,6 +131,13 @@ void item_egg_render(void* vitem, struct Game* game, SDL_Rect* dest) {
     }
 
     UNMOD_SOLID_COLOR(egg->e, tex);
+}
+void item_egg_transfer(void* vitem, byte rw, AbdBuffer* buf) {
+    ItemEgg* egg = (ItemEgg*)vitem;
+
+    data_s32(rw, buf, &egg->e.age);
+    data_s32(rw, buf, &egg->e.hatching_age);
+    data_u32(rw, buf, &egg->e.genes.word);
 }
 void egg_dropped(void* vdata, void* vegg) {
     MobEgg* egg_drop = (MobEgg*)vegg;

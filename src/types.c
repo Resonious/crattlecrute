@@ -154,14 +154,14 @@ void push_generic_bodies(GenericBody* pusher, GenericBody* pushee, float pstr) {
 
     float square_length = powf(dist.x[0], 2) + powf(dist.x[1], 2);
     float angle = atan2f(dist.x[1], dist.x[0]);
-    float push_str = pstr / square_length;
+    float push_strength = pstr / square_length;
 
-    if (push_str < 0.05f)
+    if (push_strength < 0.05f)
         return;
 
     vec4 push;
-    push.x[0] = cosf(angle) * push_str;
-    push.x[1] = sinf(angle) * push_str;
+    push.x[0] = cosf(angle) * push_strength;
+    push.x[1] = sinf(angle) * push_strength;
 
     pushee->push_velocity.simd = _mm_add_ps(pushee->push_velocity.simd, push.simd);
     if (fabsf(pushee->push_velocity.x[0]) >= 5.0f)
