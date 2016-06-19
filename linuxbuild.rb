@@ -1,12 +1,15 @@
 require_relative 'compile_assets.rb'
 
 def debug_flags
-    if ARGV.include? 'release'
-      # TODO benchmark/compare O2 and O3 performance
-      '-O2 -DNDEBUG'
-    else
-      '-g -O0 -D_DEBUG -DDRAW_FPS'
-    end
+  f = ''
+  if ARGV.include? 'release'
+    # TODO benchmark/compare O2 and O3 performance
+    f += '-O2 -DNDEBUG'
+  else
+    f += '-g -O0 -D_DEBUG -DDRAW_FPS'
+  end
+
+  f += ' -Dabd_assert=SDL_assert'
 end
 
 def mruby_path

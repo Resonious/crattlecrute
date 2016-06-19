@@ -21,6 +21,7 @@
 
 #ifndef INT_MAX
 #define INT_MAX 2147483647
+#define errno_t int
 #endif
 #endif
 
