@@ -13,6 +13,9 @@
 #endif
 
 #ifndef _WIN32
+#include <stdio.h>
+#include <errno.h>
+
 #define bool unsigned char
 #define true 1
 #define false 0
@@ -21,6 +24,9 @@
 
 #ifndef INT_MAX
 #define INT_MAX 2147483647
+#endif
+
+#ifndef errno_t
 #define errno_t int
 #endif
 
@@ -28,7 +34,7 @@
 
 static errno_t fopen_s(FILE** fptr, const char* filename, const char* mode) {
     *fptr = fopen(filename, mode);
-    return errno();
+    return errno;
 }
 
 #endif
