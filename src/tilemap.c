@@ -1317,9 +1317,10 @@ void transfer_map_state(Map* map, byte rw, AbdBuffer* buf) {
 
         if (mob->mob_type_id != -1) {
             data_section(rw, buf, "BEGIN MOB");
-            mob->index = 1;
-            if (rw == ABD_READ)
-                mob_registry[mob->mob_type_id].initialize(mob, map->game, map, (vec2) {0, 0});
+            if (rw == ABD_READ) {
+                mob->index = i;
+                mob_registry[mob->mob_type_id].initialize(mob, map->game, map, (vec2) { 0, 0 });
+            }
             mob_registry[mob->mob_type_id].transfer(mob, map->game, map, rw, buf);
             data_section(rw, buf, "END MOB");
         }

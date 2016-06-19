@@ -586,6 +586,7 @@ void free_player(WorldScene* scene, int id) {
         return;
     }
 
+    free_inventory(&scene->net.players[index]->guy.inventory);
     aligned_free(scene->net.players[index]);
     scene->net.players[index] = NULL;
 

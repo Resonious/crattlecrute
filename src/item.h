@@ -37,6 +37,7 @@ typedef struct Inventory {
 
 struct Game;
 void initialize_inventory(Inventory* inv, int cap);
+void free_inventory(Inventory* inv);
 void data_inventory(byte rw, AbdBuffer* buf, Inventory* inv);
 int find_good_inventory_slot(Inventory* inv);
 void render_layered_icon_item(void* item, struct Game* game, SDL_Rect* dest);

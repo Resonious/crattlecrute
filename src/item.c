@@ -14,6 +14,10 @@ void initialize_inventory(Inventory* inv, int cap) {
     }
 }
 
+void free_inventory(Inventory* inv) {
+    aligned_free(inv->items);
+}
+
 void data_inventory(byte rw, AbdBuffer* buf, Inventory* inv) {
     data_s32(rw, buf, &inv->capacity);
 
