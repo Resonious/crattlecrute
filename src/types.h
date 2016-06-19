@@ -23,6 +23,14 @@
 #define INT_MAX 2147483647
 #define errno_t int
 #endif
+
+#define strcpy_s(dest, size, src) strcpy(dest, src)
+
+static errno_t fopen_s(FILE** fptr, const char* filename, const char* mode) {
+    *fptr = fopen(filename, mode);
+    return errno();
+}
+
 #endif
 
 #include <math.h>
