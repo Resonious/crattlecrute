@@ -4,7 +4,7 @@ require 'uri'
 require 'openssl'
 
 # Setup garbage
-# NOTE this stuff doesn't actually work properly lol...
+# NOTE this before/rescue on the requires doesn't work properly lol
 
 begin
   require 'zip'
