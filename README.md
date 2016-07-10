@@ -1,20 +1,7 @@
 # crattlecrute
-So, here's the SDL license:
-> SDL 2.0 and newer are available under the zlib license :
-> This software is provided 'as-is', without any express or implied
-> warranty.  In no event will the authors be held liable for any damages
-> arising from the use of this software.
-> 
-> Permission is granted to anyone to use this software for any purpose,
-> including commercial applications, and to alter it and redistribute it
-> freely, subject to the following restrictions:
-> 
-> 1. The origin of this software must not be misrepresented; you must not
-   > claim that you wrote the original software. If you use this software
-   > in a product, an acknowledgment in the product documentation would be
-   > appreciated but is not required.
-> 2. Altered source versions must be plainly marked as such, and must not be
-    > misrepresented as being the original software.
-> 3. This notice may not be removed or altered from any source distribution.
 
-Uses some [stb_](https://github.com/nothings/stb) stuff also. The rest is me!!!!!!
+A hobby project of mine to make a game with minimal third party support.
+
+It's not completely from scratch though. Uses SDL2, MRuby, stb_image, and the minimal C implementation of the PCG random number generator.
+
+Assets are packaged into one big blob and then embedded into the executable, and all libraries are either statically linked or their source code is just tossed into the reset of the project. This means you end up with just one self-contained executable which I think is pretty cool. Only problem is, I couldn't quite figure out how to get the executable to be TOTALLY dependenciless on Windows... Still gotta link with the MSVC runtime thing.
