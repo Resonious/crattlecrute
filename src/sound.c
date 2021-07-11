@@ -84,7 +84,7 @@ void initialize_sound(AudioQueue* queue) {
     want.channels = CHANNELS;
     want.format = AUDIO_S16;
     want.samples = 4096;
-    want.callback = audio_callback;
+    want.callback = (void (*)(void *, unsigned char *, int))audio_callback;
     want.userdata = queue;
 
     if (SDL_OpenAudio(&want, &got) < 0) {

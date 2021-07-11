@@ -15,8 +15,8 @@
 #ifndef _WIN32
 #include <stdio.h>
 #include <errno.h>
+#include <stdbool.h>
 
-#define bool unsigned char
 #define true 1
 #define false 0
 #define min(x,y) ((x) < (y) ? (x) : (y))
@@ -202,6 +202,8 @@ void apply_push_velocity(GenericBody* body);
 
 struct Map;
 struct MobCommon;
+struct Game;
+struct Character;
 typedef void(*Callback)(void*);
 typedef void(*DataCallback)(void*, void*);
 typedef void(*SetItemFunc)(void*, struct Character*, struct Game*, int, int, void*, DataCallback);

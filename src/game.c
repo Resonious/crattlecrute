@@ -236,7 +236,7 @@ void read_data_chunk(DataChunk* chunk, FILE* file) {
 
 typedef size_t(*FileIoFunc)(void*, size_t, size_t, FILE*);
 typedef void(*DataChunkFunc)(DataChunk*, FILE*);
-static FileIoFunc ftransfer_func[] = { fread, fwrite };
+static FileIoFunc ftransfer_func[] = { (FileIoFunc)fread, (FileIoFunc)fwrite };
 static DataChunkFunc transfer_data_chunk_func[] = { read_data_chunk, write_data_chunk };
 
 #define CC_DATA_CURRENT_VERSION 1
@@ -281,7 +281,7 @@ void inspect_game_data(GameData* data, FILE* f) {
     fprintf(f, "Area: %i\n", data->area);
     fprintf(f, "Current character #: %i\n", data->character);
     fprintf(f, "---Character physics state:\n");
-    abd_inspect(&data->character_physics_state, f);
+    abd_inspect((AbdBuffer*)&data->character_physics_state, f);
 
     for (int i = 0; i < data->character_count; i++) {
         fprintf(f, "\n======= CHARACTER %i of %i: =======\n", i, data->character_count - 1);

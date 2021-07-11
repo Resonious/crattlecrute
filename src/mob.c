@@ -32,7 +32,7 @@ void pick_up_item(PhysicsMob* mob, int item_type, struct Game* game, struct Map*
             else
                 game->net.set_item(game->current_scene_data, guy, game, slot, item_type, data, callback);
 
-            game->net.despawn_mob(game->current_scene_data, map, game, mob);
+            game->net.despawn_mob(game->current_scene_data, map, game, (MobCommon*)mob);
         }
     }
 }
@@ -145,7 +145,16 @@ void mob_pon_render(void* vpon, struct Game* game, struct Map* map) {
 
     SDL_SetTextureColorMod(pon_tex, pon->color.r, pon->color.g, pon->color.b);
     SDL_SetTextureAlphaMod(pon_tex, pon->color.a);
-    world_render_copy_ex(game, pon_tex, &src, pon->body.position.x, 90, 90, pon->body.ground_angle, &center, pon->flip);
+    world_render_copy_ex(
+        game,
+        pon_tex,
+        &src,
+        (vec2*)pon->body.position.x,
+        90, 90,
+        pon->body.ground_angle,
+        &center,
+        pon->flip
+    );
 }
 void mob_pon_transfer(void* vpon, struct Game* game, struct Map* map, byte rw, AbdBuffer* buf) {
     MobPon* pon = (MobPon*)vpon;
@@ -334,7 +343,7 @@ void mob_egg_update(void* vegg, struct Game* game, struct Map* map) {
                     game->data.character = 0;
                 game->data.character_count += 1;
 
-                Character* guy = &game->characters[character_index].guy;
+                Character* guy = &game->characters[character_index];
                 SDL_memset(guy, 0, sizeof(Character));
 
                 vec2 pos;

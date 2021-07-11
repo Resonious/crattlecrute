@@ -66,7 +66,6 @@ typedef struct GameData {
 } GameData;
 
 struct Scene;
-struct GameCharacter;
 struct MobEgg;
 
 #ifdef _DEBUG
@@ -128,9 +127,9 @@ typedef struct Game {
     } net;
     struct MobEgg* pending_egg;
     char new_character_name_buffer[CHARACTER_NAME_LENGTH];
-    struct GameCharacter* characters;
+    struct Character* characters;
     // These may be aligned_malloced as needed.
-    struct GameCharacter* misc_characters[32];
+    struct Character* misc_characters[32];
     struct GameData data;
     int argc;
     char** argv;

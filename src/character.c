@@ -22,7 +22,7 @@ void interact_character_with_world(
 ) {
 #define INTERACT_WITH_MOBS(size, list) \
     for (int i = 0; i < MAP_STATE_MAX_##size##_MOBS; i++) { \
-        MobCommon* mob = &map->state->list[i]; \
+        MobCommon* mob = (MobCommon*)&map->state->list[i]; \
         if (mob->mob_type_id != MOB_NONE) { \
             MobType* reg = &mob_registry[mob->mob_type_id]; \
             if (reg->interact) \

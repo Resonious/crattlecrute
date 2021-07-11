@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
         SDL_assert(SCENES[i].id == i);
 #endif
 
-    game->characters = aligned_malloc(sizeof(GameCharacter) * MAX_CHARACTERS);
+    game->characters = aligned_malloc(sizeof(Character) * MAX_CHARACTERS);
     game->data.character = -1;
     game->data.character_count = 0;
 

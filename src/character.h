@@ -137,11 +137,6 @@ typedef struct Character {
     mrb_value rinventory;
 } Character;
 
-typedef struct GameCharacter {
-    // TODO I'm hoping adding to this will make sense in the future :(
-    Character guy;
-} GameCharacter;
-
 #define CHARACTER_SPRITE_WIDTH 90
 #define CHARACTER_SPRITE_HEIGHT 90
 #define CHARACTER_EYE_LAYER 4 

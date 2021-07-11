@@ -7,6 +7,7 @@
 #include <netinet/tcp.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 #define WSAGetLastError() (-1)
 #define SOCKET_ERROR (-1)
 #define SOCKET int
@@ -2115,7 +2116,7 @@ void scene_world_initialize(void* vdata, Game* game) {
 
     BENCH_START(loading_crattle1);
     if (game->data.character >= 0) {
-        data->guy = &game->characters[game->data.character].guy;
+        data->guy = &game->characters[game->data.character];
           
         default_character(game, data->guy);
         default_character_animations(game, data->guy);
@@ -2132,7 +2133,7 @@ void scene_world_initialize(void* vdata, Game* game) {
     }
     else {
         data->guy = NULL;
-        MobEgg* egg = spawn_mob(data->map, game, MOB_EGG, (vec2) { 3862.0f, 985.0f });
+        MobEgg* egg = (MobEgg*)spawn_mob(data->map, game, MOB_EGG, (vec2) { 3862.0f, 985.0f });
         egg->e.hatching_age = 1 SECONDS;
         // egg->e.genes.specifiers |= GSPEC_DARKER_COLOR;
         // egg->e.genes.flags |= GFLAG_INTENSE;

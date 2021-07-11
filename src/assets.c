@@ -251,7 +251,7 @@ SDL_Texture* cached_texture(Game* game, int asset) {
     if (cached_asset->id == ASSET_NOT_LOADED) {
         cached_asset->id = asset;
         cached_asset->texture = load_texture(game->renderer, asset);
-        cached_asset->free = SDL_DestroyTexture;
+        cached_asset->free = (void (*)(void *))SDL_DestroyTexture;
     }
     else {
         SDL_assert(cached_asset->id == asset);

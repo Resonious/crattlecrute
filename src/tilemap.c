@@ -1014,17 +1014,17 @@ int index_from_mob_id(int id) {
 }
 
 MobCommon* mob_from_id(Map* map, int id) {
-    MobCommon* mob_list = map->state->small_mobs;
+    MobCommon* mob_list = (MobCommon*)map->state->small_mobs;
     int offset = sizeof(SmallMob);
 
     if (id > MAP_STATE_MAX_SMALL_MOBS) {
         id -= MAP_STATE_MAX_SMALL_MOBS;
-        mob_list = map->state->medium_mobs;
+        mob_list = (MobCommon*)map->state->medium_mobs;
         offset = sizeof(MediumMob);
 
         if (id > MAP_STATE_MAX_MEDIUM_MOBS) {
             id -= MAP_STATE_MAX_MEDIUM_MOBS;
-            mob_list = map->state->large_mobs;
+            mob_list = (MobCommon*)map->state->large_mobs;
             SDL_assert(id < MAP_STATE_MAX_LARGE_MOBS);
             offset = sizeof(LargeMob);
         }
@@ -1072,7 +1072,7 @@ void update_map(
 UpdateMobs:;
 #define UPDATE_MOBS(size, mob_list)\
     for (int i = 0; i < MAP_STATE_MAX_##size##_MOBS; i++) {\
-        MobCommon* mob = &map->state->mob_list[i];\
+        MobCommon* mob = (MobCommon*)&map->state->mob_list[i];\
         if (mob->mob_type_id != -1) {\
             MobType* reg = &mob_registry[mob->mob_type_id];\
             if (reg->update)\
@@ -1088,8 +1088,8 @@ UpdateMobs:;
     }
 #define INTERACT_MOBS(size, mob_list, from_list)\
     for (int j = 0; j < MAP_STATE_MAX_##size##_MOBS; j++) {\
-        if (map->state->mob_list == map->state->from_list && j == i) continue;\
-        MobCommon* other_mob = &map->state->mob_list[j];\
+        if ((MobCommon*)map->state->mob_list == (MobCommon*)map->state->from_list && j == i) continue;\
+        MobCommon* other_mob = (MobCommon*)&map->state->mob_list[j];\
         if (other_mob->mob_type_id != -1 && reg->mob_interact)\
             reg->mob_interact(mob, game, map, other_mob);\
     }
