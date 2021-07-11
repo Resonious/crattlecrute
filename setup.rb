@@ -136,7 +136,7 @@ end
 download_for 'pcg' do
   # Download the small PCG implementation
   download(
-    URI("http://www.pcg-random.org/downloads/pcg-c-basic-0.9.zip"),
+    URI("https://www.pcg-random.org/downloads/pcg-c-basic-0.9.zip"),
     "PCGtemp.zip",
     "Downloading PCG RNG"
   )
